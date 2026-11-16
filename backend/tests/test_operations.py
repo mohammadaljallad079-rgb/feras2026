@@ -364,6 +364,64 @@ def test_company_manager_and_activation_information_are_settable(client, make_us
     assert reread["activation_notes"] == "فُعّلت بعد استيفاء السجل التجاري."
 
 
+def test_owner_dashboard_revenue_column_names_the_revenue_field(client, make_user, login, db):
+    """PDF p.5: the group-summary column is labelled "revenue".
+
+    It used to take any numeric value from the last approved report, so it
+    showed whichever field happened to be entered first. A number under the
+    wrong heading is a wrong financial figure, not a missing one.
+    """
+    from app.models.business import FormField
+
+    make_user("dash_rev_owner@safir-platform.com", ["owner"])
+    h = login("dash_rev_owner@safir-platform.com")
+    make_user("dash_rev_acct@safir-platform.com", ["accountant"])
+    h_acct = login("dash_rev_acct@safir-platform.com")
+    cid = _company(client, h, "REV-1")
+
+    period = client.post(
+        "/api/v1/periods",
+        headers=h,
+        json={"label_ar": "فبراير 2026", "label_en": "Feb 2026", "year": 2026, "month": 2, "opens_on": "2026-02-01", "due_on": "2026-03-05"},
+    ).json()
+    report = client.post("/api/v1/reports", headers=h, json={"company_id": cid, "period_id": period["id"]}).json()
+
+    # A non-revenue field is created first, so an unordered "first numeric
+    # value" would pick it and print it under the revenue heading.
+    other = FormField(code="HEADCOUNT", name_ar="عدد الموظفين", name_en="Headcount", field_type="amount", version=1)
+    revenue = FormField(code="TOTAL_REVENUE", name_ar="إجمالي الإيرادات", name_en="Total revenue", field_type="amount", version=1)
+    db.add_all([other, revenue])
+    db.commit()
+
+    from app.models.business import MonthlyReport
+    from app.models.operations import StoredFile
+
+    statement = StoredFile(storage_name="s", original_name="b.pdf", content_type="application/pdf", size_bytes=1, checksum="c", owner_id=1)
+    db.add(statement)
+    db.commit()
+    db.get(MonthlyReport, report["id"]).bank_statement_file_id = statement.id
+    db.commit()
+
+    saved = client.put(
+        f"/api/v1/reports/{report['id']}/values",
+        headers=h,
+        json={"values": [
+            {"field_id": other.id, "value_number": "42.00"},
+            {"field_id": revenue.id, "value_number": "5000.00"},
+        ]},
+    )
+    assert saved.status_code == 200, saved.text
+
+    assert client.post(f"/api/v1/reports/{report['id']}/submit", headers=h).status_code == 200
+    assert client.post(f"/api/v1/reports/{report['id']}/approve", headers=h_acct).status_code == 200
+
+    dash = client.get("/api/v1/dashboard", headers=h).json()
+    section = next(s for s in dash["sections"] if s["key"] == "group_summary")
+    row = next(r for r in section["rows"] if r[0] == "شركة REV-1")
+    assert "5,000" in row[3], row
+    assert "42" not in row[3], row
+
+
 def test_every_ai_source_link_points_at_a_real_screen():
     """Each "open the source record" link must resolve to a screen that exists.
 

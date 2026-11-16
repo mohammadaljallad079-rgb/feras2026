@@ -39,6 +39,7 @@ against the rendered reference page is recorded in
 |---|---|---|---|---|
 | 1–4 | Design system / shell | global | Done | n/a |
 | 5 | Owner dashboard | `/dashboard` | Done | Done |
+| 5 | The group-summary column headed «إيراد آخر تقرير معتمد» took any numeric value from the last approved report (`limit(1)`), so it printed whichever field was entered first under a revenue heading | The query joins `FormField` and selects a value only when the definition is the revenue field (code or name), so a non-revenue figure shows «—» instead of a mislabelled number (covered by `test_owner_dashboard_revenue_column_names_the_revenue_field`) |
 | 6 | Companies | `/companies` | Done | Done |
 | 7 | Company wizard | `/companies/new` | Done | Done |
 | 8 | Owner monthly reports | `/reports` | Done | Done |
@@ -152,7 +153,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  49 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  50 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import allowed_company_ids, get_current_user, permissions_of, role_slugs
 from app.core.db import get_db
-from app.models.business import Company, MonthlyReport, ReportValue, ReportingPeriod
+from app.models.business import Company, FormField, MonthlyReport, ReportValue, ReportingPeriod
 from app.models.enums import CompanyStatus, DirectiveStatus, OpportunityStatus, ReportStatus
 from app.models.identity import User
 from app.models.operations import (
@@ -132,9 +132,24 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             ).scalars().first()
             revenue = None
             if last is not None:
+                # Label the column "revenue" only when the value really is the
+                # revenue field. Taking any numeric value (the previous
+                # ``limit(1)``) mislabelled whichever field happened to be
+                # entered first, which is a wrong financial figure rather than
+                # a missing one.
                 revenue = db.execute(
                     select(ReportValue.value_number)
-                    .where(ReportValue.report_id == last.id, ReportValue.value_number.is_not(None))
+                    .join(FormField, FormField.id == ReportValue.field_id)
+                    .where(
+                        ReportValue.report_id == last.id,
+                        ReportValue.value_number.is_not(None),
+                        or_(
+                            FormField.code.ilike("%revenue%"),
+                            FormField.name_ar.like("%إيراد%"),
+                            FormField.name_en.ilike("%revenue%"),
+                        ),
+                    )
+                    .order_by(ReportValue.id)
                     .limit(1)
                 ).scalar_one_or_none()
             ownership = "إدارة فقط (0%)" if not company.ownership_percent or float(company.ownership_percent) == 0 else f"{company.ownership_percent}%"
