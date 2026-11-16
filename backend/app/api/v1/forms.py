@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require
+from app.api.deps import require, require_any
 from app.core.db import get_db
 from app.models.business import FormField
 from app.models.enums import FieldType
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/form-fields", tags=["forms"])
 @router.get("", response_model=list[FormFieldOut])
 def list_fields(
     include_inactive: bool = False,
-    _: User = Depends(require("report:view_own")),
+    _: User = Depends(require_any("report:view_own", "report:view_all")),
     db: Session = Depends(get_db),
 ) -> list[FormFieldOut]:
     stmt = select(FormField).order_by(FormField.display_order, FormField.id)

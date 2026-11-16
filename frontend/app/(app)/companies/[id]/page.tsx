@@ -82,17 +82,17 @@ export default function CompanyDetailPage() {
         <h1 className="page-title">{company ? (locale === "ar" ? company.name_ar : company.name_en) : "…"}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {company && <StatusChip value={company.status} />}
-          {can("company:edit") && (
+          {can("company:manage") && (
             <button type="button" className="btn-ghost" onClick={() => setEdit((v) => !v)}>
               {edit ? (locale === "ar" ? "إلغاء" : "Cancel") : locale === "ar" ? "تعديل" : "Edit"}
             </button>
           )}
-          {company?.status === "draft" && can("company:activate") && (
+          {company?.status === "draft" && can("company:manage") && (
             <button type="button" className="btn-gold" onClick={() => void act("activate")}>
               {locale === "ar" ? "تفعيل" : "Activate"}
             </button>
           )}
-          {company?.status === "active" && can("company:close") && (
+          {company?.status === "active" && can("company:manage") && (
             <button type="button" className="btn-ghost" onClick={() => void act("close")}>
               {locale === "ar" ? "إغلاق" : "Close"}
             </button>

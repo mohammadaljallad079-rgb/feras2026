@@ -100,7 +100,7 @@ export default function LeadsPage() {
   return (
     <>
       {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
-      {can("lead:create") && (
+      {can("lead:manage") && (
         <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
           <div>
             <label className="label" htmlFor="lead-name">{locale === "ar" ? "الاسم" : "Name"}</label>

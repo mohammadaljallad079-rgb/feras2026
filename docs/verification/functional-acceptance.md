@@ -20,9 +20,9 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `37 passed` — 13 end-to-end journeys in
-`tests/test_e2e_journeys.py`, 6 reporting-workflow tests in
-`tests/test_reporting_workflow.py`, 8 in `tests/test_auth_rbac.py` and 10 in
+Result at the time of writing: `43 passed` — 13 end-to-end journeys in
+`tests/test_e2e_journeys.py`, 8 reporting-workflow tests in
+`tests/test_reporting_workflow.py`, 12 in `tests/test_auth_rbac.py` and 10 in
 `tests/test_operations.py`.
 
 ## Journey coverage
@@ -55,6 +55,10 @@ Result at the time of writing: `37 passed` — 13 end-to-end journeys in
 | 24 | Owner and developer see only reports sent to management | `test_owner_and_developer_see_only_reports_sent_to_management` | PASS |
 | 25 | Accountant can open the review queue | `test_accountant_can_list_reports_for_review` | PASS |
 | 26 | Owner cannot approve or forward (accountant's duty) | `test_owner_does_not_hold_the_accountants_review_duties` | PASS |
+| 27 | Accountant opens a submitted report for review | `test_accountant_can_open_a_submitted_report_for_review` | PASS |
+| 28 | Accountant exports a validated report to Excel | `test_accountant_exports_a_report_to_excel` | PASS |
+| 29 | Every permission name used in code exists in the catalog | `test_every_permission_checked_in_code_is_in_the_catalog` | PASS |
+| 30 | Every `can()` gate in the UI is a permission the backend defines | `test_frontend_permission_gates_are_names_the_backend_can_grant` | PASS |
 
 ## Browser verification
 
@@ -91,3 +95,27 @@ inspection: it reports `400 = 400` on all nine main routes.
    conversion always returned `403`. Fixed in `app/core/permissions.py`.
 4. **Untranslated app-name key** rendered the literal `app` in the header.
    Replaced with an `appName(locale)` helper.
+
+## Bugs found and fixed in the permission audit
+
+A later pass checked every `can()` gate in the UI and every permission name in
+the API against the catalog. It found five permission names that no role could
+ever hold, plus two routes that demanded the wrong one:
+
+5. **`report:export` did not exist.** The accountant's Excel button called a
+   route gated on a permission missing from `ALL_PERMISSIONS` and from every
+   template, so export answered `403` for everyone. Added to the catalog and to
+   the accountant template; `test_accountant_exports_a_report_to_excel` asserts
+   a real xlsx comes back.
+6. **The accountant could not open a report to review.** `GET /reports/{id}` and
+   `/history` required `report:view_own`, which the accountant does not hold — it
+   holds `report:view_all` — so the review screen's own detail call `403`'d.
+   Both routes now accept either permission, and a `view_all`-only reader is
+   held to the same visibility rule as the list: drafts and merely-submitted
+   reports are not reachable by id.
+7. **Six UI gates named permissions that were never defined** (`advisor:send`,
+   `company:edit`, `company:activate`, `company:close`, `lead:create`,
+   `report:create`). The controls were therefore invisible to every role. Each
+   gate now names the real permission that guards the action.
+8. **`forms.py` used `require_any` without importing it**, so the form-field
+   list raised `NameError` on every call.

@@ -231,3 +231,60 @@ def test_owner_does_not_hold_the_accountants_review_duties(client, make_user, lo
         headers=h_owner,
         json={"label_ar": "فبراير 2026", "label_en": "Feb 2026", "year": 2026, "month": 2, "opens_on": "2026-02-01", "due_on": "2026-03-05"},
     ).status_code == 201
+
+
+def test_accountant_can_open_a_submitted_report_for_review(client, make_user, login, db):
+    """Design reference page 25: the accountant opens a submitted report to
+    review it, so the detail and history routes must accept ``report:view_all``.
+
+    The accountant holds ``report:view_all`` and not ``report:view_own``; when
+    the detail route required the latter, the whole review screen failed with a
+    403 even though the report list rendered.
+    """
+    make_user("det_owner@safir-platform.com", ["owner"])
+    manager = make_user("det_manager@safir-platform.com", ["company_manager"])
+    acct = make_user("det_acct@safir-platform.com", ["accountant"])
+    h_owner = login("det_owner@safir-platform.com")
+    h_manager = login("det_manager@safir-platform.com")
+    h_acct = login("det_acct@safir-platform.com")
+
+    cid = _company(client, h_owner, code="DET-1")
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    # The holding accountant is scoped to the companies it handles.
+    client.patch(f"/api/v1/users/{acct.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+    rid = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+    user = db.query(User).filter(User.email == "det_manager@safir-platform.com").one()
+    _attach_bank_statement(db, rid, _bank_statement(db, user))
+    assert client.post(f"/api/v1/reports/{rid}/submit", headers=h_manager).status_code == 200
+
+    detail = client.get(f"/api/v1/reports/{rid}", headers=h_acct)
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["status"] == "submitted"
+    assert client.get(f"/api/v1/reports/{rid}/history", headers=h_acct).status_code == 200
+
+    # The owner must not reach a report by id that the list hides from them.
+    assert client.get(f"/api/v1/reports/{rid}", headers=h_owner).status_code == 404
+
+
+def test_accountant_exports_a_report_to_excel(client, make_user, login, db):
+    """Design reference page 25: the accountant exports validated reports."""
+    make_user("xls_owner@safir-platform.com", ["owner"])
+    manager = make_user("xls_manager@safir-platform.com", ["company_manager"])
+    acct = make_user("xls_acct@safir-platform.com", ["accountant"])
+    h_owner = login("xls_owner@safir-platform.com")
+    h_manager = login("xls_manager@safir-platform.com")
+    h_acct = login("xls_acct@safir-platform.com")
+
+    cid = _company(client, h_owner, code="XLS-1")
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    client.patch(f"/api/v1/users/{acct.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+    rid = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+
+    resp = client.get(f"/api/v1/reports/{rid}/export", headers=h_acct)
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert resp.content[:2] == b"PK"  # an xlsx is a zip container

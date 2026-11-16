@@ -15,11 +15,18 @@ Architecture is a modular monolith: one deployable API, one deployable UI, one
 database, with domain modules under `backend/app/api/v1/`.
 
 > **Design reference.** `platform-design-ar.pdf` (32 pages) is the authoritative
-> visual reference for the *platform UI*. It is **not currently in this
-> repository**, and neither is `assets/brand/holding-logo.png`. See
-> `docs/verification/reference-asset-blocker.md`. Every screen whose fidelity
-> depends on the PDF is marked **UNVERIFIED** in
-> `docs/reference/TRACEABILITY.md`; nothing has been invented to fill the gap.
+> visual reference for the *platform UI*, and it is committed at the repository
+> root. Every page has been read and rendered to
+> `docs/screenshots/pdf/page-NN.png`; the page-by-page fidelity record is
+> `docs/verification/visual-comparison.md`.
+>
+> The **brand logo is still missing**: `assets/brand/holding-logo.png` has never
+> been supplied, and neither the git history nor either remote branch contains
+> it. `BrandMark` therefore falls back to a neutral placeholder flagged
+> `data-logo="missing"`, so the gap is visible in the DOM and in every screenshot
+> rather than passing as approved branding. No substitute logo has been drawn.
+> See `docs/verification/reference-asset-blocker.md`.
+>
 > The reference does **not** describe the public holding website, whose design
 > is a separate, unapproved deliverable.
 

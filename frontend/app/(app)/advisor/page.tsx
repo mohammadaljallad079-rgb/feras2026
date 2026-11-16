@@ -82,7 +82,7 @@ export default function AdvisorPage() {
       </header>
       {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
 
-      {can("advisor:send") && (
+      {can("advisor:submit") && (
         <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="adv-recipient">{locale === "ar" ? "المستلم" : "Recipient"}</label>

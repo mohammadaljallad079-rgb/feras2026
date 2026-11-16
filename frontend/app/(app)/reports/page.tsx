@@ -88,7 +88,7 @@ export default function ReportsPage() {
           {message}
         </p>
       )}
-      {can("report:create") && (
+      {can("report:submit") && (
         <div className="card mb-4 flex flex-wrap items-end gap-3">
           <div>
             <label className="label" htmlFor="company">{locale === "ar" ? "الشركة" : "Company"}</label>

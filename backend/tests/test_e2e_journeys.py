@@ -163,6 +163,14 @@ def test_reporting_lifecycle_with_return_and_forward(clients, scoped, company_id
     submitted = manager.post(f"/api/v1/reports/{report_id}/submit")
     assert submitted.status_code == 200, submitted.text
 
+    # The accountant reviews the submitted report, so the detail and history
+    # routes must accept report:view_all — otherwise page 25 cannot render.
+    assert accountant.get(f"/api/v1/reports/{report_id}").status_code == 200
+    assert accountant.get(f"/api/v1/reports/{report_id}/history").status_code == 200
+    # The owner may not read a report that was never sent to management, even
+    # by guessing its id (design page 8).
+    assert owner.get(f"/api/v1/reports/{report_id}").status_code == 404
+
     returned = accountant.post(f"/api/v1/reports/{report_id}/return", json={"reason": "أرقام غير مطابقة"})
     assert returned.status_code == 200, returned.text
     assert returned.json()["status"] == "returned"

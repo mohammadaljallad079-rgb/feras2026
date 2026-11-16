@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
+from app.core.permissions import ALL_PERMISSIONS, ROLE_TEMPLATES
 from app.models.identity import User
 
 
@@ -95,3 +99,57 @@ def test_password_reset_does_not_enumerate(client):
     resp = client.post("/api/v1/auth/password-reset/request", json={"email": "nobody@safir-platform.com"})
     assert resp.status_code == 200
     assert resp.json()["reset_token"] is None
+
+
+def test_every_permission_checked_in_code_is_in_the_catalog():
+    """A permission string that no role can hold silently disables its feature.
+
+    This is the bug that hid the accountant's Excel export (``report:export``)
+    and four owner controls: the backend required a name that
+    ``ALL_PERMISSIONS`` never contained, so the check could only ever 403.
+    """
+    repo = Path(__file__).resolve().parents[1]
+    pattern = re.compile(r'require(?:_any)?\(([^)]*)\)')
+    used: set[str] = set()
+    for path in list((repo / "app").rglob("*.py")):
+        for call in pattern.findall(path.read_text(encoding="utf-8")):
+            used.update(re.findall(r'"([a-z_]+:[a-z_]+)"', call))
+    assert used, "no require() permission strings found; the scan is broken"
+    assert used <= set(ALL_PERMISSIONS), f"not in the catalog: {sorted(used - set(ALL_PERMISSIONS))}"
+
+
+def test_frontend_permission_gates_are_names_the_backend_can_grant():
+    """Every ``can("...")`` in the UI must be a permission the backend defines.
+
+    Otherwise the control never renders — the user loses the feature and no
+    error is raised anywhere.
+    """
+    repo = Path(__file__).resolve().parents[2]
+    frontend = repo / "frontend"
+    gates: set[str] = set()
+    for path in list(frontend.rglob("*.tsx")) + list(frontend.rglob("*.ts")):
+        if ".next" in path.parts or "node_modules" in path.parts:
+            continue
+        gates.update(re.findall(r'can\(\s*"([^"]+)"', path.read_text(encoding="utf-8")))
+    assert gates, "no can() gates found; the scan is broken"
+    assert gates <= set(ALL_PERMISSIONS), f"not in the catalog: {sorted(gates - set(ALL_PERMISSIONS))}"
+
+
+def test_the_accountant_may_export_a_report(client, make_user, login):
+    """The accountant validates reports and exports Excel (design page 25)."""
+    accountant = make_user("acct-export@safir-platform.com", ["accountant"])
+    assert "report:export" in ROLE_TEMPLATES["accountant"]["permissions"]
+    headers = login(accountant.email)
+    me = client.get("/api/v1/auth/me", headers=headers).json()
+    assert "report:export" in me["permissions"]
+    # A designer, who has no reporting duties, must not be able to export.
+    make_user("designer-export@safir-platform.com", ["designer"])
+    other = client.get("/api/v1/reports/1/export", headers=login("designer-export@safir-platform.com"))
+    assert other.status_code == 403
+
+
+def test_the_owner_may_manage_companies_but_not_review_or_forward_reports():
+    """Owner oversight is broad, yet review/forward stay with the accountant."""
+    owner = set(ROLE_TEMPLATES["owner"]["permissions"])
+    assert "company:manage" in owner
+    assert "report:review" not in owner and "report:forward" not in owner

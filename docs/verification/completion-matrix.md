@@ -125,7 +125,7 @@ mismatches found were corrected. The full record — page, route, both images, t
 mismatch, the resolution and the verdict — is
 `docs/verification/visual-comparison.md`.
 
-Eight pages had a real mismatch; all eight are fixed:
+Nine pages had a real mismatch; all nine are fixed:
 
 | Page | Mismatch | Fix |
 |---|---|---|
@@ -137,6 +137,7 @@ Eight pages had a real mismatch; all eight are fixed:
 | 22 | The period banner and five action buttons were missing | `DashboardOut` gained `banner_ar/en` and `actions` |
 | 23 | No upload control for the mandatory bank statement | Required bank-statement field with upload, «مرفق» chip and download |
 | 24 | The three entry buttons all opened the accounting screen's default tab | Each carries `?kind=`; the accounting screen reads it and pre-selects the section |
+| 25 | The accountant's review screen rendered but could not load a report; the Excel export answered 403 | `GET /reports/{id}` and `/history` accept `report:view_all`; `report:export` added to the catalog and the accountant template |
 
 Page 32 is closed too: all 17 screens are captured in dark mode and the first
 pixel of the dark dashboard is the dark `--card` token, so the theme is applied

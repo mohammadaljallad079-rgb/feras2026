@@ -80,6 +80,23 @@ def _load(db: Session, report_id: int) -> MonthlyReport:
     return report
 
 
+def _load_visible(db: Session, report_id: int, user: User) -> MonthlyReport:
+    """Load a report the caller is entitled to read, or 404.
+
+    A reader who has only ``report:view_all`` — the owner, or a business
+    developer — may reach the reports that were formally sent to holding
+    management (design page 8). The list endpoint already hides drafts and
+    merely-submitted reports from them; this keeps the detail and history
+    routes consistent with it instead of exposing those states by id.
+    """
+    report = _load(db, report_id)
+    perms = _perms(user)
+    if "report:view_all" in perms and "report:review" not in perms:
+        if report.status not in {ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value}:
+            raise HTTPException(status_code=404, detail="Report not found")
+    return report
+
+
 def _applies(field: FormField, company: Company | None) -> bool:
     """A field applies when its company/sector scope matches, or is unset."""
     if field.company_id is not None and (company is None or field.company_id != company.id):
@@ -175,10 +192,10 @@ def create_report(
 @router.get("/reports/{report_id}", response_model=ReportOut)
 def get_report(
     report_id: int,
-    user: User = Depends(require("report:view_own")),
+    user: User = Depends(require_any("report:view_own", "report:view_all")),
     db: Session = Depends(get_db),
 ) -> ReportOut:
-    report = _load(db, report_id)
+    report = _load_visible(db, report_id, user)
     assert_company_access(db, user, report.company_id)
     return ReportOut.model_validate(report)
 
@@ -186,10 +203,10 @@ def get_report(
 @router.get("/reports/{report_id}/history", response_model=list[ReportEventOut])
 def report_history(
     report_id: int,
-    user: User = Depends(require("report:view_own")),
+    user: User = Depends(require_any("report:view_own", "report:view_all")),
     db: Session = Depends(get_db),
 ) -> list[ReportEventOut]:
-    report = _load(db, report_id)
+    report = _load_visible(db, report_id, user)
     assert_company_access(db, user, report.company_id)
     rows = db.execute(
         select(ReportEvent).where(ReportEvent.report_id == report_id).order_by(ReportEvent.id)
