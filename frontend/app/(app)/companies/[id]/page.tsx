@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
 
@@ -76,12 +77,46 @@ export default function CompanyDetailPage() {
     }
   }
 
+  async function uploadLogo(file: File) {
+    setMessage(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("company_id", String(params.id));
+      const stored = await api.upload<{ id: number }>("/api/v1/files", form);
+      await api.patch(`/api/v1/companies/${params.id}`, { logo_file_id: stored.id });
+      setMessage(locale === "ar" ? "تم رفع الشعار." : "Logo uploaded.");
+      await load();
+    } catch {
+      setMessage(locale === "ar" ? "تعذّر رفع الشعار. تأكد من أن الملف صورة." : "The logo upload failed. Make sure the file is an image.");
+    }
+  }
+
   return (
     <section>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{company ? (locale === "ar" ? company.name_ar : company.name_en) : "…"}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {company && <StatusChip value={company.status} />}
+          {company?.logo_url && (
+            // The official logo is shown as uploaded; proportions and colours
+            // are preserved with object-contain.
+            <AuthImage path={company.logo_url} alt="" className="h-9 w-9 rounded object-contain" />
+          )}
+          {company && can("company:manage") && company.status !== "closed" && (
+            <label className="btn-ghost cursor-pointer">
+              {locale === "ar" ? "الشعار" : "Logo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadLogo(file);
+                }}
+              />
+            </label>
+          )}
           {can("company:manage") && (
             <button type="button" className="btn-ghost" onClick={() => setEdit((v) => !v)}>
               {edit ? (locale === "ar" ? "إلغاء" : "Cancel") : locale === "ar" ? "تعديل" : "Edit"}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
 
@@ -107,8 +108,7 @@ export default function CompaniesPage() {
                 <tr key={c.id} className="border-b border-line last:border-0">
                   <td className="p-3">
                     {c.logo_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.logo_url} alt={nameOf(c)} className="h-8 w-8 rounded object-contain" />
+                      <AuthImage path={c.logo_url} alt={nameOf(c)} className="h-8 w-8 rounded object-contain" />
                     ) : (
                       <span className="muted">{locale === "ar" ? "بلا شعار" : "No logo"}</span>
                     )}

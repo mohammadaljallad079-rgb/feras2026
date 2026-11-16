@@ -266,6 +266,42 @@ def test_accounting_export_covers_exactly_the_visible_entries(client, make_user,
     assert "accounting.export" in actions
 
 
+def test_company_logo_must_be_an_uploaded_image_of_that_company(client, make_user, login):
+    """PDF p.6 lists the official logo as a company field.
+
+    The model and the read model carried ``logo_file_id`` but nothing could set
+    it, so the field was decorative. Setting it must also be safe: a manager must
+    not be able to point a company's logo at another company's private file.
+    """
+    make_user("logo_owner@safir-platform.com", ["owner"])
+    h_owner = login("logo_owner@safir-platform.com")
+    first = _company(client, h_owner, "LOGO-1")
+    second = _company(client, h_owner, "LOGO-2")
+
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    uploaded = client.post(
+        "/api/v1/files",
+        headers=h_owner,
+        files={"file": ("logo.png", png, "image/png")},
+        data={"company_id": str(first)},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    file_id = uploaded.json()["id"]
+
+    patched = client.patch(f"/api/v1/companies/{first}", headers=h_owner, json={"logo_file_id": file_id})
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["logo_file_id"] == file_id
+    assert patched.json()["logo_url"] == f"/api/v1/files/{file_id}/download"
+
+    # A logo id belonging to another company is refused.
+    other = client.patch(f"/api/v1/companies/{second}", headers=h_owner, json={"logo_file_id": file_id})
+    assert other.status_code == 422
+
+    # A missing file id is a 404 rather than a silently accepted dangling pointer.
+    missing = client.patch(f"/api/v1/companies/{first}", headers=h_owner, json={"logo_file_id": 999999})
+    assert missing.status_code == 404
+
+
 def test_every_ai_source_link_points_at_a_real_screen():
     """Each "open the source record" link must resolve to a screen that exists.
 

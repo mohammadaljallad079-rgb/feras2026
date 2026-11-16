@@ -280,6 +280,58 @@ def check_password_reset(browser) -> None:
     ctx.close()
 
 
+def check_company_logo(browser) -> None:
+    """PDF p.6 lists the official logo as a company field.
+
+    The field existed in the schema but nothing could set it, so it was
+    decorative. This drives the real upload control and asserts the stored logo
+    renders back from the authenticated download endpoint.
+    """
+    import base64
+    import tempfile
+
+    ctx, page = _sign_in(browser, "owner")
+    code = f"LOGO-{page.evaluate('Date.now()') % 1000000}"
+    company_id = page.evaluate(
+        """async (code) => {
+            const t = sessionStorage.getItem('safir.access');
+            const r = await fetch('/api/backend/api/v1/companies', {
+                method: 'POST',
+                headers: {Authorization: 'Bearer ' + t, 'Content-Type': 'application/json'},
+                body: JSON.stringify({code, name_ar: 'شعار', name_en: 'Logo Co', country: 'SA', sector: 'tech', status: 'draft'}),
+            });
+            return (await r.json()).id;
+        }""",
+        code,
+    )
+    page.goto(f"{BASE}/companies/{company_id}")
+    page.wait_for_timeout(2000)
+    _record(6, "the company detail screen offers a logo control", bool(page.query_selector("input[type=file]")))
+
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as fh:
+        fh.write(png)
+        path = fh.name
+    page.set_input_files("input[type=file]", path)
+    page.wait_for_timeout(3000)
+    _record(6, "uploading a logo is confirmed", "تم رفع الشعار" in page.inner_text("body"))
+    _record(
+        6,
+        "the stored logo renders from the authenticated endpoint",
+        page.evaluate("() => {const i = document.querySelector('header img'); return !!i && i.complete && i.naturalWidth > 0;}"),
+    )
+    page.goto(f"{BASE}/companies")
+    page.wait_for_timeout(2500)
+    _record(
+        6,
+        "the logo also renders in the companies listing",
+        page.evaluate("() => [...document.querySelectorAll('table img')].some(i => i.complete && i.naturalWidth > 0)"),
+    )
+    ctx.close()
+
+
 def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path="/usr/bin/chromium", args=["--no-sandbox"])
@@ -335,6 +387,9 @@ def main() -> int:
         page.wait_for_timeout(1500)
         check_page_24(page)
         ctx.close()
+
+        print("page 6 — company logo upload")
+        check_company_logo(browser)
 
         print("page 5 — password reset flow")
         check_password_reset(browser)

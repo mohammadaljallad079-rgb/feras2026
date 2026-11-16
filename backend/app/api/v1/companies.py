@@ -13,6 +13,7 @@ from app.core.db import get_db
 from app.models.business import Company
 from app.models.enums import CompanyStatus
 from app.models.identity import User
+from app.models.operations import StoredFile
 from app.schemas import CompanyCreate, CompanyOut, CompanyUpdate
 from app.services import audit
 
@@ -25,6 +26,21 @@ def _visible_query(db: Session, user: User):
     if allowed is not None:
         stmt = stmt.where(Company.id.in_(allowed or {-1}))
     return stmt
+
+
+def _assert_logo_belongs_to_company(db: Session, file_id: int, company_id: int) -> None:
+    """A company logo must be an uploaded file recorded against that company.
+
+    Accepting an arbitrary id would let a manager point the logo at another
+    company's private document.
+    """
+    record = db.get(StoredFile, file_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Logo file not found")
+    if record.company_id != company_id:
+        raise HTTPException(status_code=422, detail="Logo file does not belong to this company")
+    if not record.content_type.startswith("image/"):
+        raise HTTPException(status_code=422, detail="Logo must be an image")
 
 
 @router.get("", response_model=list[CompanyOut])
@@ -94,7 +110,10 @@ def update_company(
         raise HTTPException(status_code=404, detail="Company not found")
     if company.status == CompanyStatus.CLOSED.value:
         raise HTTPException(status_code=409, detail="Closed companies are read-only")
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    if "logo_file_id" in changes and changes["logo_file_id"] is not None:
+        _assert_logo_belongs_to_company(db, changes["logo_file_id"], company_id)
+    for key, value in changes.items():
         setattr(company, key, value)
     audit.record(db, action="company.update", actor=actor, target_type="company", target_id=company.id, company_id=company.id)
     db.commit()

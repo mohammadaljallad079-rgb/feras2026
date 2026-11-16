@@ -20,18 +20,18 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `45 passed` — 13 end-to-end journeys in
+Result at the time of writing: `46 passed` — 13 end-to-end journeys in
 `tests/test_e2e_journeys.py`, 8 reporting-workflow tests in
-`tests/test_reporting_workflow.py`, 12 in `tests/test_auth_rbac.py` and 12 in
+`tests/test_reporting_workflow.py`, 12 in `tests/test_auth_rbac.py` and 14 in
 `tests/test_operations.py`.
 
 The browser audit in `scripts/check_visual_fixes.py` drives the running app and
-currently asserts 30 behaviours (the visual mismatches, the password-reset flow
-and the accounting export); it needs a seeded backend on :8000 and the frontend
-on :12000.
+currently asserts 34 behaviours (the visual mismatches, the password-reset flow,
+the accounting export and the company-logo upload); it needs a seeded backend on
+:8000 and the frontend on :12000.
 
 ```bash
-python3 scripts/check_visual_fixes.py    # 30/30 assertions passed
+python3 scripts/check_visual_fixes.py    # 34/34 assertions passed
 ```
 
 ## Journey coverage

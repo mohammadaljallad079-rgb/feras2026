@@ -134,6 +134,7 @@ class CompanyUpdate(BaseModel):
     public_visible: bool | None = None
     activation_notes: str | None = None
     commercial_register_no: str | None = None
+    logo_file_id: int | None = None
 
 
 class CompanyOut(ORMModel):
