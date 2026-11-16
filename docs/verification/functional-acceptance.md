@@ -20,9 +20,9 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `36 passed` — 13 end-to-end journeys in
+Result at the time of writing: `37 passed` — 13 end-to-end journeys in
 `tests/test_e2e_journeys.py`, 6 reporting-workflow tests in
-`tests/test_reporting_workflow.py`, 8 in `tests/test_auth_rbac.py` and 9 in
+`tests/test_reporting_workflow.py`, 8 in `tests/test_auth_rbac.py` and 10 in
 `tests/test_operations.py`.
 
 ## Journey coverage

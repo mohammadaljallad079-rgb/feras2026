@@ -197,3 +197,18 @@ def test_dashboards_differ_per_role(client, make_user, login):
     owner_keys = {c["key"] for c in owner_dash["cards"]}
     designer_keys = {c["key"] for c in designer_dash["cards"]}
     assert owner_keys != designer_keys
+
+
+def test_accountant_dashboard_actions_deep_link_to_each_entry_kind(client, make_user, login):
+    """PDF p.24: the three buttons must open the accounting screen on the right tab.
+
+    The accounting page reads `?kind=`, so a link without it lands on the default
+    tab and the button silently does the wrong thing.
+    """
+    make_user("dash_acct@safir-platform.com", ["accountant"])
+    dash = client.get("/api/v1/dashboard", headers=login("dash_acct@safir-platform.com")).json()
+    assert dash["role"] == "accountant"
+    hrefs = {a["label_en"]: a["href"] for a in dash["actions"]}
+    assert hrefs["Expense"] == "/accounting?kind=expense"
+    assert hrefs["Invoice"] == "/accounting?kind=invoice"
+    assert hrefs["Commission"] == "/accounting?kind=commission"

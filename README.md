@@ -118,7 +118,7 @@ DATABASE_URL="$E2E_DATABASE_URL" python scripts/seed.py
 DATABASE_URL="$E2E_DATABASE_URL" uvicorn app.main:app --port 8000 &
 
 # 3. Run everything
-pytest -q                                     # 36 tests
+pytest -q                                     # 37 tests
 SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 ```
 

@@ -144,7 +144,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  36 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  37 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build generates all 22 routes
 browser:  46 screens captured across 7 roles, 2 locales, light/dark and 400px
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)
