@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
 import { api } from "@/lib/api";
@@ -26,6 +27,7 @@ type Directive = {
 
 export default function DirectivesPage() {
   const { locale, can, me } = useAuth();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<Directive[]>([]);
   const [overdue, setOverdue] = useState<Directive[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,14 @@ export default function DirectivesPage() {
     void load();
     api.get<Person[]>("/api/v1/users").then(setPeople).catch(() => undefined);
   }, [load]);
+
+  // The AI assistant's source record links here as ?open=<id>; scroll that
+  // directive into view so the link lands on the record it cites.
+  const deepLink = searchParams.get("open");
+  useEffect(() => {
+    if (!deepLink || rows.length === 0) return;
+    document.getElementById(`directive-${deepLink}`)?.scrollIntoView({ block: "start" });
+  }, [deepLink, rows.length]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -145,7 +155,7 @@ export default function DirectivesPage() {
                 const isOverdue = overdue.some((o) => o.id === r.id);
                 const isRecipient = me?.id === r.recipient_id;
                 return (
-                  <tr key={r.id} className="border-b border-line last:border-0">
+                  <tr key={r.id} id={`directive-${r.id}`} className="border-b border-line last:border-0">
                     <td className="p-3">
                       {r.title}
                       {isOverdue && <span className="chip-bad ms-2">{locale === "ar" ? "متأخر" : "Overdue"}</span>}

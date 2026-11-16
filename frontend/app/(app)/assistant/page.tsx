@@ -196,7 +196,13 @@ export default function AssistantPage() {
               {answer.sources.map((s, i) => (
                 <li key={i} className="border-b border-line pb-1 last:border-0">
                   <span className="chip-neutral me-2">{s.kind}</span>
-                  <a className="underline" href={s.url ?? "#"}>{s.label}</a>
+                  {s.url ? (
+                    <a className="underline" href={s.url}>{s.label}</a>
+                  ) : (
+                    // A source the platform cannot open is shown as text, not as
+                    // a link that goes nowhere.
+                    <span>{s.label}</span>
+                  )}
                 </li>
               ))}
             </ul>

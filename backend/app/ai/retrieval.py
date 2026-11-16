@@ -67,18 +67,18 @@ def gather_context(db: Session, user: User, *, company_id: int | None, period_id
             ctx.facts.append(
                 f"accounting#{e.id} kind={e.kind} ref={e.reference} amount={e.amount} {e.currency} status={e.status}"
             )
-            ctx.sources.append({"kind": "accounting", "ref": str(e.id), "label": f"قيد محاسبي {e.reference}", "url": f"/accounting/{e.id}"})
+            ctx.sources.append({"kind": "accounting", "ref": str(e.id), "label": f"قيد محاسبي {e.reference}", "url": f"/accounting?entry={e.id}"})
 
     if "service:view" in perms:
         stmt = select(ServiceRequest).where(ServiceRequest.recipient_id == user.id)
         for s in db.execute(stmt.limit(25)).scalars().all():
             ctx.facts.append(f"service_request#{s.id} subject={s.subject} status={s.status} priority={s.priority}")
-            ctx.sources.append({"kind": "service_request", "ref": str(s.id), "label": f"طلب خدمة {s.subject}", "url": f"/service-requests/{s.id}"})
+            ctx.sources.append({"kind": "service_request", "ref": str(s.id), "label": f"طلب خدمة {s.subject}", "url": f"/service-requests?open={s.id}"})
 
     if "directive:view" in perms:
         stmt = select(ExecutiveDirective).where(ExecutiveDirective.recipient_id == user.id)
         for d in db.execute(stmt.limit(25)).scalars().all():
             ctx.facts.append(f"directive#{d.id} title={d.title} status={d.status} follow_up={d.follow_up_on}")
-            ctx.sources.append({"kind": "directive", "ref": str(d.id), "label": f"توجيه {d.title}", "url": f"/directives/{d.id}"})
+            ctx.sources.append({"kind": "directive", "ref": str(d.id), "label": f"توجيه {d.title}", "url": f"/directives?open={d.id}"})
 
     return ctx

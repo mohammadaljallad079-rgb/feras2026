@@ -76,6 +76,16 @@ export default function AccountingPage() {
     setForm((f) => ({ ...f, kind: initialKind }));
   }, [initialKind]);
 
+  // The AI assistant's source record links here as ?entry=<id>; switch to that
+  // entry's kind and scroll it into view so the link lands on the record.
+  const deepEntry = searchParams.get("entry");
+  useEffect(() => {
+    if (!deepEntry || entries.length === 0) return;
+    const row = entries.find((e) => e.id === Number(deepEntry));
+    if (row) setTab(row.kind);
+    document.getElementById(`accounting-entry-${deepEntry}`)?.scrollIntoView({ block: "start" });
+  }, [deepEntry, entries]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
@@ -269,7 +279,7 @@ export default function AccountingPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-line last:border-0">
+                <tr key={r.id} id={`accounting-entry-${r.id}`} className="border-b border-line last:border-0">
                   {columns[tab].map((c) => (
                     <td key={c.en} className="p-3">
                       {c.render(r)}

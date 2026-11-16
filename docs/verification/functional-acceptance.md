@@ -20,7 +20,7 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `43 passed` — 13 end-to-end journeys in
+Result at the time of writing: `44 passed` — 13 end-to-end journeys in
 `tests/test_e2e_journeys.py`, 8 reporting-workflow tests in
 `tests/test_reporting_workflow.py`, 12 in `tests/test_auth_rbac.py` and 10 in
 `tests/test_operations.py`.
@@ -119,3 +119,13 @@ ever hold, plus two routes that demanded the wrong one:
    gate now names the real permission that guards the action.
 8. **`forms.py` used `require_any` without importing it**, so the form-field
    list raised `NameError` on every call.
+9. **The assistant's "open the source record" links 404'd.** Sources are cited
+   as `kind` plus a `url`, but accounting entries, service requests and
+   directives have no per-record route — the links were built as
+   `/accounting/{id}` and similar, which the app answers with 404. The links
+   now point at the list screen with the record selected
+   (`/accounting?entry=<id>`, `/service-requests?open=<id>`,
+   `/directives?open=<id>`), and each screen reads that parameter to open and
+   scroll to the cited record. A source the platform cannot open is rendered as
+   plain text rather than a link that goes nowhere. `test_every_ai_source_link_points_at_a_real_screen`
+   now fails if a source URL stops mapping to a real route.

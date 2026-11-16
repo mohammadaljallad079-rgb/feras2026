@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
@@ -35,6 +36,7 @@ const STATUSES = ["new", "in_progress", "answered", "closed"];
 
 export default function ServiceRequestsPage() {
   const { locale, can } = useAuth();
+  const searchParams = useSearchParams();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [rows, setRows] = useState<ServiceRequest[]>([]);
@@ -64,6 +66,18 @@ export default function ServiceRequestsPage() {
     api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
     api.get<User[]>("/api/v1/users").then(setUsers).catch(() => undefined);
   }, [load]);
+
+  // The AI assistant's source record links here as ?open=<id>; open that
+  // request's thread and bring it into view so the link lands on the record.
+  const deepLink = searchParams.get("open");
+  useEffect(() => {
+    if (!deepLink || rows.length === 0) return;
+    const id = Number(deepLink);
+    void openThread(id);
+    document.getElementById(`service-request-${id}`)?.scrollIntoView({ block: "start" });
+    // openThread is stable for this purpose; re-running on rows only would reopen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLink, rows.length]);
 
   async function openThread(id: number) {
     if (openId === id) {
@@ -178,7 +192,7 @@ export default function ServiceRequestsPage() {
       <DataStates loading={loading} error={error} empty={rows.length === 0}>
         <ul className="space-y-4">
           {rows.map((r) => (
-            <li key={r.id} className="card">
+            <li key={r.id} id={`service-request-${r.id}`} className="card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="section-title">{r.subject}</h2>

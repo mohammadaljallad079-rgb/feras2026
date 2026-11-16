@@ -3,6 +3,9 @@ website conversion, form builder versioning and the AI configuration status."""
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 
 def _company(client, headers, code, status="active"):
     resp = client.post(
@@ -212,3 +215,33 @@ def test_accountant_dashboard_actions_deep_link_to_each_entry_kind(client, make_
     assert hrefs["Expense"] == "/accounting?kind=expense"
     assert hrefs["Invoice"] == "/accounting?kind=invoice"
     assert hrefs["Commission"] == "/accounting?kind=commission"
+
+
+def test_every_ai_source_link_points_at_a_real_screen():
+    """Each "open the source record" link must resolve to a screen that exists.
+
+    The assistant cites accounting entries, service requests and directives, but
+    those screens have no per-record route. The links were built as
+    ``/accounting/{id}`` and similar, which the app answers with 404 — the
+    reference requires the user to be able to open the original record.
+    """
+    repo = Path(__file__).resolve().parents[2]
+    routes = {
+        str(p.parent.relative_to(repo / "frontend" / "app" / "(app)"))
+        for p in (repo / "frontend" / "app" / "(app)").rglob("page.tsx")
+    }
+    assert routes, "no frontend routes found; the scan is broken"
+
+    source_urls = re.findall(r'"url": f"([^"]+)"', (repo / "backend" / "app" / "ai" / "retrieval.py").read_text())
+    assert source_urls, "no AI source URLs found; the scan is broken"
+
+    for template in source_urls:
+        segments = template.split("?")[0].strip("/").split("/")
+        # A trailing record placeholder needs a matching dynamic route
+        # (e.g. ``/reports/{id}`` needs ``reports/[id]``). Without it the link
+        # 404s, which is what happened for service requests and directives.
+        if re.fullmatch(r"\{[^}]+\}", segments[-1]):
+            target = "/".join(segments[:-1] + ["[id]"])
+        else:
+            target = "/".join(segments)
+        assert target in routes, f"{template!r} has no screen: no route {target!r} in {sorted(routes)}"
