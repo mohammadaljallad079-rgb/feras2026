@@ -217,6 +217,55 @@ def test_accountant_dashboard_actions_deep_link_to_each_entry_kind(client, make_
     assert hrefs["Commission"] == "/accounting?kind=commission"
 
 
+def test_accounting_export_covers_exactly_the_visible_entries(client, make_user, login):
+    """PDF p.9 asks for export where applicable; the file must match the scope.
+
+    The endpoint existed but no screen called it, so the export was unreachable.
+    It must also respect company isolation: an accountant scoped to one company
+    must not receive another company's entries in the workbook.
+    """
+    import io
+
+    from openpyxl import load_workbook
+
+    make_user("exp_owner@safir-platform.com", ["owner"])
+    h_owner = login("exp_owner@safir-platform.com")
+    first = _company(client, h_owner, "EXP-1")
+    second = _company(client, h_owner, "EXP-2")
+    for cid, ref in ((first, "REF-A"), (second, "REF-B")):
+        resp = client.post(
+            "/api/v1/accounting",
+            headers=h_owner,
+            json={"kind": "expense", "company_id": cid, "reference": ref, "description": "x", "amount": "10.00", "currency": "SAR", "entry_date": "2026-01-01"},
+        )
+        assert resp.status_code == 201, resp.text
+
+    # The owner sees both companies.
+    both = client.get("/api/v1/accounting/export.xlsx", headers=h_owner)
+    assert both.status_code == 200
+    rows = list(load_workbook(io.BytesIO(both.content)).active.iter_rows(values_only=True))
+    refs = {r[3] for r in rows[1:]}
+    assert {"REF-A", "REF-B"} <= refs
+
+    # A user scoped to the first company only gets that company's entry.
+    scoped = make_user("exp_acct@safir-platform.com", ["accountant"])
+    client.patch(f"/api/v1/users/{scoped.id}", headers=h_owner, json={"company_ids": [first]})
+    limited = client.get("/api/v1/accounting/export.xlsx", headers=login("exp_acct@safir-platform.com"))
+    assert limited.status_code == 200
+    limited_rows = list(load_workbook(io.BytesIO(limited.content)).active.iter_rows(values_only=True))
+    limited_refs = {r[3] for r in limited_rows[1:]}
+    assert "REF-A" in limited_refs
+    assert "REF-B" not in limited_refs
+
+    # A role with no accounting permission must be refused.
+    make_user("exp_designer@safir-platform.com", ["designer"])
+    denied = client.get("/api/v1/accounting/export.xlsx", headers=login("exp_designer@safir-platform.com"))
+    assert denied.status_code == 403
+
+    actions = {e["action"] for e in client.get("/api/v1/audit", headers=h_owner).json()}
+    assert "accounting.export" in actions
+
+
 def test_every_ai_source_link_points_at_a_real_screen():
     """Each "open the source record" link must resolve to a screen that exists.
 

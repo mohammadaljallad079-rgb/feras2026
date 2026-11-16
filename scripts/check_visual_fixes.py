@@ -1,4 +1,4 @@
-"""Assert the eight resolved visual mismatches in a real browser.
+"""Assert the resolved visual mismatches and key flows in a real browser.
 
 Each of the eight rows that `docs/verification/visual-comparison.md` records as
 "Fixed" gets an assertion here, so the claim can be re-checked rather than
@@ -199,6 +199,17 @@ def check_page_24(page: Page) -> None:
             "() => {const el=document.querySelector('[role=tab][aria-selected=true]'); return el ? el.textContent.trim() : null;}"
         )
         _record(24, f"?kind={kind} selects the {kind} tab", bool(selected) and label in selected, f"selected={selected}")
+    # PDF p.9 asks for export where applicable; the button must be reachable and
+    # download a real workbook rather than a dead control.
+    page.goto(f"{BASE}/accounting")
+    page.wait_for_timeout(1500)
+    button = page.query_selector("button:has-text('تصدير Excel')")
+    _record(24, "the accounting export button is present", bool(button))
+    if button:
+        with page.expect_download(timeout=20000) as download:
+            button.click()
+        name = download.value.suggested_filename
+        _record(24, "the export downloads a workbook", name.endswith(".xlsx"), f"name={name}")
 
 
 def check_password_reset(browser) -> None:

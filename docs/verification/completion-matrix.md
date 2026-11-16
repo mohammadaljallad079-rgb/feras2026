@@ -130,6 +130,7 @@ Nine pages had a real mismatch; all nine are fixed:
 | Page | Mismatch | Fix |
 |---|---|---|
 | 8 | Owner saw every draft instead of only reports sent to management | `reporting.py` restricts a `report:view_all` holder without `report:review` to approved/forwarded; the owner template no longer carries the accountant's duties |
+| 9 | The accounting screen had no export control although `GET /accounting/export.xlsx` existed and was audited | The header carries a «تصدير Excel» button for any `accounting:view` holder; the workbook is scoped to the companies the caller may see (verified in `test_accounting_export_covers_exactly_the_visible_entries`) |
 | 11 | The three narrowing controls were absent | Added company / status / source filters and a `filter` prop on `ResourceTable` |
 | 12 | Title was the short «الفرص» | Corrected to «الفرص التجارية والاستثمارية»; the screen states a decision creates no project |
 | 14 | Salary was readable by any `hr:view` holder | New `hr:view_salary` permission enforced in `hr.py`; the UI shows «مقيد» without the amount |
@@ -146,7 +147,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  44 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  45 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)

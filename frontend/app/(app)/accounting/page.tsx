@@ -166,13 +166,26 @@ export default function AccountingPage() {
 
   return (
     <section>
-      <header className="mb-4">
-        <h1 className="page-title">{locale === "ar" ? "محاسبة القابضة" : "Holding accounting"}</h1>
-        <p className="muted">
-          {locale === "ar"
-            ? "ثلاث عمليات فقط: مصروف، إيراد/فاتورة، عمولة. لا دفع ولا تحويل بنكي."
-            : "Three operations only: expense, income/invoice and commission. No payments or bank transfers."}
-        </p>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="page-title">{locale === "ar" ? "محاسبة القابضة" : "Holding accounting"}</h1>
+          <p className="muted">
+            {locale === "ar"
+              ? "ثلاث عمليات فقط: مصروف، إيراد/فاتورة، عمولة. لا دفع ولا تحويل بنكي."
+              : "Three operations only: expense, income/invoice and commission. No payments or bank transfers."}
+          </p>
+        </div>
+        {/* The backend exports every entry the caller may see; the button is
+            offered to anyone who can view accounting at all. */}
+        {can("accounting:view") && (
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => void api.download("/api/v1/accounting/export.xlsx", "accounting.xlsx")}
+          >
+            {locale === "ar" ? "تصدير Excel" : "Export Excel"}
+          </button>
+        )}
       </header>
 
       {message && (
