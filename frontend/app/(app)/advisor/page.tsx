@@ -44,7 +44,7 @@ export default function AdvisorPage() {
 
   useEffect(() => {
     void load();
-    api.get<Person[]>("/api/v1/users").then(setPeople).catch(() => undefined);
+    api.get<Person[]>("/api/v1/users/directory").then(setPeople).catch(() => undefined);
     api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
   }, [load]);
 

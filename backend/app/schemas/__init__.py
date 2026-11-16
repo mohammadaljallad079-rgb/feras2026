@@ -77,6 +77,20 @@ class UserOut(ORMModel):
     last_login_at: datetime | None = None
 
 
+class UserDirectoryOut(BaseModel):
+    """Minimal identity for pickers (recipient, assignee).
+
+    Screens that only need to name a colleague — a directive recipient, a lead
+    assignee, a service-request recipient — read this instead of the admin
+    ``/users`` listing, so they do not need ``user:view`` and never receive
+    e-mail addresses, roles or company scopes they have no business seeing.
+    """
+
+    id: int
+    full_name_ar: str
+    full_name_en: str
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     full_name_ar: str

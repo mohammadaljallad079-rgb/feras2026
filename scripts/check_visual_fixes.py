@@ -280,6 +280,21 @@ def check_password_reset(browser) -> None:
     ctx.close()
 
 
+def check_recipient_picker(browser) -> None:
+    """Pages 10, 11 and 13 assign a colleague, but the roles that use them hold
+    no ``user:view``: ``/users`` answered 403 and the picker rendered empty, so a
+    marketer could create a lead that named no one.
+    """
+    ctx, page = _sign_in(browser, "marketer")
+    page.goto(f"{BASE}/leads")
+    page.wait_for_timeout(2500)
+    options = page.evaluate(
+        "() => [...document.querySelectorAll('select')].map(s => s.options.length)"
+    )
+    _record(11, "the marketer's picker is not empty", any(n > 2 for n in options), str(options))
+    ctx.close()
+
+
 def check_website_admin(browser) -> None:
     """PDF p.15: the admin toggles public visibility and rejects a submission.
 
@@ -422,6 +437,9 @@ def main() -> int:
         page.wait_for_timeout(1500)
         check_page_24(page)
         ctx.close()
+
+        print("page 11 — recipient picker reachability")
+        check_recipient_picker(browser)
 
         print("page 15 — website administration")
         check_website_admin(browser)

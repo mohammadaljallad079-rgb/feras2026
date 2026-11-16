@@ -50,7 +50,7 @@ export default function DirectivesPage() {
 
   useEffect(() => {
     void load();
-    api.get<Person[]>("/api/v1/users").then(setPeople).catch(() => undefined);
+    api.get<Person[]>("/api/v1/users/directory").then(setPeople).catch(() => undefined);
   }, [load]);
 
   // The AI assistant's source record links here as ?open=<id>; scroll that

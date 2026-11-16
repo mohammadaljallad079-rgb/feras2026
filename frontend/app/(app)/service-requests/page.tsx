@@ -64,7 +64,7 @@ export default function ServiceRequestsPage() {
   useEffect(() => {
     void load();
     api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
-    api.get<User[]>("/api/v1/users").then(setUsers).catch(() => undefined);
+    api.get<User[]>("/api/v1/users/directory").then(setUsers).catch(() => undefined);
   }, [load]);
 
   // The AI assistant's source record links here as ?open=<id>; open that

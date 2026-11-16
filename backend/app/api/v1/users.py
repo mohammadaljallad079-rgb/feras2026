@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require
+from app.api.deps import get_current_user, require, require_any
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.permissions import ALL_PERMISSIONS, ROLE_TEMPLATES
@@ -26,6 +26,7 @@ from app.schemas import (
     RoleOut,
     RoleUpdate,
     UserCreate,
+    UserDirectoryOut,
     UserInviteResult,
     UserOut,
     UserUpdate,
@@ -146,6 +147,30 @@ def update_role(
     db.commit()
     db.refresh(role)
     return _role_out(role)
+
+
+@router.get("/users/directory", response_model=list[UserDirectoryOut])
+def user_directory(
+    _: User = Depends(
+        require_any(
+            "user:view", "directive:view", "lead:view", "service:view", "advisor:view"
+        )
+    ),
+    db: Session = Depends(get_db),
+) -> list[UserDirectoryOut]:
+    """Active colleagues for recipient/assignee pickers.
+
+    Declared before ``/users/{user_id}`` so the literal path wins the match.
+    """
+    users = (
+        db.execute(select(User).where(User.is_active.is_(True)).order_by(User.id))
+        .scalars()
+        .all()
+    )
+    return [
+        UserDirectoryOut(id=u.id, full_name_ar=u.full_name_ar, full_name_en=u.full_name_en)
+        for u in users
+    ]
 
 
 @router.get("/users", response_model=list[UserOut])

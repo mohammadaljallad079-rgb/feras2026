@@ -135,6 +135,28 @@ def test_frontend_permission_gates_are_names_the_backend_can_grant():
     assert gates <= set(ALL_PERMISSIONS), f"not in the catalog: {sorted(gates - set(ALL_PERMISSIONS))}"
 
 
+def test_the_directory_serves_pickers_without_the_admin_listing(client, make_user, login):
+    """The recipient and assignee pickers on pages 10, 11 and 13 need to name a
+    colleague, but their roles (marketer, designer, advisor) hold no ``user:view``,
+    so ``/users`` answered 403 and every picker rendered empty. The directory
+    answers with a minimal identity and no privileged fields.
+    """
+    make_user("dir_marketer@safir-platform.com", ["marketer"])
+
+    marketer = login("dir_marketer@safir-platform.com")
+    assert client.get("/api/v1/users", headers=marketer).status_code == 403
+
+    directory = client.get("/api/v1/users/directory", headers=marketer)
+    assert directory.status_code == 200, directory.text
+    assert directory.json(), "the directory must not be empty"
+    assert set(directory.json()[0]) == {"id", "full_name_ar", "full_name_en"}
+
+    # An advisor, who only submits recommendations, also needs recipients.
+    make_user("dir_advisor@safir-platform.com", ["advisor"])
+    advisor = login("dir_advisor@safir-platform.com")
+    assert client.get("/api/v1/users/directory", headers=advisor).status_code == 200
+
+
 def test_the_accountant_may_export_a_report(client, make_user, login):
     """The accountant validates reports and exports Excel (design page 25)."""
     accountant = make_user("acct-export@safir-platform.com", ["accountant"])
