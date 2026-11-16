@@ -343,3 +343,55 @@ def test_audit_log_is_read_only_and_scoped(clients):
     assert isinstance(listing.json(), list)
     # There is no write surface on the audit log.
     assert owner.post("/api/v1/audit", json={"action": "x"}).status_code in (404, 405)
+
+
+def test_ai_provider_settings_are_owner_only_and_never_leak_the_key(clients):
+    owner = clients["owner"]
+
+    # The owner sees the settings screen described on PDF page 17.
+    settings = owner.get("/api/v1/ai/settings")
+    assert settings.status_code == 200, settings.text
+    body = settings.json()
+    assert body["provider"] == "openai"
+    assert "model_classes" in body and body["model_classes"]
+    # The key itself is never returned: only a masked hint and a boolean.
+    assert "api_key" not in body
+    assert "api_key_encrypted" not in body
+    if body["has_api_key"]:
+        assert body["api_key_hint"] and body["api_key_hint"].startswith("sk-")
+
+    # A non-owner must be refused outright, not merely shown a hidden button.
+    for role in ("accountant", "bd", "marketer"):
+        resp = clients[role].get("/api/v1/ai/settings")
+        assert resp.status_code == 403, f"{role} should not read AI settings"
+
+    # Selecting a different model class persists and is reflected on read-back.
+    chosen = body["model_classes"][-1]
+    updated = owner.put(
+        "/api/v1/ai/settings",
+        json={"provider": "openai", "model": chosen, "base_url": body["base_url"]},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["model"] == chosen
+    assert owner.get("/api/v1/ai/settings").json()["model"] == chosen
+
+    # An unsupported provider is rejected rather than silently substituted.
+    bad = owner.put("/api/v1/ai/settings", json={"provider": "some-other-vendor"})
+    assert bad.status_code == 422
+
+    # With no key configured, a connection test reports failure honestly.
+    if not body["has_api_key"]:
+        test = owner.post("/api/v1/ai/settings/test")
+        assert test.status_code == 200, test.text
+        assert test.json()["ok"] is False
+
+    # The owner summary is deterministic, cites real records, and keeps each
+    # amount in its own company currency.
+    summary = owner.get("/api/v1/ai/summary")
+    assert summary.status_code == 200, summary.text
+    s = summary.json()
+    assert s["period_label_ar"]
+    assert s["sections"] and all(sec["lines_ar"] for sec in s["sections"])
+    for src in s["sources"]:
+        assert src["currency"]
+        assert src["url"].startswith("/reports/")

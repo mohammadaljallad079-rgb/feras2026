@@ -60,6 +60,12 @@ class AccountingEntry(Base, TimestampMixin):
     currency: Mapped[str] = mapped_column(String(8), default="SAR")
     entry_date: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(16), default=AccountingStatus.DRAFT.value, index=True)
+    # The three sections of PDF page 9 each carry their own extra columns:
+    # expenses have a party and a settlement, invoices a tax line, commissions a
+    # direction (incoming/outgoing).
+    party: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    direction: Mapped[str | None] = mapped_column(String(16), nullable=True)
     document_file_id: Mapped[int | None] = mapped_column(
         ForeignKey("stored_files.id", ondelete="SET NULL"), nullable=True
     )
@@ -177,6 +183,24 @@ class EmployeeEvent(Base):
         ForeignKey("stored_files.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AiProviderSetting(Base, TimestampMixin):
+    """Server-side AI provider configuration.
+
+    The API key is never returned to any client: only ``has_api_key`` and a
+    masked hint are exposed. The key is resolved from the environment or from
+    this row, so an owner can change provider/model/class without a redeploy.
+    """
+
+    __tablename__ = "ai_provider_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(32), default="openai")
+    model: Mapped[str] = mapped_column(String(64), default="gpt-4o-mini")
+    base_url: Mapped[str] = mapped_column(String(255), default="https://api.openai.com/v1")
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
 
 class WebsiteSubmission(Base, TimestampMixin):

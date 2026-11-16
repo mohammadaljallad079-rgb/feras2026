@@ -123,6 +123,10 @@ export type Company = {
   currency: string;
   status: string;
   logo_file_id: number | null;
+  logo_url: string | null;
+  commercial_register_no: string | null;
+  manager_name_ar: string | null;
+  manager_name_en: string | null;
   activated_at: string | null;
   closed_at: string | null;
   public_visible: boolean;
@@ -136,6 +140,7 @@ export type DashboardCard = {
   value: string | number;
   hint_ar?: string | null;
   hint_en?: string | null;
+  href?: string | null;
 };
 
 export type Dashboard = {
@@ -144,6 +149,9 @@ export type Dashboard = {
   title_en: string;
   cards: DashboardCard[];
   sections: Record<string, unknown>[];
+  banner_ar: string | null;
+  banner_en: string | null;
+  actions: { label_ar: string; label_en: string; href: string }[];
 };
 
 export type MonthlyReport = {

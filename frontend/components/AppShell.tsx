@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Locale, appName, t } from "@/lib/i18n";
+import { BrandMark } from "@/components/BrandMark";
+import { api } from "@/lib/api";
 
 /** Sidebar entries, each gated by the permission the backend enforces. */
 const NAV: { href: string; section: string; key: string; permission: string }[] = [
@@ -25,11 +27,21 @@ const NAV: { href: string; section: string; key: string; permission: string }[] 
   { href: "/audit", section: "nav", key: "audit", permission: "audit:view" },
 ];
 
+type Period = { label: string; due: string | null };
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { me, locale, setLocale, theme, toggleTheme, logout, can, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [period, setPeriod] = useState<Period | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ period: Period | null }>("/api/v1/dashboard/period")
+      .then((r) => setPeriod(r.period))
+      .catch(() => setPeriod(null));
+  }, []);
 
   if (loading) {
     return <div className="p-6 muted">{locale === "ar" ? "جارٍ التحميل…" : "Loading…"}</div>;
@@ -48,15 +60,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className={`${menuOpen ? "block" : "hidden"} nav:block w-sidebar shrink-0 bg-side p-4`}
         aria-label={t("common", "menu", locale)}
       >
-        <div className="mb-6 flex items-center gap-3">
-          {/* The official logo is preserved at its aspect ratio once supplied. */}
-          <span
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-goldink font-bold"
-            aria-hidden="true"
-          >
-            ص
-          </span>
-          <span className="text-section font-semibold text-white">{appName(locale)}</span>
+        <div className="mb-6">
+          <BrandMark name={appName(locale)} />
+          <p className="mt-2 text-secondary text-sidefg opacity-80">{me.roles.join(" · ")}</p>
+          {period && (
+            <p className="mt-1 text-secondary text-sidefg opacity-70" dir="ltr">
+              {locale === "ar" ? `الفترة الحالية: ${period.label}` : `Current period: ${period.label}`}
+              {period.due ? (locale === "ar" ? ` — الاستحقاق ${period.due}` : ` — due ${period.due}`) : ""}
+            </p>
+          )}
         </div>
         <nav className="space-y-1">
           {visible.map((item) => {
@@ -86,8 +98,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               {t("common", "menu", locale)}
             </button>
-            <span className="section-title">{me.full_name_ar}</span>
-            <span className="muted">{me.roles.join(" · ")}</span>
+            <span className="section-title">
+              {locale === "ar" ? me.full_name_ar : me.full_name_en || me.full_name_ar}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <label className="muted" htmlFor="locale-select">

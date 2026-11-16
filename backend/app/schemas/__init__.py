@@ -114,6 +114,7 @@ class CompanyBase(BaseModel):
     ownership_percent: Decimal = Decimal("100.00")
     currency: str = "SAR"
     public_visible: bool = False
+    commercial_register_no: str | None = None
 
 
 class CompanyCreate(CompanyBase):
@@ -132,6 +133,7 @@ class CompanyUpdate(BaseModel):
     currency: str | None = None
     public_visible: bool | None = None
     activation_notes: str | None = None
+    commercial_register_no: str | None = None
 
 
 class CompanyOut(ORMModel):
@@ -148,6 +150,10 @@ class CompanyOut(ORMModel):
     currency: str
     status: str
     logo_file_id: int | None
+    logo_url: str | None = None
+    commercial_register_no: str | None = None
+    manager_name_ar: str | None = None
+    manager_name_en: str | None = None
     activated_at: datetime | None
     closed_at: datetime | None
     public_visible: bool
@@ -278,6 +284,9 @@ class AccountingCreate(BaseModel):
     amount: Decimal
     currency: str = "SAR"
     entry_date: date
+    party: str | None = None
+    tax_amount: Decimal | None = None
+    direction: str | None = None
     document_file_id: int | None = None
 
 
@@ -300,6 +309,9 @@ class AccountingOut(ORMModel):
     currency: str
     entry_date: date
     status: str
+    party: str | None = None
+    tax_amount: Decimal | None = None
+    direction: str | None = None
     document_file_id: int | None
     created_at: datetime
 
@@ -580,6 +592,59 @@ class AiAnswer(BaseModel):
     note: str | None = None
 
 
+class AiSummarySection(BaseModel):
+    key: str
+    title_ar: str
+    title_en: str
+    lines_ar: list[str]
+    lines_en: list[str]
+
+
+class AiSummarySource(BaseModel):
+    label_ar: str
+    label_en: str
+    kind: str
+    url: str
+    status: str
+    currency: str
+
+
+class AiSummaryOut(BaseModel):
+    period_label_ar: str
+    period_label_en: str
+    scope_ar: str
+    scope_en: str
+    sections: list[AiSummarySection]
+    sources: list[AiSummarySource]
+
+
+class AiProviderSettingsIn(BaseModel):
+    provider: str | None = None
+    model: str | None = None
+    base_url: str | None = None
+    api_key: str | None = Field(default=None, min_length=8)
+    clear_api_key: bool = False
+
+
+class AiProviderSettingsOut(BaseModel):
+    provider: str
+    model: str
+    base_url: str
+    has_api_key: bool
+    api_key_hint: str | None
+    configured: bool
+    model_classes: list[str]
+    env_key_locked: bool
+
+
+class AiSettingsTestResult(BaseModel):
+    ok: bool
+    provider: str
+    model: str
+    message_ar: str
+    message_en: str
+
+
 # --- Dashboard --------------------------------------------------------------
 class DashboardCard(BaseModel):
     key: str
@@ -588,6 +653,16 @@ class DashboardCard(BaseModel):
     value: str | int
     hint_ar: str | None = None
     hint_en: str | None = None
+    # PDF page 5: the owner's KPIs are clickable and lead to the relevant screen.
+    href: str | None = None
+
+
+class DashboardAction(BaseModel):
+    """A dashboard shortcut that navigates to the screen that performs the work."""
+
+    label_ar: str
+    label_en: str
+    href: str
 
 
 class DashboardOut(BaseModel):
@@ -596,3 +671,8 @@ class DashboardOut(BaseModel):
     title_en: str
     cards: list[DashboardCard]
     sections: list[dict] = []
+    # PDF pages 22-23: the manager's dashboard leads with the current period and
+    # its deadline, and offers the actions that start the monthly work.
+    banner_ar: str | None = None
+    banner_en: str | None = None
+    actions: list[DashboardAction] = []

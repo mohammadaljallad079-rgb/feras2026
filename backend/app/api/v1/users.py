@@ -61,17 +61,26 @@ def _role_out(role: Role) -> RoleOut:
 
 
 def ensure_system_roles(db: Session) -> None:
-    """Idempotently create the built-in roles and their permission grants."""
+    """Idempotently create the built-in roles and reconcile their grants.
+
+    A system role's grants are defined by ``ROLE_TEMPLATES``, so the set is
+    reconciled exactly: a permission removed from the template is revoked here
+    too. Otherwise a change to a role's duties in code would leave stale grants
+    in the database and the two would disagree. Custom roles (``is_system``
+    false) are never touched.
+    """
     for slug, tpl in ROLE_TEMPLATES.items():
         role = db.execute(select(Role).where(Role.slug == slug)).scalar_one_or_none()
         if role is None:
             role = Role(slug=slug, name_ar=tpl["name_ar"], name_en=tpl["name_en"], is_system=True)
             db.add(role)
             db.flush()
+        want = set(tpl["permissions"])  # type: ignore[arg-type]
         have = {p.permission for p in role.permissions}
-        for perm in tpl["permissions"]:  # type: ignore[union-attr]
-            if perm not in have:
-                db.add(RolePermission(role_id=role.id, permission=perm))
+        for perm in want - have:
+            db.add(RolePermission(role_id=role.id, permission=perm))
+        for grant in [p for p in role.permissions if p.permission not in want]:
+            db.delete(grant)
     db.commit()
 
 

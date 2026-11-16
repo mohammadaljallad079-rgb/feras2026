@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { t } from "@/lib/i18n";
+
 
 type Draft = Partial<Company> & { [key: string]: unknown };
 
@@ -43,6 +43,7 @@ export default function NewCompanyPage() {
         ownership_percent: draft.ownership_percent ?? "100",
         currency: draft.currency ?? "SAR",
         status: "draft",
+        commercial_register_no: draft.commercial_register_no || null,
       };
       const saved = savedId
         ? await api.patch<Company>(`/api/v1/companies/${savedId}`, payload)
@@ -73,7 +74,12 @@ export default function NewCompanyPage() {
 
   return (
     <section className="mx-auto max-w-3xl">
-      <h1 className="page-title mb-2">{t("companies", "wizard", locale) === "wizard" ? "إنشاء شركة (أربع خطوات)" : t("companies", "wizard", locale)}</h1>
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="page-title">{locale === "ar" ? "إضافة شركة تابعة" : "Add subsidiary company"}</h1>
+        <span className="chip-neutral tabular-nums" dir="ltr">
+          {step + 1}/{STEPS.length}
+        </span>
+      </header>
       <ol className="mb-6 flex flex-wrap gap-3">
         {STEPS.map((s, i) => (
           <li
@@ -100,12 +106,12 @@ export default function NewCompanyPage() {
               <input id="code" className="input" dir="ltr" value={String(draft.code ?? "")} onChange={(e) => set("code", e.target.value)} />
             </div>
             <div>
-              <label className="label" htmlFor="name_ar">{locale === "ar" ? "الاسم بالعربية" : "Arabic name"}</label>
-              <input id="name_ar" className="input" dir="rtl" value={String(draft.name_ar ?? "")} onChange={(e) => set("name_ar", e.target.value)} />
+              <label className="label" htmlFor="name_ar">{locale === "ar" ? "اسم الشركة بالعربية *" : "Company name in Arabic *"}</label>
+              <input id="name_ar" className="input" dir="rtl" required value={String(draft.name_ar ?? "")} onChange={(e) => set("name_ar", e.target.value)} />
             </div>
             <div>
-              <label className="label" htmlFor="name_en">{locale === "ar" ? "الاسم بالإنجليزية" : "English name"}</label>
-              <input id="name_en" className="input" dir="ltr" value={String(draft.name_en ?? "")} onChange={(e) => set("name_en", e.target.value)} />
+              <label className="label" htmlFor="name_en">{locale === "ar" ? "اسم الشركة بالإنجليزية *" : "Company name in English *"}</label>
+              <input id="name_en" className="input" dir="ltr" required value={String(draft.name_en ?? "")} onChange={(e) => set("name_en", e.target.value)} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -116,6 +122,12 @@ export default function NewCompanyPage() {
                 <label className="label" htmlFor="sector">{locale === "ar" ? "القطاع" : "Sector"}</label>
                 <input id="sector" className="input" value={String(draft.sector ?? "")} onChange={(e) => set("sector", e.target.value)} />
               </div>
+            </div>
+            <div>
+              <label className="label" htmlFor="crn">
+                {locale === "ar" ? "رقم السجل التجاري (اختياري)" : "Commercial register number (optional)"}
+              </label>
+              <input id="crn" className="input" dir="ltr" value={String(draft.commercial_register_no ?? "")} onChange={(e) => set("commercial_register_no", e.target.value)} />
             </div>
           </>
         )}
@@ -155,6 +167,7 @@ export default function NewCompanyPage() {
                 ["name_en", locale === "ar" ? "الاسم بالإنجليزية" : "English name"],
                 ["country", locale === "ar" ? "الدولة" : "Country"],
                 ["sector", locale === "ar" ? "القطاع" : "Sector"],
+                ["commercial_register_no", locale === "ar" ? "رقم السجل التجاري" : "Commercial register number"],
                 ["contact_email", locale === "ar" ? "البريد الإلكتروني" : "Contact email"],
                 ["ownership_percent", locale === "ar" ? "نسبة الملكية" : "Ownership percentage"],
                 ["currency", locale === "ar" ? "العملة" : "Currency"],

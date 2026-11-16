@@ -87,7 +87,16 @@ export default function WebsitePage() {
       </header>
       {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
 
-      <h2 className="section-title mb-3">{locale === "ar" ? "صندوق النماذج العامة" : "Public form inbox"}</h2>
+      <div className="card mb-4">
+        <h2 className="section-title mb-1">{locale === "ar" ? "ملخص البيانات" : "Data summary"}</h2>
+        <p className="muted">
+          {locale === "ar"
+            ? `وارد النماذج: ${rows.length} — خدمات: ${rows.filter((r) => r.kind === "service").length} — فرص: ${rows.filter((r) => r.kind === "opportunity").length} — سير ذاتية: ${rows.filter((r) => r.kind === "job").length} — بانتظار التحويل: ${rows.filter((r) => r.status !== "converted").length}`
+            : `Submissions: ${rows.length} — services: ${rows.filter((r) => r.kind === "service").length} — opportunities: ${rows.filter((r) => r.kind === "opportunity").length} — CVs: ${rows.filter((r) => r.kind === "job").length} — awaiting conversion: ${rows.filter((r) => r.status !== "converted").length}`}
+        </p>
+      </div>
+
+      <h2 className="section-title mb-3">{locale === "ar" ? "وارد النماذج (خدمة، فرصة، سيرة ذاتية)" : "Form inbox (service, opportunity, CV)"}</h2>
       <DataStates loading={loading} error={error} empty={rows.length === 0}>
         <div className="card table-scroll p-0">
           <table className="w-full min-w-[760px] border-collapse">
@@ -119,6 +128,9 @@ export default function WebsitePage() {
                           <button type="button" className="btn-ghost" onClick={() => void convert(r.id, "service_request")}>
                             {locale === "ar" ? "تحويل إلى طلب خدمة" : "Convert to service request"}
                           </button>
+                          <button type="button" className="btn-ghost" onClick={() => void convert(r.id, "opportunity")}>
+                            {locale === "ar" ? "تحويل إلى فرصة" : "Convert to opportunity"}
+                          </button>
                         </>
                       )}
                       {r.status === "converted" && (
@@ -135,13 +147,16 @@ export default function WebsitePage() {
 
       {can("website:manage") && (
         <>
-          <h2 className="section-title mb-3 mt-6">{locale === "ar" ? "ظهور الشركات في الموقع" : "Company website visibility"}</h2>
+          <h2 className="section-title mb-3 mt-6">{locale === "ar" ? "الشركات المعروضة في الموقع" : "Companies shown on the website"}</h2>
           <div className="card table-scroll p-0">
-            <table className="w-full min-w-[520px] border-collapse">
+            <table className="w-full min-w-[680px] border-collapse">
               <thead>
                 <tr className="border-b border-line bg-pearl">
                   <th className="p-3 text-start">{locale === "ar" ? "الشركة" : "Company"}</th>
-                  <th className="p-3 text-start">{locale === "ar" ? "ظاهر للعامة" : "Publicly visible"}</th>
+                  <th className="p-3 text-start">{locale === "ar" ? "النشاط" : "Activity"}</th>
+                  <th className="p-3 text-start">{locale === "ar" ? "القطاع" : "Sector"}</th>
+                  <th className="p-3 text-start">{locale === "ar" ? "الحالة" : "Status"}</th>
+                  <th className="p-3 text-start">{locale === "ar" ? "إجراءات" : "Actions"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,10 +164,21 @@ export default function WebsitePage() {
                   <tr key={c.id} className="border-b border-line last:border-0">
                     <td className="p-3">{locale === "ar" ? c.name_ar : c.name_en}</td>
                     <td className="p-3">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={c.public_visible} onChange={(e) => void toggleVisibility(c.id, e.target.checked)} />
-                        <span className="muted">{c.public_visible ? (locale === "ar" ? "نعم" : "Yes") : locale === "ar" ? "لا" : "No"}</span>
-                      </label>
+                      {c.public_visible ? (
+                        locale === "ar" ? "معروض" : "Shown"
+                      ) : (
+                        <span className="chip-warn">{locale === "ar" ? "غير مضاف" : "Not added"}</span>
+                      )}
+                    </td>
+                    <td className="p-3">{c.sector ?? "—"}</td>
+                    <td className="p-3"><StatusChip value={c.status} /></td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className="btn-ghost" onClick={() => void toggleVisibility(c.id, !c.public_visible)}>
+                          {c.public_visible ? (locale === "ar" ? "إخفاء" : "Hide") : locale === "ar" ? "إظهار" : "Show"}
+                        </button>
+                        <a className="btn-ghost" href={`/companies/${c.id}`}>{locale === "ar" ? "تعديل" : "Edit"}</a>
+                      </div>
                     </td>
                   </tr>
                 ))}

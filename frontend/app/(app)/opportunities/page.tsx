@@ -76,9 +76,16 @@ export default function OpportunitiesPage() {
   return (
     <section>
       <header className="mb-6">
-        <h1 className="page-title">{locale === "ar" ? "الفرص" : "Opportunities"}</h1>
+        <h1 className="page-title">
+          {locale === "ar" ? "الفرص التجارية والاستثمارية" : "Commercial and investment opportunities"}
+        </h1>
       </header>
       {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+      <p className="muted mb-4">
+        {locale === "ar"
+          ? "الاعتماد لا ينشئ مشروعاً: يسجّل القرار ووقته فقط."
+          : "Approval does not create a project: it records the decision and its timestamp only."}
+      </p>
 
       {can("opportunity:create") && (
         <form onSubmit={create} className="card mb-4 grid gap-3 sm:grid-cols-2">

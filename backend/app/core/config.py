@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     ai_model: str = "gpt-4o-mini"
     ai_base_url: str = "https://api.openai.com/v1"
     openai_api_key: str = ""
+    # Model classes the owner may pick from on the assistant screen (PDF p.17).
+    ai_model_classes: str = "gpt-4o-mini,gpt-4o,gpt-4.1-mini,gpt-4.1"
 
     @field_validator("secret_key")
     @classmethod
@@ -50,6 +52,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def ai_model_class_list(self) -> list[str]:
+        return [m.strip() for m in self.ai_model_classes.split(",") if m.strip()]
 
     @property
     def ai_configured(self) -> bool:

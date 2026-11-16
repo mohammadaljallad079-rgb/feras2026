@@ -21,6 +21,7 @@ from app.models.identity import (  # noqa: F401
 from app.models.operations import (  # noqa: F401
     AccountingEntry,
     AdvisorMessage,
+    AiProviderSetting,
     AiQuery,
     Employee,
     EmployeeEvent,

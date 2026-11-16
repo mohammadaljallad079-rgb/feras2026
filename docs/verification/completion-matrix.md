@@ -1,18 +1,20 @@
 # Completion matrix
 
 Status of every deliverable in the brief, with the evidence that supports it.
-Two things block a fully certified delivery and are stated plainly rather than
-papered over:
 
-1. `platform-design-ar.pdf` is absent from the repository, so page-by-page
-   *visual* parity cannot be certified. See
-   `docs/verification/reference-asset-blocker.md`.
-2. `assets/brand/holding-logo.png` is absent, so the official logo cannot be
-   placed. The header uses a temporary brand mark, which the spec forbids as a
-   final state; it must be replaced with the supplied asset unchanged.
+The design reference `platform-design-ar.pdf` (32 pages) is present at the
+repository root; every page was read, its Arabic content transcribed, and the
+resulting screen compared against the rendered page. That comparison, with the
+mismatches it found and how each was resolved, is in
+`docs/verification/visual-comparison.md`.
 
-Everything not dependent on those two files is implemented, wired to PostgreSQL
-through the API, and covered by automated tests.
+One reference asset is still missing: `assets/brand/holding-logo.png`. The
+header therefore renders a neutral mark with `data-logo="missing"` rather than a
+stand-in presented as approved branding. See
+`docs/verification/reference-asset-blocker.md`.
+
+Everything else is implemented, wired to PostgreSQL through the API, and covered
+by automated tests.
 
 ## 1. Requirements
 
@@ -28,8 +30,10 @@ through the API, and covered by automated tests.
 
 ## 2. Screen matrix (spec §4)
 
-All 22 distinct routes exist and render live API data. Visual parity per page is
-**UNVERIFIED** pending the PDF.
+All 22 distinct routes exist and render live API data. Per-page visual parity
+against the rendered reference page is recorded in
+`docs/verification/visual-comparison.md`; the implementation captures are in
+`docs/screenshots/impl/`.
 
 | PDF page | Screen | Route | UI | Backend |
 |---|---|---|---|---|
@@ -112,22 +116,41 @@ All 22 distinct routes exist and render live API data. Visual parity per page is
 
 ## 6. Mandatory visual acceptance (spec §23)
 
-**Not certifiable.** The reference PDF is missing, so the required
-reference-screenshot vs implementation-screenshot comparison cannot be produced.
-Screenshots of the implementation are recorded in `docs/screenshots/app/` for
-when the PDF arrives. This is an unresolved blocker, not a completed item.
+Done page by page. The reference pages are rendered to
+`docs/screenshots/pdf/page-NN.png`; the implementation captures are in
+`docs/screenshots/impl/`, one per row, produced by `scripts/capture_screens.py`
+against the live app. Each page was compared on layout, colour, typography,
+spacing, sidebar, content, buttons, forms, tables and status chips, and the
+mismatches found were corrected. The full record — page, route, both images, the
+mismatch, the resolution and the verdict — is
+`docs/verification/visual-comparison.md`.
+
+Seven pages had a real mismatch; all seven are fixed:
+
+| Page | Mismatch | Fix |
+|---|---|---|
+| 8 | Owner saw every draft instead of only reports sent to management | `reporting.py` restricts a `report:view_all` holder without `report:review` to approved/forwarded; the owner template no longer carries the accountant's duties |
+| 11 | The three narrowing controls were absent | Added company / status / source filters and a `filter` prop on `ResourceTable` |
+| 12 | Title was the short «الفرص» | Corrected to «الفرص التجارية والاستثمارية»; the screen states a decision creates no project |
+| 14 | Salary was readable by any `hr:view` holder | New `hr:view_salary` permission enforced in `hr.py`; the UI shows «مقيد» without the amount |
+| 18 | Subfields lacked the reference arrow marker | The report form indents a child field under its parent with «↳» |
+| 22 | The period banner and five action buttons were missing | `DashboardOut` gained `banner_ar/en` and `actions` |
+| 23 | No upload control for the mandatory bank statement | Required bank-statement field with upload, «مرفق» chip and download |
+
+Page 32 is the only partial row: the dark tokens and the toggle are in place and
+captured across six screens, but the full page-by-page dark capture set is still
+being completed.
 
 ## 7. Test results
 
 ```
-backend:  32 passed  (includes 12 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  36 passed  (includes 15 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build generates all 22 routes
-browser:  login, owner dashboard, companies, dark mode and EN/LTR verified
+browser:  34 screens captured across 7 roles, 2 locales, light/dark and 400px
 ```
 
 ## 8. What remains before final sign-off
 
-1. Commit `platform-design-ar.pdf` to `docs/reference/` and render its 32 pages.
-2. Commit `assets/brand/holding-logo.png` unchanged and place it in the header.
-3. Complete the page-by-page visual comparison and close the UNVERIFIED rows.
-4. Supply an approved specification for the public holding website.
+1. Commit `assets/brand/holding-logo.png` unchanged and place it in the header.
+2. Finish the page-by-page dark capture set for page 32.
+3. Supply an approved specification for the public holding website.

@@ -18,6 +18,8 @@ export default function ReportDetailPage() {
   const [values, setValues] = useState<Record<number, string>>({});
   const [commentary, setCommentary] = useState("");
   const [reason, setReason] = useState("");
+  const [statementName, setStatementName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -89,6 +91,25 @@ export default function ReportDetailPage() {
   const locked = report ? ["approved", "forwarded"].includes(report.status) : false;
   const editable = report ? ["draft", "returned"].includes(report.status) : false;
 
+  async function uploadStatement(file: File) {
+    setUploading(true);
+    setMessage(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (report) form.append("company_id", String(report.company_id));
+      const stored = await api.upload<{ id: number; original_name: string }>("/api/v1/files", form);
+      await api.put(`/api/v1/reports/${params.id}/values`, { bank_statement_file_id: stored.id, values: [] });
+      setStatementName(stored.original_name);
+      setMessage(locale === "ar" ? "تم رفع كشف الحساب." : "Bank statement uploaded.");
+      await load();
+    } catch {
+      setMessage(locale === "ar" ? "تعذّر رفع الملف." : "The upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function saveValues() {
     await run(
       () =>
@@ -139,9 +160,15 @@ export default function ReportDetailPage() {
               <h2 className="section-title">{locale === "ar" ? "قيم التقرير" : "Report values"}</h2>
               {fields
                 .filter((f) => f.is_active)
-                .map((f) => (
-                  <div key={f.id}>
+                .sort((a, b) => Number(Boolean(a.parent_id)) - Number(Boolean(b.parent_id)) || a.display_order - b.display_order)
+                .map((f) => {
+                  const parent = f.parent_id ? fields.find((p) => p.id === f.parent_id) : undefined;
+                  return (
+                  <div key={f.id} className={parent ? "ps-6" : undefined}>
                     <label className="label" htmlFor={`field-${f.id}`}>
+                      {parent && (
+                        <span className="me-2 text-gold" aria-label={locale === "ar" ? "حقل فرعي" : "Subfield"}>↳</span>
+                      )}
                       {locale === "ar" ? f.name_ar : f.name_en}
                       {f.is_required && <span aria-hidden="true"> *</span>}
                     </label>
@@ -154,7 +181,8 @@ export default function ReportDetailPage() {
                       onChange={(e) => setValues((v) => ({ ...v, [f.id]: e.target.value }))}
                     />
                   </div>
-                ))}
+                  );
+                })}
               <div>
                 <label className="label" htmlFor="commentary">
                   {locale === "ar" ? "التعليق الإداري" : "Administrative commentary"}
@@ -166,6 +194,41 @@ export default function ReportDetailPage() {
                   value={commentary}
                   onChange={(e) => setCommentary(e.target.value)}
                 />
+              </div>
+
+              {/* PDF p.23: the bank statement is mandatory before submission. */}
+              <div className="border-t border-line pt-4">
+                <label className="label" htmlFor="bank-statement">
+                  {locale === "ar" ? "كشف الحساب البنكي للشهر (إلزامي)" : "Bank statement for the month (required)"}
+                  <span aria-hidden="true"> *</span>
+                </label>
+                {report.bank_statement_file_id ? (
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="chip-ok">{locale === "ar" ? "مرفق" : "Attached"}</span>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => void api.download(`/api/v1/files/${report.bank_statement_file_id}/download`, "bank-statement")}
+                    >
+                      {statementName ?? (locale === "ar" ? "تنزيل الكشف" : "Download statement")}
+                    </button>
+                  </p>
+                ) : (
+                  <p className="muted">{locale === "ar" ? "كشف الحساب غير مرفق" : "Bank statement not attached"}</p>
+                )}
+                {editable && can("report:submit") && (
+                  <input
+                    id="bank-statement"
+                    type="file"
+                    className="input mt-2"
+                    accept=".pdf,.png,.jpg,.jpeg,.xlsx,.csv"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void uploadStatement(file);
+                    }}
+                  />
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 border-t border-line pt-4">

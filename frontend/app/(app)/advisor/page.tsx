@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
-import { api } from "@/lib/api";
+import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+
+type Person = { id: number; full_name_ar: string; full_name_en: string };
 
 type AdvisorMessage = {
   id: number;
@@ -25,6 +27,8 @@ export default function AdvisorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [form, setForm] = useState({ recipient_id: "", category: "recommendation", subject: "", body: "", company_id: "" });
 
   const load = useCallback(async () => {
@@ -40,6 +44,8 @@ export default function AdvisorPage() {
 
   useEffect(() => {
     void load();
+    api.get<Person[]>("/api/v1/users").then(setPeople).catch(() => undefined);
+    api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
   }, [load]);
 
   async function submit(e: React.FormEvent) {
@@ -79,8 +85,13 @@ export default function AdvisorPage() {
       {can("advisor:send") && (
         <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="label" htmlFor="adv-recipient">{locale === "ar" ? "معرّف المستلم" : "Recipient id"}</label>
-            <input id="adv-recipient" className="input" dir="ltr" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })} />
+            <label className="label" htmlFor="adv-recipient">{locale === "ar" ? "المستلم" : "Recipient"}</label>
+            <select id="adv-recipient" className="input" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
+              <option value="">—</option>
+              {people.map((u) => (
+                <option key={u.id} value={u.id}>{locale === "ar" ? u.full_name_ar : u.full_name_en}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="label" htmlFor="adv-category">{locale === "ar" ? "التصنيف" : "Category"}</label>
@@ -95,8 +106,13 @@ export default function AdvisorPage() {
             <input id="adv-subject" className="input" required value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="adv-company">{locale === "ar" ? "معرّف الشركة (اختياري)" : "Company id (optional)"}</label>
-            <input id="adv-company" className="input" dir="ltr" value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })} />
+            <label className="label" htmlFor="adv-company">{locale === "ar" ? "الشركة (اختياري)" : "Company (optional)"}</label>
+            <select id="adv-company" className="input" value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}>
+              <option value="">—</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{locale === "ar" ? c.name_ar : c.name_en}</option>
+              ))}
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label className="label" htmlFor="adv-body">{locale === "ar" ? "النص" : "Body"}</label>
@@ -113,9 +129,10 @@ export default function AdvisorPage() {
           <table className="w-full min-w-[640px] border-collapse">
             <thead>
               <tr className="border-b border-line bg-pearl">
-                <th className="p-3 text-start">{locale === "ar" ? "التصنيف" : "Category"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "الموضوع" : "Subject"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "المستلم" : "Recipient"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "النوع" : "Type"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "العنوان" : "Title"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "النص" : "Text"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "إلى" : "To"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الحالة" : "Status"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "إجراءات" : "Actions"}</th>
               </tr>
@@ -125,7 +142,13 @@ export default function AdvisorPage() {
                 <tr key={r.id} className="border-b border-line last:border-0">
                   <td className="p-3">{r.category}</td>
                   <td className="p-3">{r.subject}</td>
-                  <td className="p-3" dir="ltr">#{r.recipient_id}</td>
+                  <td className="p-3">{r.body}</td>
+                  <td className="p-3">
+                    {(() => {
+                      const u = people.find((x) => x.id === r.recipient_id);
+                      return u ? (locale === "ar" ? u.full_name_ar : u.full_name_en) : `#${r.recipient_id}`;
+                    })()}
+                  </td>
                   <td className="p-3"><StatusChip value={r.status} /></td>
                   <td className="p-3">
                     {r.status !== "read" && (

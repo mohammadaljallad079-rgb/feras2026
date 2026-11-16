@@ -48,34 +48,41 @@ export default function ReportsPage() {
     }
   }
 
+  const periodOf = (r: MonthlyReport) => periods.find((p) => p.id === r.period_id);
+
+  // PDF page 8: الفترة والشركة والعملة والحالة والاستحقاق وزر فتح.
   const columns: Column<MonthlyReport>[] = [
-    { key: "id", headerAr: "الرقم", headerEn: "ID", numeric: true, render: (r) => r.id },
+    {
+      key: "period",
+      headerAr: "الفترة",
+      headerEn: "Period",
+      numeric: true,
+      render: (r) => <span dir="ltr">{periodOf(r)?.[locale === "ar" ? "label_ar" : "label_en"] ?? r.period_id}</span>,
+    },
     {
       key: "company",
       headerAr: "الشركة",
       headerEn: "Company",
       render: (r) => companies.find((c) => c.id === r.company_id)?.[locale === "ar" ? "name_ar" : "name_en"] ?? r.company_id,
     },
-    {
-      key: "period",
-      headerAr: "الفترة",
-      headerEn: "Period",
-      render: (r) => periods.find((p) => p.id === r.period_id)?.[locale === "ar" ? "label_ar" : "label_en"] ?? r.period_id,
-    },
     { key: "currency", headerAr: "العملة", headerEn: "Currency", render: (r) => <span dir="ltr">{r.currency}</span> },
     { key: "status", headerAr: "الحالة", headerEn: "Status", render: (r) => <StatusChip value={r.status} /> },
     {
-      key: "submitted",
-      headerAr: "تاريخ الإرسال",
-      headerEn: "Submitted",
+      key: "due",
+      headerAr: "الاستحقاق",
+      headerEn: "Due",
       numeric: true,
-      render: (r) => <span dir="ltr">{r.submitted_at ? r.submitted_at.slice(0, 10) : "—"}</span>,
+      render: (r) => <span dir="ltr">{periodOf(r)?.due_on ?? "—"}</span>,
     },
   ];
 
   return (
     <>
-      <p className="muted mb-4">{locale === "ar" ? "تُعرض المبالغ بعملة كل شركة؛ لا تُجمع عملات مختلفة في إجمالي واحد." : "Amounts are shown per company currency; different currencies are never summed into one total."}</p>
+      <p className="muted mb-4">
+        {locale === "ar"
+          ? "تُعرض المبالغ بعملة كل شركة؛ لا تُجمع عملات مختلفة في إجمالي واحد."
+          : "Amounts are shown per company currency; different currencies are never summed into one total."}
+      </p>
       {message && (
         <p role="alert" className="mb-4 rounded-control border border-warn bg-warnbg p-3 text-warn">
           {message}
@@ -118,7 +125,7 @@ export default function ReportsPage() {
         permission="report:view_own"
         actions={(row) => (
           <button type="button" className="btn-ghost" onClick={() => router.push(`/reports/${row.id}`)}>
-            {locale === "ar" ? "فتح التقرير" : "Open report"}
+            {locale === "ar" ? "فتح" : "Open"}
           </button>
         )}
       />

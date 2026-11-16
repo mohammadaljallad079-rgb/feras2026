@@ -37,13 +37,15 @@ class AIProvider(Protocol):
 class OpenAIProvider:
     name = "openai"
 
-    def __init__(self) -> None:
-        self.model = settings.ai_model
+    def __init__(self, *, model: str | None = None, base_url: str | None = None, api_key: str | None = None) -> None:
+        self.model = model or settings.ai_model
+        self.base_url = base_url or settings.ai_base_url
+        self.api_key = api_key or settings.openai_api_key
 
     def complete(self, system: str, user: str) -> str:
         resp = httpx.post(
-            f"{settings.ai_base_url.rstrip('/')}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            f"{self.base_url.rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
             json={
                 "model": self.model,
                 "messages": [
@@ -61,11 +63,14 @@ class OpenAIProvider:
 _PROVIDERS: dict[str, type] = {"openai": OpenAIProvider}
 
 
-def get_provider() -> AIProvider:
-    cls = _PROVIDERS.get(settings.ai_provider)
+def get_provider(
+    name: str | None = None, *, model: str | None = None, base_url: str | None = None, api_key: str | None = None
+) -> AIProvider:
+    provider_name = name or settings.ai_provider
+    cls = _PROVIDERS.get(provider_name)
     if cls is None:
-        raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")
-    return cls()
+        raise ValueError(f"Unsupported AI provider: {provider_name}")
+    return cls(model=model, base_url=base_url, api_key=api_key)
 
 
 SYSTEM_PROMPT = (

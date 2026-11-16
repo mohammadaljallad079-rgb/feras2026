@@ -6,6 +6,8 @@ import { StatusChip } from "@/components/StatusChip";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
+type Person = { id: number; full_name_ar: string; full_name_en: string };
+
 type Directive = {
   id: number;
   title: string;
@@ -29,6 +31,7 @@ export default function DirectivesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [people, setPeople] = useState<Person[]>([]);
   const [form, setForm] = useState({ title: "", body: "", recipient_id: "", follow_up_on: "" });
 
   const load = useCallback(async () => {
@@ -45,6 +48,7 @@ export default function DirectivesPage() {
 
   useEffect(() => {
     void load();
+    api.get<Person[]>("/api/v1/users").then(setPeople).catch(() => undefined);
   }, [load]);
 
   async function create(e: React.FormEvent) {
@@ -102,8 +106,13 @@ export default function DirectivesPage() {
             <input id="dir-title" className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="dir-recipient">{locale === "ar" ? "معرّف المستلم" : "Recipient id"}</label>
-            <input id="dir-recipient" className="input" dir="ltr" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })} />
+            <label className="label" htmlFor="dir-recipient">{locale === "ar" ? "المستلم" : "Recipient"}</label>
+            <select id="dir-recipient" className="input" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
+              <option value="">—</option>
+              {people.map((u) => (
+                <option key={u.id} value={u.id}>{locale === "ar" ? u.full_name_ar : u.full_name_en}</option>
+              ))}
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label className="label" htmlFor="dir-body">{locale === "ar" ? "النص" : "Text"}</label>
@@ -141,7 +150,12 @@ export default function DirectivesPage() {
                       {r.title}
                       {isOverdue && <span className="chip-bad ms-2">{locale === "ar" ? "متأخر" : "Overdue"}</span>}
                     </td>
-                    <td className="p-3" dir="ltr">#{r.recipient_id}</td>
+                    <td className="p-3">
+                      {(() => {
+                        const u = people.find((x) => x.id === r.recipient_id);
+                        return u ? (locale === "ar" ? u.full_name_ar : u.full_name_en) : `#${r.recipient_id}`;
+                      })()}
+                    </td>
                     <td className="p-3" dir="ltr">{r.follow_up_on ?? "—"}</td>
                     <td className="p-3"><StatusChip value={r.status} /></td>
                     <td className="p-3">

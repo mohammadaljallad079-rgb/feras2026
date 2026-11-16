@@ -30,6 +30,7 @@ export function ResourceTable<T extends { id: number }>({
   createLabelEn,
   permission,
   filters,
+  filter,
 }: {
   titleAr: string;
   titleEn: string;
@@ -41,6 +42,8 @@ export function ResourceTable<T extends { id: number }>({
   createLabelEn?: string;
   permission?: string;
   filters?: React.ReactNode;
+  /** Client-side narrowing driven by the `filters` controls (PDF p.11). */
+  filter?: (row: T) => boolean;
 }) {
   const { locale, can } = useAuth();
   const [rows, setRows] = useState<T[]>([]);
@@ -74,6 +77,7 @@ export function ResourceTable<T extends { id: number }>({
   }, [load]);
 
   const permitted = !permission || can(permission);
+  const visible = filter ? rows.filter(filter) : rows;
 
   return (
     <section>
@@ -91,7 +95,7 @@ export function ResourceTable<T extends { id: number }>({
         </div>
       </header>
       {filters && <div className="mb-4 flex flex-wrap items-end gap-3">{filters}</div>}
-      <DataStates loading={loading} error={error} empty={rows.length === 0}>
+      <DataStates loading={loading} error={error} empty={visible.length === 0}>
         <div className="card table-scroll p-0">
           <table className="w-full min-w-[640px] border-collapse text-base">
             <thead>
@@ -105,7 +109,7 @@ export function ResourceTable<T extends { id: number }>({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {visible.map((row) => (
                 <tr key={row.id} className="border-b border-line last:border-0">
                   {columns.map((c) => (
                     <td key={c.key} className={`p-3 ${c.numeric ? "tabular-nums" : ""}`} dir={c.numeric ? "ltr" : undefined}>

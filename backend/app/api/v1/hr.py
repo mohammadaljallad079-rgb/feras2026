@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import allowed_company_ids, assert_company_access, require
+from app.api.deps import allowed_company_ids, assert_company_access, permissions_of, require
 from app.core.db import get_db
+from app.core.permissions import HR_VIEW_SALARY
 from app.models.enums import EmployeeStatus
 from app.models.identity import User
 from app.models.operations import Employee, EmployeeEvent, StoredFile
@@ -21,6 +22,21 @@ from app.schemas import (
 from app.services import audit
 
 router = APIRouter(prefix="/employees", tags=["hr"])
+
+
+def _mask_salary(rows: list[Employee], *, can_see: bool) -> list[EmployeeOut]:
+    """Salary is confidential: it is omitted from the payload, not merely hidden.
+
+    The UI also renders "مقيد", but that is presentation only — a caller without
+    ``hr:view_salary`` never receives the value over the API.
+    """
+    out: list[EmployeeOut] = []
+    for row in rows:
+        model = EmployeeOut.model_validate(row)
+        if not can_see:
+            model.salary = None
+        out.append(model)
+    return out
 
 
 @router.get("", response_model=list[EmployeeOut])
@@ -40,7 +56,7 @@ def list_employees(
     if employee_status:
         stmt = stmt.where(Employee.status == employee_status)
     rows = db.execute(stmt.order_by(Employee.id.desc())).scalars().all()
-    return [EmployeeOut.model_validate(e) for e in rows]
+    return _mask_salary(rows, can_see=HR_VIEW_SALARY in permissions_of(user))
 
 
 @router.post("", response_model=EmployeeOut, status_code=status.HTTP_201_CREATED)

@@ -11,23 +11,25 @@ export const DEFAULT_LOCALE: Locale = "ar";
 export const dir = (locale: Locale) => (locale === "ar" ? "rtl" : "ltr");
 
 export const dict = {
-  app: { ar: "منصة صفير القابضة", en: "Safir Holding Platform" },
+  // Brand name exactly as printed in the design reference (page 1 title and the
+  // sidebar of every screen): «ستارت أب سفير القابضة» / "Start Up Sphere Holding".
+  app: { ar: "ستارت أب سفير القابضة", en: "Start Up Sphere Holding" },
   nav: {
     dashboard: { ar: "لوحة التحكم", en: "Dashboard" },
     companies: { ar: "الشركات", en: "Companies" },
     reports: { ar: "التقارير الشهرية", en: "Monthly reports" },
-    accounting: { ar: "محاسبة المجموعة", en: "Holding accounting" },
-    serviceRequests: { ar: "طلبات الخدمة", en: "Service requests" },
+    accounting: { ar: "محاسبة القابضة", en: "Holding accounting" },
+    serviceRequests: { ar: "طلبات الخدمات", en: "Service requests" },
     leads: { ar: "العملاء المحتملون", en: "Leads" },
     opportunities: { ar: "الفرص", en: "Opportunities" },
-    directives: { ar: "التوجيهات التنفيذية", en: "Executive directives" },
-    hr: { ar: "الموظفون والموارد البشرية", en: "Employees and HR" },
+    directives: { ar: "التوجيهات", en: "Directives" },
+    hr: { ar: "الموظفون والموارد البشرية", en: "Employees & HR" },
     website: { ar: "إدارة الموقع", en: "Website management" },
     advisor: { ar: "المستشار الخارجي", en: "External advisor" },
     assistant: { ar: "المساعد الذكي", en: "AI assistant" },
     formBuilder: { ar: "منشئ النماذج", en: "Form builder" },
-    users: { ar: "المستخدمون والصلاحيات", en: "Users and roles" },
-    audit: { ar: "سجل النشاط", en: "Activity log" },
+    users: { ar: "المستخدمون والأدوار", en: "Users & roles" },
+    audit: { ar: "سجل النشاط", en: "Audit log" },
   },
   common: {
     login: { ar: "تسجيل الدخول", en: "Sign in" },

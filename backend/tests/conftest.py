@@ -10,9 +10,21 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
-os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://safir:safir@localhost:5432/safir_test")
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("STORAGE_DIR", "/tmp/safir-test-storage")
+
+# The suite drops and recreates every table. Refuse to run against anything but a
+# dedicated test database: sourcing the app's .env would otherwise point
+# DATABASE_URL at the live database and erase it.
+_TEST_URL = os.environ.get("TEST_DATABASE_URL") or os.environ.get(
+    "DATABASE_URL", "postgresql+psycopg://safir:safir@localhost:5432/safir_test"
+)
+if not _TEST_URL.rsplit("/", 1)[-1].split("?")[0].endswith("_test"):
+    raise RuntimeError(
+        f"Refusing to run destructive tests against {_TEST_URL!r}. "
+        "Point TEST_DATABASE_URL at a database whose name ends with '_test'."
+    )
+os.environ["DATABASE_URL"] = _TEST_URL
 
 from app.core.db import Base, get_db  # noqa: E402
 from app.core.security import hash_password  # noqa: E402

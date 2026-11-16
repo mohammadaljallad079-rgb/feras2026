@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "منصة صفير القابضة | Safir Holding Platform",
+  title: "ستارت أب سفير القابضة | Start Up Sphere Holding",
   description: "منصة إدارة الشركات القابضة",
 };
 

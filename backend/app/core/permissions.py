@@ -21,6 +21,7 @@ REPORT_VIEW_ALL = "report:view_all"
 REPORT_SUBMIT = "report:submit"
 REPORT_REVIEW = "report:review"
 REPORT_FORWARD = "report:forward"
+REPORT_PERIOD_MANAGE = "report:period_manage"
 
 FORM_MANAGE = "form:manage"
 
@@ -46,6 +47,7 @@ DIRECTIVE_UPDATE = "directive:update"
 HR_VIEW = "hr:view"
 HR_MANAGE = "hr:manage"
 HR_VIEW_CONFIDENTIAL = "hr:view_confidential"
+HR_VIEW_SALARY = "hr:view_salary"
 
 WEBSITE_VIEW = "website:view"
 WEBSITE_MANAGE = "website:manage"
@@ -54,23 +56,24 @@ ADVISOR_VIEW = "advisor:view"
 ADVISOR_SUBMIT = "advisor:submit"
 
 AI_USE = "ai:use"
+AI_CONFIGURE = "ai:configure"
 
 AUDIT_VIEW = "audit:view"
 
 ALL_PERMISSIONS: tuple[str, ...] = (
     COMPANY_VIEW, COMPANY_MANAGE,
     USER_VIEW, USER_MANAGE, ROLE_MANAGE,
-    REPORT_VIEW_OWN, REPORT_VIEW_ALL, REPORT_SUBMIT, REPORT_REVIEW, REPORT_FORWARD,
+    REPORT_VIEW_OWN, REPORT_VIEW_ALL, REPORT_SUBMIT, REPORT_REVIEW, REPORT_FORWARD, REPORT_PERIOD_MANAGE,
     FORM_MANAGE,
     ACCOUNTING_VIEW, ACCOUNTING_MANAGE,
     SERVICE_VIEW, SERVICE_CREATE, SERVICE_ASSIGN, SERVICE_REPLY,
     LEAD_VIEW, LEAD_MANAGE,
     OPP_VIEW, OPP_CREATE, OPP_DECIDE,
     DIRECTIVE_VIEW, DIRECTIVE_CREATE, DIRECTIVE_UPDATE,
-    HR_VIEW, HR_MANAGE, HR_VIEW_CONFIDENTIAL,
+    HR_VIEW, HR_MANAGE, HR_VIEW_CONFIDENTIAL, HR_VIEW_SALARY,
     WEBSITE_VIEW, WEBSITE_MANAGE,
     ADVISOR_VIEW, ADVISOR_SUBMIT,
-    AI_USE,
+    AI_USE, AI_CONFIGURE,
     AUDIT_VIEW,
 )
 
@@ -89,7 +92,12 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
     OWNER: {
         "name_ar": "مالك المجموعة",
         "name_en": "Holding Owner",
-        "permissions": list(ALL_PERMISSIONS),
+        # Broad oversight, but not the accountant's review/forward duties: the
+        # owner reads the reports that were formally sent to management
+        # (design reference page 8), rather than every draft.
+        "permissions": [
+            p for p in ALL_PERMISSIONS if p not in (REPORT_REVIEW, REPORT_FORWARD)
+        ],
     },
     COMPANY_MANAGER: {
         "name_ar": "مدير شركة",
@@ -97,7 +105,7 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "permissions": [
             COMPANY_VIEW, USER_VIEW, REPORT_VIEW_OWN, REPORT_SUBMIT, FORM_MANAGE,
             SERVICE_VIEW, SERVICE_CREATE, SERVICE_REPLY, LEAD_VIEW,
-            DIRECTIVE_VIEW, DIRECTIVE_UPDATE, HR_VIEW, HR_MANAGE,
+            DIRECTIVE_VIEW, DIRECTIVE_UPDATE, HR_VIEW, HR_MANAGE, HR_VIEW_SALARY,
             ACCOUNTING_VIEW, WEBSITE_VIEW, AI_USE,
         ],
     },
@@ -105,7 +113,7 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "name_ar": "محاسب",
         "name_en": "Accountant",
         "permissions": [
-            COMPANY_VIEW, REPORT_VIEW_ALL, REPORT_REVIEW, REPORT_FORWARD,
+            COMPANY_VIEW, REPORT_VIEW_ALL, REPORT_REVIEW, REPORT_FORWARD, REPORT_PERIOD_MANAGE,
             ACCOUNTING_VIEW, ACCOUNTING_MANAGE, SERVICE_VIEW, SERVICE_REPLY, AI_USE,
         ],
     },

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import allowed_company_ids, assert_company_access, require
+from app.api.deps import allowed_company_ids, assert_company_access, require, require_any
 from app.core.db import get_db
 from app.models.business import (
     Company,
@@ -43,7 +43,10 @@ LOCKED = {ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value}
 
 # --- Periods ----------------------------------------------------------------
 @router.get("/periods", response_model=list[PeriodOut])
-def list_periods(_: User = Depends(require("report:view_own")), db: Session = Depends(get_db)) -> list[PeriodOut]:
+def list_periods(
+    _: User = Depends(require_any("report:view_own", "report:view_all")),
+    db: Session = Depends(get_db),
+) -> list[PeriodOut]:
     rows = db.execute(select(ReportingPeriod).order_by(ReportingPeriod.year.desc(), ReportingPeriod.month.desc())).scalars().all()
     return [PeriodOut.model_validate(p) for p in rows]
 
@@ -51,7 +54,7 @@ def list_periods(_: User = Depends(require("report:view_own")), db: Session = De
 @router.post("/periods", response_model=PeriodOut, status_code=status.HTTP_201_CREATED)
 def open_period(
     payload: PeriodCreate,
-    actor: User = Depends(require("report:forward")),
+    actor: User = Depends(require("report:period_manage")),
     db: Session = Depends(get_db),
 ) -> PeriodOut:
     if db.execute(
@@ -110,7 +113,7 @@ def list_reports(
     company_id: int | None = None,
     period_id: int | None = None,
     report_status: str | None = Query(default=None, alias="status"),
-    user: User = Depends(require("report:view_own")),
+    user: User = Depends(require_any("report:view_own", "report:view_all")),
     db: Session = Depends(get_db),
 ) -> list[ReportOut]:
     stmt = select(MonthlyReport)
@@ -121,6 +124,10 @@ def list_reports(
         allowed = allowed_company_ids(db, user)
         if allowed is not None:
             stmt = stmt.where(MonthlyReport.company_id.in_(allowed or {-1}))
+    elif "report:review" not in perms:
+        # PDF p.8: the owner and the business developer see only the reports that
+        # were formally sent to holding management, not every draft.
+        stmt = stmt.where(MonthlyReport.status.in_([ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value]))
     if company_id is not None:
         assert_company_access(db, user, company_id)
         stmt = stmt.where(MonthlyReport.company_id == company_id)

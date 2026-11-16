@@ -70,6 +70,26 @@ def require(*required: str) -> Callable[[User], User]:
     return _checker
 
 
+def require_any(*required: str) -> Callable[[User], User]:
+    """Dependency factory: caller must hold *at least one* of the permissions.
+
+    Used where a screen is reachable by different duties — the report list, for
+    instance, is read by a manager (``report:view_own``) and by the accountant
+    and owner (``report:view_all``).
+    """
+
+    def _checker(user: User = Depends(get_current_user)) -> User:
+        held = permissions_of(user)
+        if not any(p in held for p in required):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": "forbidden", "missing_permissions": list(required)},
+            )
+        return user
+
+    return _checker
+
+
 def allowed_company_ids(db: Session, user: User) -> set[int] | None:
     """Return the set of companies a user may access, or ``None`` for all.
 

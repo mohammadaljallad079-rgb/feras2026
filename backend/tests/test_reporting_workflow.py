@@ -155,3 +155,79 @@ def test_manager_cannot_submit_into_closed_period(client, make_user, login, db):
     h_manager = login("r3_owner@safir-platform.com")
     resp = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid})
     assert resp.status_code == 409
+
+
+def test_owner_and_developer_see_only_reports_sent_to_management(client, make_user, login, db):
+    """Design reference page 8: the owner reads the reports formally sent to
+    management, not every draft the manager is still working on."""
+    make_user("vis_owner@safir-platform.com", ["owner"])
+    make_user("vis_bd@safir-platform.com", ["business_developer"])
+    manager = make_user("vis_manager@safir-platform.com", ["company_manager"])
+    make_user("vis_acct@safir-platform.com", ["accountant"])
+    h_owner = login("vis_owner@safir-platform.com")
+    h_bd = login("vis_bd@safir-platform.com")
+    h_manager = login("vis_manager@safir-platform.com")
+    h_acct = login("vis_acct@safir-platform.com")
+
+    cid = _company(client, h_owner, code="VIS-1")
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+
+    draft_id = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+
+    # A draft is visible to its author and to the accountant, but not yet to the
+    # owner or the business developer.
+    assert draft_id in [r["id"] for r in client.get("/api/v1/reports", headers=h_manager).json()]
+    assert draft_id in [r["id"] for r in client.get("/api/v1/reports", headers=h_acct).json()]
+    assert draft_id not in [r["id"] for r in client.get("/api/v1/reports", headers=h_owner).json()]
+    assert draft_id not in [r["id"] for r in client.get("/api/v1/reports", headers=h_bd).json()]
+
+    # Submit, approve and forward; the owner and the developer now see it.
+    user = db.query(User).filter(User.email == "vis_manager@safir-platform.com").one()
+    _attach_bank_statement(db, draft_id, _bank_statement(db, user))
+    assert client.post(f"/api/v1/reports/{draft_id}/submit", headers=h_manager).status_code == 200
+    assert client.post(f"/api/v1/reports/{draft_id}/approve", headers=h_acct).status_code == 200
+    assert client.post(f"/api/v1/reports/{draft_id}/forward", headers=h_acct).status_code == 200
+
+    assert draft_id in [r["id"] for r in client.get("/api/v1/reports", headers=h_owner).json()]
+    assert draft_id in [r["id"] for r in client.get("/api/v1/reports", headers=h_bd).json()]
+
+
+def test_accountant_can_list_reports_for_review(client, make_user, login):
+    """Design reference pages 24-25: the accountant's queue is the report list."""
+    make_user("rev_owner@safir-platform.com", ["owner"])
+    make_user("rev_acct@safir-platform.com", ["accountant"])
+    make_user("rev_marketer@safir-platform.com", ["marketer"])
+    h_owner = login("rev_owner@safir-platform.com")
+    h_acct = login("rev_acct@safir-platform.com")
+    h_marketer = login("rev_marketer@safir-platform.com")
+
+    assert client.get("/api/v1/reports", headers=h_acct).status_code == 200
+    assert client.get("/api/v1/periods", headers=h_acct).status_code == 200
+    # A role with no reporting duty is refused outright.
+    assert client.get("/api/v1/reports", headers=h_marketer).status_code == 403
+
+
+def test_owner_does_not_hold_the_accountants_review_duties(client, make_user, login):
+    """The owner has broad oversight but approving and forwarding reports is the
+    accountant's duty (design reference pages 8 and 24-25)."""
+    make_user("duty_owner@safir-platform.com", ["owner"])
+    manager = make_user("duty_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("duty_owner@safir-platform.com")
+    h_manager = login("duty_manager@safir-platform.com")
+
+    cid = _company(client, h_owner, code="DUTY-1")
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+    rid = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+
+    # The owner cannot review, approve or forward, even though it can read.
+    assert client.post(f"/api/v1/reports/{rid}/return", headers=h_owner, json={"reason": "no"}).status_code == 403
+    assert client.post(f"/api/v1/reports/{rid}/approve", headers=h_owner).status_code == 403
+    assert client.post(f"/api/v1/reports/{rid}/forward", headers=h_owner).status_code == 403
+    # Opening and closing a period remains an owner/accountant task.
+    assert client.post(
+        "/api/v1/periods",
+        headers=h_owner,
+        json={"label_ar": "فبراير 2026", "label_en": "Feb 2026", "year": 2026, "month": 2, "opens_on": "2026-02-01", "due_on": "2026-03-05"},
+    ).status_code == 201

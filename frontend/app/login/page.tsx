@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { appName, t } from "@/lib/i18n";
+import { BrandMark } from "@/components/BrandMark";
 
 export default function LoginPage() {
   const { login, locale, setLocale, theme, toggleTheme } = useAuth();
@@ -40,13 +41,8 @@ export default function LoginPage() {
         </div>
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
           <div className="text-center">
-            <div
-              className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gold text-goldink font-bold"
-              aria-hidden="true"
-            >
-              ص
-            </div>
-            <h1 className="page-title">{appName(locale)}</h1>
+            <BrandMark name={appName(locale)} size={48} tone="onCard" />
+            <h1 className="page-title mt-3">{appName(locale)}</h1>
             <p className="muted">{t("login", "title", locale)}</p>
           </div>
           {error && (

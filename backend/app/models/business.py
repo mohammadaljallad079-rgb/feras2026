@@ -53,8 +53,21 @@ class Company(Base, TimestampMixin):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     activation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     public_visible: Mapped[bool] = mapped_column(Boolean, default=False)
+    commercial_register_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     manager: Mapped["object | None"] = relationship("User", foreign_keys=[manager_user_id], lazy="joined")
+
+    @property
+    def manager_name_ar(self) -> str | None:
+        return getattr(self.manager, "full_name_ar", None)
+
+    @property
+    def manager_name_en(self) -> str | None:
+        return getattr(self.manager, "full_name_en", None)
+
+    @property
+    def logo_url(self) -> str | None:
+        return f"/api/v1/files/{self.logo_file_id}/download" if self.logo_file_id else None
 
 
 class ReportingPeriod(Base, TimestampMixin):

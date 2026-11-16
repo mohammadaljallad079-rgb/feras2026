@@ -53,7 +53,7 @@ journeys in `tests/test_e2e_journeys.py`.
 
 ## Browser verification
 
-Recorded in `docs/screenshots/app/`:
+Recorded in `docs/screenshots/impl/`:
 
 | File | What it shows |
 |---|---|

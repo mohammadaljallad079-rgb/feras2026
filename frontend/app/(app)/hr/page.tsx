@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ResourceTable, Column } from "@/components/ResourceTable";
+import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/components/StatusChip";
+import { DataStates } from "@/components/DataStates";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -22,16 +22,63 @@ type Employee = {
   created_at: string;
 };
 
+type EmployeeEvent = {
+  id: number;
+  employee_id: number;
+  kind: string;
+  detail: string;
+  effective_on: string | null;
+  attachment_file_id: number | null;
+  created_at: string;
+};
+
 export default function HrPage() {
   const { locale, can } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [form, setForm] = useState({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", hired_on: "" });
+  const [rows, setRows] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [events, setEvents] = useState<EmployeeEvent[]>([]);
+  const [eventForm, setEventForm] = useState({ kind: "leave", detail: "", effective_on: "" });
+  const [form, setForm] = useState({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", hired_on: "" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await api.get<Employee[]>("/api/v1/employees"));
+    } catch {
+      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } finally {
+      setLoading(false);
+    }
+  }, [locale]);
 
   useEffect(() => {
+    void load();
     api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
-  }, []);
+  }, [load]);
+
+  async function openEvents(id: number) {
+    if (openId === id) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(id);
+    setEvents(await api.get<EmployeeEvent[]>(`/api/v1/employees/${id}/events`).catch(() => []));
+  }
+
+  async function addEvent(id: number) {
+    if (!eventForm.detail) return;
+    await api.post(`/api/v1/employees/${id}/events`, {
+      ...eventForm,
+      effective_on: eventForm.effective_on || null,
+    });
+    setEventForm({ kind: "leave", detail: "", effective_on: "" });
+    setEvents(await api.get<EmployeeEvent[]>(`/api/v1/employees/${id}/events`).catch(() => []));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,32 +95,36 @@ export default function HrPage() {
       });
       setForm({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", hired_on: "" });
       setMessage(locale === "ar" ? "تمت إضافة الموظف." : "Employee added.");
-      setReloadKey((k) => k + 1);
+      await load();
     } catch {
       setMessage(locale === "ar" ? "تعذّر الحفظ." : "Could not save.");
     }
   }
 
-  const columns: Column<Employee>[] = [
-    { key: "name", headerAr: "الاسم", headerEn: "Name", render: (r) => (locale === "ar" ? r.name_ar : r.name_en) },
-    { key: "job_title", headerAr: "المسمى الوظيفي", headerEn: "Job title", render: (r) => r.job_title },
-    {
-      key: "company",
-      headerAr: "الشركة",
-      headerEn: "Company",
-      render: (r) => companies.find((c) => c.id === r.company_id)?.[locale === "ar" ? "name_ar" : "name_en"] ?? r.company_id,
-    },
-    { key: "contact", headerAr: "بيانات التواصل", headerEn: "Contact", render: (r) => <span dir="ltr">{r.contact_email ?? r.contact_phone ?? "—"}</span> },
-    // Salary is confidential HR data; it is only rendered when the viewer holds
-    // hr:view_salary, which the backend also enforces on the record itself.
-    { key: "salary", headerAr: "الراتب", headerEn: "Salary", numeric: true, render: (r) => (can("hr:view_salary") ? <span dir="ltr">{r.salary ? `${r.salary} ${r.currency}` : "—"}</span> : <span className="chip-bad">{locale === "ar" ? "مقيد" : "Restricted"}</span>) },
-    { key: "contract", headerAr: "العقد", headerEn: "Contract", render: (r) => r.contract_type ?? "—" },
-    { key: "status", headerAr: "حالة التوظيف", headerEn: "Employment status", render: (r) => <StatusChip value={r.status} /> },
-  ];
+  // PDF page 14: employee files are grouped per company.
+  const grouped = companies
+    .map((c) => ({ company: c, staff: rows.filter((r) => r.company_id === c.id) }))
+    .filter((g) => g.staff.length > 0);
+
+  const canSeeConfidential = can("hr:view_confidential");
 
   return (
-    <>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+    <section>
+      <header className="mb-4">
+        <h1 className="page-title">{locale === "ar" ? "الموظفون والموارد البشرية" : "Employees and HR"}</h1>
+        <p className="muted">
+          {locale === "ar"
+            ? "تُعرض ملفات الموظفين لكل شركة. مرفقات الإجازات تظهر «مرفق مقيد» لمن لا يملك صلاحية الوصول."
+            : "Employee files are shown per company. Leave attachments read «مرفق مقيد» for anyone without the permission."}
+        </p>
+      </header>
+
+      {message && (
+        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
+          {message}
+        </p>
+      )}
+
       {can("hr:manage") && (
         <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
           <div>
@@ -120,14 +171,98 @@ export default function HrPage() {
           </div>
         </form>
       )}
-      <ResourceTable<Employee>
-        key={reloadKey}
-        titleAr="الموظفون والموارد البشرية"
-        titleEn="Employees and HR"
-        endpoint="/api/v1/employees"
-        columns={columns}
-        permission="hr:view"
-      />
-    </>
+
+      <DataStates loading={loading} error={error} empty={grouped.length === 0}>
+        <div className="space-y-6">
+          {grouped.map(({ company, staff }) => (
+            <article key={company.id} className="card table-scroll">
+              <h2 className="section-title mb-3">{locale === "ar" ? company.name_ar : company.name_en}</h2>
+              <table className="w-full min-w-[760px] border-collapse">
+                <thead>
+                  <tr className="border-b border-line">
+                    {[
+                      { ar: "الاسم", en: "Name" },
+                      { ar: "المنصب", en: "Job title" },
+                      { ar: "التواصل", en: "Contact" },
+                      { ar: "الراتب", en: "Salary" },
+                      { ar: "العقد", en: "Contract" },
+                      { ar: "الحالة", en: "Status" },
+                      { ar: "السجلات", en: "Records" },
+                    ].map((c) => (
+                      <th key={c.en} className="p-2 text-start text-secondary">
+                        {locale === "ar" ? c.ar : c.en}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff.map((r) => (
+                    <tr key={r.id} className="border-b border-line last:border-0 align-top">
+                      <td className="p-2">{locale === "ar" ? r.name_ar : r.name_en}</td>
+                      <td className="p-2">{r.job_title}</td>
+                      <td className="p-2" dir="ltr">{r.contact_email ?? r.contact_phone ?? "—"}</td>
+                      {/* Salary is confidential; the backend refuses the value too. */}
+                      <td className="p-2" dir="ltr">
+                        {can("hr:view_salary") ? (r.salary ? `${r.salary} ${r.currency}` : "—") : <span className="chip-bad">{locale === "ar" ? "مقيد" : "Restricted"}</span>}
+                      </td>
+                      <td className="p-2">{r.contract_type ?? "—"}</td>
+                      <td className="p-2"><StatusChip value={r.status} /></td>
+                      <td className="p-2">
+                        <button type="button" className="btn-ghost" onClick={() => void openEvents(r.id)} aria-expanded={openId === r.id}>
+                          {locale === "ar" ? "السجل" : "History"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {openId !== null && staff.some((s) => s.id === openId) && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <h3 className="section-title mb-2">{locale === "ar" ? "سجل الإجازات والحركات" : "Leave and movement records"}</h3>
+                  <ul className="space-y-2">
+                    {events.length === 0 && <li className="muted">{locale === "ar" ? "لا سجلات." : "No records."}</li>}
+                    {events.map((ev) => (
+                      <li key={ev.id} className="rounded-control bg-pearl p-3">
+                        <p className="text-secondary">
+                          <StatusChip value={ev.kind} /> <span dir="ltr">{ev.effective_on ?? ""}</span>
+                        </p>
+                        <p>{ev.detail}</p>
+                        {ev.attachment_file_id &&
+                          (canSeeConfidential ? (
+                            <button
+                              type="button"
+                              className="btn-ghost mt-2"
+                              onClick={() => void api.download(`/api/v1/files/${ev.attachment_file_id}/download`, `attachment-${ev.id}`)}
+                            >
+                              {locale === "ar" ? "تنزيل المرفق" : "Download attachment"}
+                            </button>
+                          ) : (
+                            <span className="chip-warn mt-2 inline-block">{locale === "ar" ? "مرفق مقيد" : "Restricted attachment"}</span>
+                          ))}
+                      </li>
+                    ))}
+                  </ul>
+                  {can("hr:manage") && (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[auto_1fr_auto_auto]">
+                      <select className="input w-auto" value={eventForm.kind} onChange={(e) => setEventForm({ ...eventForm, kind: e.target.value })}>
+                        <option value="leave">{locale === "ar" ? "إجازة" : "Leave"}</option>
+                        <option value="movement">{locale === "ar" ? "حركة" : "Movement"}</option>
+                        <option value="promotion">{locale === "ar" ? "ترقية" : "Promotion"}</option>
+                      </select>
+                      <input className="input" placeholder={locale === "ar" ? "التفاصيل" : "Detail"} value={eventForm.detail} onChange={(e) => setEventForm({ ...eventForm, detail: e.target.value })} />
+                      <input type="date" className="input w-auto" dir="ltr" value={eventForm.effective_on} onChange={(e) => setEventForm({ ...eventForm, effective_on: e.target.value })} />
+                      <button type="button" className="btn-primary" onClick={() => void addEvent(openId)}>
+                        {locale === "ar" ? "إضافة سجل" : "Add record"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      </DataStates>
+    </section>
   );
 }

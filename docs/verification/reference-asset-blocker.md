@@ -1,4 +1,4 @@
-# Reference asset blocker
+# Reference asset status
 
 ## Summary
 
@@ -6,50 +6,46 @@ The delivery specification names two authoritative inputs:
 
 | Asset | Expected path | Status |
 |---|---|---|
-| Authoritative design document (32 pages) | `platform-design-ar.pdf` | **MISSING** |
+| Authoritative design document (32 pages) | `platform-design-ar.pdf` | **Present** (repository root) |
 | Official brand logo | `assets/brand/holding-logo.png` | **MISSING** |
 
-## How this was verified
+## Design reference — resolved
 
-- The repository was cloned from `mohammadaljallad079-rgb/feras2026`.
-- `git ls-files` returns only `README.md`; the full git history contains a single
-  commit (`83913ad`) that adds `README.md` and nothing else.
-- The GitHub contents API for the repository root returns only `README.md`.
-- A filesystem search for `platform-design*` and `holding-logo*` across the whole
-  build machine returns no match.
-- There is no `assets/` directory in the repository; `assets/brand/` exists only
-  as an empty directory created for the expected logo.
+`platform-design-ar.pdf` (2.4 MB, 32 pages) is committed at the repository root
+and its pages are rendered to `docs/screenshots/pdf/page-NN.png`. Every page has
+been read and its Arabic content transcribed, which is what the page-by-page
+implementation and the fidelity record in
+`docs/verification/visual-comparison.md` are built from. The earlier "reference
+missing" blocker no longer applies to the design document.
 
-## Impact
+Two page groups are explicitly *not* governed by the PDF, and are treated as
+separately specified deliverables:
 
-1. **Visual fidelity cannot be certified.** The specification requires that every
-   screen match the PDF's layout, colours, typography, spacing, sidebar, content,
-   buttons, forms, tables and status chips, with a side-by-side comparison report.
-   Without the PDF this comparison is impossible.
-2. **Exact Arabic micro-copy cannot be transcribed.** Screen titles, captions and
-   labels that exist only inside the PDF screenshots cannot be reproduced verbatim.
-   Nothing has been invented to fill the gap.
-3. **Branding cannot be applied.** The official logo must be used unaltered; the
-   file is not available.
+- The public holding-company **website**. The PDF states that it covers the
+  management platform only; no website design is specified, so no website screen
+  is presented as visually faithful.
+- The prototype's **simulation controls** (role switcher banner, "demo data"
+  notes). These must not appear in the production application and do not.
 
-## What was done instead
+## Brand logo — still blocking
 
-The platform was implemented against the parts of the specification that are
-fully self-contained — the design tokens (spec §3), the screen matrix (spec §4),
-the permission model (spec §5), the workflow rules (spec §6–§19) and the
-production requirements (spec §20–§22). All of these are implemented in code and
-covered by automated tests.
+`assets/brand/holding-logo.png` does not exist. This was verified by:
 
-Per the specification ("Record unresolved ambiguity rather than inventing an exact
-transcription"), every row whose fidelity depends on the PDF is marked
-**UNVERIFIED** in `docs/reference/TRACEABILITY.md`.
+- `git ls-files` and the full git history (three commits) — no logo file.
+- A filesystem search for `holding-logo*` / `*.png` / `*.svg` outside
+  `node_modules`, `.venv`, `.next` and `docs/screenshots` — no match.
+- `frontend/public/brand/` is empty.
+
+Impact: the specification requires the supplied logo to be used unaltered, with
+its proportions, colours and internal artwork preserved. Until the file is
+supplied, `components/BrandMark.tsx` renders a neutral text mark and sets
+`data-logo="missing"` on the element, so the gap is visible in the DOM and in
+every screenshot rather than silently passing as approved branding. The
+component already points at `/brand/holding-logo.png`; dropping the file into
+`frontend/public/brand/` completes the requirement with no code change.
 
 ## Action required
 
-Commit the two assets to the repository, then the visual verification pass in
-`docs/verification/` can be completed:
-
 ```
-docs/reference/platform-design-ar.pdf
-assets/brand/holding-logo.png
+frontend/public/brand/holding-logo.png   # the supplied asset, unchanged
 ```
