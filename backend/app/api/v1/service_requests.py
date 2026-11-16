@@ -30,17 +30,19 @@ def list_requests(
     db: Session = Depends(get_db),
 ) -> list[ServiceRequestOut]:
     stmt = select(ServiceRequest)
+    allowed = allowed_company_ids(db, user)
     if box == "inbox":
         stmt = stmt.where(ServiceRequest.recipient_id == user.id)
     elif box == "sent":
         stmt = stmt.where(ServiceRequest.created_by_id == user.id)
     else:
-        stmt = stmt.where(
-            or_(ServiceRequest.recipient_id == user.id, ServiceRequest.created_by_id == user.id)
-        )
-    allowed = allowed_company_ids(db, user)
-    if allowed is not None:
-        stmt = stmt.where(ServiceRequest.company_id.in_(allowed or {-1}))
+        # Being the recipient or the creator is itself the grant, so an assigned
+        # specialist sees their inbox even without a company-scope row.
+        own = or_(ServiceRequest.recipient_id == user.id, ServiceRequest.created_by_id == user.id)
+        if allowed is None:
+            stmt = stmt.where(own)
+        else:
+            stmt = stmt.where(or_(own, ServiceRequest.company_id.in_(allowed or {-1})))
     rows = db.execute(stmt.order_by(ServiceRequest.id.desc())).scalars().all()
     return [ServiceRequestOut.model_validate(r) for r in rows]
 

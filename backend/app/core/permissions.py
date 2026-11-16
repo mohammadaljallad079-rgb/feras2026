@@ -115,7 +115,7 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "permissions": [
             COMPANY_VIEW, REPORT_VIEW_ALL, LEAD_VIEW, LEAD_MANAGE,
             OPP_VIEW, OPP_CREATE, SERVICE_VIEW, SERVICE_CREATE,
-            ADVISOR_VIEW, ADVISOR_SUBMIT, WEBSITE_VIEW, AI_USE,
+            ADVISOR_VIEW, ADVISOR_SUBMIT, WEBSITE_VIEW, WEBSITE_MANAGE, AI_USE,
         ],
     },
     MARKETER: {

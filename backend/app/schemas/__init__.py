@@ -230,6 +230,7 @@ class ReportCreate(BaseModel):
 class ReportValuesUpdate(BaseModel):
     commentary: str | None = None
     values: list[ReportValueIn]
+    bank_statement_file_id: int | None = None
 
 
 class ReportReturn(BaseModel):

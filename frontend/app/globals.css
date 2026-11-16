@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens — reproduced verbatim from the delivery specification. */
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --ink: #0b192c;
+  --mut: #5b6575;
+  --line: #dde1e7;
+  --gold: #c3a36b;
+  --goldink: #73562b;
+  --acc: #0b192c;
+  --accfg: #ffffff;
+  --ok: #1d7a52;
+  --warn: #a86a00;
+  --bad: #b3261e;
+  --okbg: #e4f3ec;
+  --warnbg: #fbf0dc;
+  --badbg: #fbe5e3;
+  --side: #0b192c;
+  --sidefg: #e8ebf0;
+  --pearl: #eef1f4;
+}
+
+[data-theme="dark"] {
+  --bg: #0a1220;
+  --card: #111d30;
+  --ink: #e8ebf0;
+  --mut: #9aa6b8;
+  --line: #243249;
+  --gold: #c3a36b;
+  --goldink: #d9c096;
+  --acc: #c6a87c;
+  --accfg: #0b192c;
+  --ok: #5fd0a0;
+  --warn: #f0b955;
+  --bad: #ff8f87;
+  --okbg: #12342a;
+  --warnbg: #3a2d10;
+  --badbg: #401a18;
+  --side: #060d18;
+  --sidefg: #e8ebf0;
+  --pearl: #16243a;
+}
+
+html {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.7;
+  min-width: 400px;
+}
+
+/* Visible keyboard focus on every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Wide tables scroll inside their own container, never the page. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-line bg-card p-4;
+  }
+  .page-title {
+    @apply text-page font-semibold text-ink;
+  }
+  .section-title {
+    @apply text-section font-semibold text-ink;
+  }
+  .muted {
+    @apply text-secondary text-mut;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-control px-4 py-2 text-secondary font-medium transition;
+  }
+  .btn-primary {
+    @apply btn bg-acc text-accfg hover:opacity-90 disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-card text-ink hover:bg-pearl;
+  }
+  .btn-gold {
+    @apply btn bg-gold text-goldink hover:opacity-90;
+  }
+  .input {
+    @apply w-full rounded-control border border-line bg-card px-3 py-2 text-base text-ink;
+  }
+  .label {
+    @apply mb-1 block text-secondary font-medium text-ink;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-secondary font-medium;
+  }
+  .chip-ok {
+    @apply chip bg-okbg text-ok;
+  }
+  .chip-warn {
+    @apply chip bg-warnbg text-warn;
+  }
+  .chip-bad {
+    @apply chip bg-badbg text-bad;
+  }
+  .chip-neutral {
+    @apply chip border border-line bg-pearl text-mut;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 rounded-control px-3 py-2 text-secondary hover:bg-white/10;
+  }
+  .nav-item-active {
+    @apply bg-white/15 font-semibold text-white;
+  }
+}

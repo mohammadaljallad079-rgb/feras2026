@@ -1,0 +1,83 @@
+"use client";
+
+import { useAuth } from "@/lib/auth";
+import { t } from "@/lib/i18n";
+
+/** Status chip vocabulary shared by every module. */
+const STATUS_MAP: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
+  active: "ok",
+  approved: "ok",
+  forwarded: "ok",
+  completed: "ok",
+  answered: "ok",
+  won: "ok",
+  reviewed: "ok",
+  read: "ok",
+  converted: "ok",
+  draft: "neutral",
+  open: "ok",
+  new: "warn",
+  submitted: "warn",
+  returned: "warn",
+  under_review: "warn",
+  in_progress: "warn",
+  received: "warn",
+  sent: "warn",
+  on_leave: "warn",
+  deferred: "warn",
+  unread: "warn",
+  qualified: "ok",
+  contacted: "warn",
+  closed: "neutral",
+  rejected: "bad",
+  lost: "bad",
+  terminated: "bad",
+  overdue: "bad",
+  restricted: "bad",
+};
+
+const LABELS: Record<string, { ar: string; en: string }> = {
+  draft: { ar: "مسودة", en: "Draft" },
+  active: { ar: "مفعّلة", en: "Active" },
+  closed: { ar: "مغلقة", en: "Closed" },
+  open: { ar: "مفتوحة", en: "Open" },
+  submitted: { ar: "مُرسل", en: "Submitted" },
+  returned: { ar: "مُعاد", en: "Returned" },
+  approved: { ar: "معتمد", en: "Approved" },
+  forwarded: { ar: "مُرسل للإدارة", en: "Sent to management" },
+  reviewed: { ar: "مُراجع", en: "Reviewed" },
+  rejected: { ar: "مرفوض", en: "Rejected" },
+  under_review: { ar: "قيد المراجعة", en: "Under review" },
+  deferred: { ar: "مؤجّل", en: "Deferred" },
+  new: { ar: "جديد", en: "New" },
+  in_progress: { ar: "قيد التنفيذ", en: "In progress" },
+  answered: { ar: "تم الرد", en: "Answered" },
+  sent: { ar: "مُرسل", en: "Sent" },
+  received: { ar: "مستلَم", en: "Received" },
+  completed: { ar: "منجز", en: "Completed" },
+  contacted: { ar: "تم التواصل", en: "Contacted" },
+  qualified: { ar: "مؤهَّل", en: "Qualified" },
+  won: { ar: "مكتسب", en: "Won" },
+  lost: { ar: "مفقود", en: "Lost" },
+  on_leave: { ar: "في إجازة", en: "On leave" },
+  terminated: { ar: "منتهي", en: "Terminated" },
+  converted: { ar: "محوَّل", en: "Converted" },
+  unread: { ar: "غير مقروء", en: "Unread" },
+  read: { ar: "مقروء", en: "Read" },
+  low: { ar: "منخفضة", en: "Low" },
+  normal: { ar: "عادية", en: "Normal" },
+  high: { ar: "عالية", en: "High" },
+  urgent: { ar: "عاجلة", en: "Urgent" },
+  expense: { ar: "مصروف", en: "Expense" },
+  invoice: { ar: "فاتورة", en: "Invoice" },
+  commission: { ar: "عمولة", en: "Commission" },
+};
+
+export function StatusChip({ value }: { value: string }) {
+  const { locale } = useAuth();
+  const tone = STATUS_MAP[value] ?? "neutral";
+  const cls =
+    tone === "ok" ? "chip-ok" : tone === "warn" ? "chip-warn" : tone === "bad" ? "chip-bad" : "chip-neutral";
+  const label = LABELS[value]?.[locale] ?? value;
+  return <span className={cls}>{label}</span>;
+}

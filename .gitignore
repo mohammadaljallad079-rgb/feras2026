@@ -25,3 +25,6 @@ storage/
 # Build artifacts
 dist/
 build/
+
+# TS build info
+*.tsbuildinfo

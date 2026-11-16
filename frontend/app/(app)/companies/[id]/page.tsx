@@ -1,0 +1,165 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { api, Company } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { DataStates } from "@/components/DataStates";
+import { StatusChip } from "@/components/StatusChip";
+
+export default function CompanyDetailPage() {
+  const params = useParams<{ id: string }>();
+  const { locale, can } = useAuth();
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [edit, setEdit] = useState(false);
+  const [form, setForm] = useState<Partial<Company>>({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const c = await api.get<Company>(`/api/v1/companies/${params.id}`);
+      setCompany(c);
+      setForm(c);
+    } catch (e) {
+      const err = e as { status: number };
+      setError(
+        err.status === 404
+          ? locale === "ar"
+            ? "الشركة غير موجودة أو غير مصرّح بالوصول إليها."
+            : "The company does not exist or you are not permitted to view it."
+          : locale === "ar"
+            ? "تعذّر تحميل البيانات."
+            : "Could not load data.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id, locale]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function save() {
+    setMessage(null);
+    try {
+      await api.patch(`/api/v1/companies/${params.id}`, {
+        name_ar: form.name_ar,
+        name_en: form.name_en,
+        country: form.country,
+        sector: form.sector,
+        contact_email: form.contact_email,
+        contact_phone: form.contact_phone,
+        ownership_percent: form.ownership_percent,
+        currency: form.currency,
+      });
+      setMessage(locale === "ar" ? "تم الحفظ." : "Saved.");
+      setEdit(false);
+      await load();
+    } catch {
+      setMessage(locale === "ar" ? "تعذّر الحفظ." : "Could not save.");
+    }
+  }
+
+  async function act(verb: "activate" | "close") {
+    setMessage(null);
+    try {
+      await api.post(`/api/v1/companies/${params.id}/${verb}`);
+      setMessage(verb === "activate" ? (locale === "ar" ? "تم تفعيل الشركة." : "Company activated.") : locale === "ar" ? "تم إغلاق الشركة." : "Company closed.");
+      await load();
+    } catch {
+      setMessage(locale === "ar" ? "فشل الإجراء." : "The action failed.");
+    }
+  }
+
+  return (
+    <section>
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">{company ? (locale === "ar" ? company.name_ar : company.name_en) : "…"}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          {company && <StatusChip value={company.status} />}
+          {can("company:edit") && (
+            <button type="button" className="btn-ghost" onClick={() => setEdit((v) => !v)}>
+              {edit ? (locale === "ar" ? "إلغاء" : "Cancel") : locale === "ar" ? "تعديل" : "Edit"}
+            </button>
+          )}
+          {company?.status === "draft" && can("company:activate") && (
+            <button type="button" className="btn-gold" onClick={() => void act("activate")}>
+              {locale === "ar" ? "تفعيل" : "Activate"}
+            </button>
+          )}
+          {company?.status === "active" && can("company:close") && (
+            <button type="button" className="btn-ghost" onClick={() => void act("close")}>
+              {locale === "ar" ? "إغلاق" : "Close"}
+            </button>
+          )}
+        </div>
+      </header>
+      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+
+      <DataStates loading={loading} error={error} empty={!company}>
+        {company && (
+          <div className="card grid gap-4 sm:grid-cols-2">
+            {edit ? (
+              <>
+                {(
+                  [
+                    ["name_ar", locale === "ar" ? "الاسم بالعربية" : "Arabic name"],
+                    ["name_en", locale === "ar" ? "الاسم بالإنجليزية" : "English name"],
+                    ["country", locale === "ar" ? "الدولة" : "Country"],
+                    ["sector", locale === "ar" ? "القطاع" : "Sector"],
+                    ["contact_email", locale === "ar" ? "البريد الإلكتروني" : "Contact email"],
+                    ["contact_phone", locale === "ar" ? "الهاتف" : "Contact phone"],
+                    ["ownership_percent", locale === "ar" ? "نسبة الملكية" : "Ownership percentage"],
+                    ["currency", locale === "ar" ? "العملة" : "Currency"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <div key={key}>
+                    <label className="label" htmlFor={`co-${key}`}>{label}</label>
+                    <input
+                      id={`co-${key}`}
+                      className="input"
+                      dir={["name_ar"].includes(key) ? "rtl" : "ltr"}
+                      value={String(form[key] ?? "")}
+                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                    />
+                  </div>
+                ))}
+                <div className="sm:col-span-2">
+                  <button type="button" className="btn-primary" onClick={() => void save()}>
+                    {locale === "ar" ? "حفظ" : "Save"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {(
+                  [
+                    ["code", locale === "ar" ? "رمز الشركة" : "Company code"],
+                    ["name_ar", locale === "ar" ? "الاسم بالعربية" : "Arabic name"],
+                    ["name_en", locale === "ar" ? "الاسم بالإنجليزية" : "English name"],
+                    ["country", locale === "ar" ? "الدولة" : "Country"],
+                    ["sector", locale === "ar" ? "القطاع" : "Sector"],
+                    ["contact_email", locale === "ar" ? "البريد الإلكتروني" : "Contact email"],
+                    ["contact_phone", locale === "ar" ? "الهاتف" : "Contact phone"],
+                    ["ownership_percent", locale === "ar" ? "نسبة الملكية" : "Ownership percentage"],
+                    ["currency", locale === "ar" ? "العملة" : "Currency"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <div key={key}>
+                    <dt className="muted">{label}</dt>
+                    <dd dir={key === "name_ar" ? "rtl" : "ltr"}>{String(company[key] ?? "—")}</dd>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </DataStates>
+    </section>
+  );
+}

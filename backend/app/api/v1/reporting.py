@@ -23,6 +23,7 @@ from app.models.business import (
     ReportValue,
 )
 from app.models.enums import ReportStatus
+from app.models.operations import StoredFile
 from app.models.identity import User
 from app.schemas import (
     PeriodCreate,
@@ -230,6 +231,11 @@ def save_values(
 
     if payload.commentary is not None:
         report.commentary = payload.commentary
+    if payload.bank_statement_file_id is not None:
+        # The manager must be able to attach the statement their company owns.
+        if db.get(StoredFile, payload.bank_statement_file_id) is None:
+            raise HTTPException(status_code=422, detail="Unknown bank statement file")
+        report.bank_statement_file_id = payload.bank_statement_file_id
     audit.record(db, action="report.save_values", actor=actor, target_type="report", target_id=report.id, company_id=report.company_id)
     db.commit()
     db.refresh(report)
@@ -332,6 +338,57 @@ def forward_report(
     db.commit()
     db.refresh(report)
     return ReportOut.model_validate(report)
+
+
+@router.get("/reports/{report_id}/export")
+def export_report(
+    report_id: int,
+    actor: User = Depends(require("report:export")),
+    db: Session = Depends(get_db),
+):
+    """Excel export. Values are written with the company currency, never summed
+    across currencies."""
+    import io
+
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+
+    report = _load(db, report_id)
+    assert_company_access(db, actor, report.company_id)
+    fields = {f.id: f for f in db.execute(select(FormField)).scalars().all()}
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Report"
+    ws.append(["Report ID", report.id])
+    ws.append(["Company ID", report.company_id])
+    ws.append(["Period ID", report.period_id])
+    ws.append(["Status", report.status])
+    ws.append(["Currency", report.currency])
+    ws.append([])
+    ws.append(["Field (AR)", "Field (EN)", "Version", "Text value", "Numeric value", "Currency"])
+    for v in report.values:
+        field = fields.get(v.field_id)
+        ws.append(
+            [
+                field.name_ar if field else v.field_id,
+                field.name_en if field else "",
+                v.field_version,
+                v.value_text,
+                float(v.value_number) if v.value_number is not None else None,
+                report.currency,
+            ]
+        )
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    audit.record(db, action="report.export", actor=actor, target_type="report", target_id=report.id, company_id=report.company_id)
+    db.commit()
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=report-{report.id}.xlsx"},
+    )
 
 
 def _perms(user: User) -> set[str]:
