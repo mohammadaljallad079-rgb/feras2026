@@ -26,12 +26,12 @@ Result at the time of writing: `49 passed` — 13 end-to-end journeys in
 `tests/test_operations.py`.
 
 The browser audit in `scripts/check_visual_fixes.py` drives the running app and
-currently asserts 42 behaviours (the visual mismatches, the password-reset flow,
+currently asserts 44 behaviours (the visual mismatches, the password-reset flow,
 the accounting export, the company-logo upload, website administration and recipient pickers); it needs a seeded backend on
 :8000 and the frontend on :12000.
 
 ```bash
-python3 scripts/check_visual_fixes.py    # 42/42 assertions passed
+python3 scripts/check_visual_fixes.py    # 44/44 assertions passed
 ```
 
 ## Journey coverage

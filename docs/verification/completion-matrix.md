@@ -49,6 +49,7 @@ against the rendered reference page is recorded in
 | 13 | Executive directives | `/directives` | Done | Done |
 | 14 | Employees and HR | `/hr` | Done | Done |
 | 15 | Website management | `/website` | Done | Done |
+| 15 | The form-inbox summary counted `kind === "service"` and `kind === "job"`, but the stored values are `service_request` and `job_application`, so two of the four counters always read zero; "awaiting conversion" also counted rejected items | The summary compares the real enum values and counts only `status === "new"` as awaiting conversion |
 | 16 | External advisor | `/advisor` | Done | Done |
 | 17 | AI assistant | `/assistant` | Done | Done |
 | 18 | Dynamic form builder | `/form-builder` | Done | Done |

@@ -102,8 +102,8 @@ export default function WebsitePage() {
         <h2 className="section-title mb-1">{locale === "ar" ? "ملخص البيانات" : "Data summary"}</h2>
         <p className="muted">
           {locale === "ar"
-            ? `وارد النماذج: ${rows.length} — خدمات: ${rows.filter((r) => r.kind === "service").length} — فرص: ${rows.filter((r) => r.kind === "opportunity").length} — سير ذاتية: ${rows.filter((r) => r.kind === "job").length} — بانتظار التحويل: ${rows.filter((r) => r.status !== "converted").length}`
-            : `Submissions: ${rows.length} — services: ${rows.filter((r) => r.kind === "service").length} — opportunities: ${rows.filter((r) => r.kind === "opportunity").length} — CVs: ${rows.filter((r) => r.kind === "job").length} — awaiting conversion: ${rows.filter((r) => r.status !== "converted").length}`}
+            ? `وارد النماذج: ${rows.length} — خدمات: ${rows.filter((r) => r.kind === "service_request").length} — فرص: ${rows.filter((r) => r.kind === "opportunity").length} — سير ذاتية: ${rows.filter((r) => r.kind === "job_application").length} — بانتظار التحويل: ${rows.filter((r) => r.status === "new").length}`
+            : `Submissions: ${rows.length} — services: ${rows.filter((r) => r.kind === "service_request").length} — opportunities: ${rows.filter((r) => r.kind === "opportunity").length} — CVs: ${rows.filter((r) => r.kind === "job_application").length} — awaiting conversion: ${rows.filter((r) => r.status === "new").length}`}
         </p>
       </div>
 

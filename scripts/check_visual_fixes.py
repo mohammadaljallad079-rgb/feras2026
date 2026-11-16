@@ -349,6 +349,26 @@ def check_website_admin(browser) -> None:
         reject.click()
         page.wait_for_timeout(2000)
         _record(15, "rejecting a submission is confirmed", "تم رفض الطلب" in page.inner_text("body"))
+
+    # The summary compared ``kind`` against "service" and "job", but the stored
+    # values are "service_request" and "job_application", so those two counters
+    # always read zero however many arrived.
+    page.evaluate(
+        """async () => {
+            for (const kind of ['service_request', 'job_application']) {
+                await fetch('/api/backend/api/v1/public/submissions', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({kind, name: 'مقدم', email: kind + '@example.com', message: 'ط'}),
+                });
+            }
+        }"""
+    )
+    page.goto(f"{BASE}/website")
+    page.wait_for_timeout(2500)
+    summary = page.inner_text("body")
+    _record(15, "the summary counts service-request submissions", "خدمات: 0" not in summary, summary.split("\n")[0][:80])
+    _record(15, "the summary counts job-application submissions", "سير ذاتية: 0" not in summary, "")
     ctx.close()
 
 
