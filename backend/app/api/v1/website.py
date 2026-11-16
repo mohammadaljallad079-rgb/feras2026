@@ -12,7 +12,7 @@ from app.models.business import Company
 from app.models.enums import SubmissionKind, SubmissionStatus
 from app.models.identity import User
 from app.models.operations import Lead, Opportunity, ServiceRequest, WebsiteSubmission
-from app.schemas import SubmissionConvert, SubmissionOut
+from app.schemas import SubmissionConvert, SubmissionOut, VisibilityUpdate
 from app.services import audit
 
 router = APIRouter(prefix="/website", tags=["website"])
@@ -115,14 +115,14 @@ def reject_submission(
 @router.patch("/companies/{company_id}/visibility")
 def set_visibility(
     company_id: int,
-    visible: bool,
+    payload: VisibilityUpdate,
     actor: User = Depends(require("website:manage")),
     db: Session = Depends(get_db),
 ) -> dict:
     company = db.get(Company, company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="Company not found")
-    company.public_visible = visible
+    company.public_visible = payload.public_visible
     audit.record(db, action="website.visibility", actor=actor, target_type="company", target_id=company.id, company_id=company.id)
     db.commit()
-    return {"company_id": company_id, "public_visible": visible}
+    return {"company_id": company_id, "public_visible": payload.public_visible}

@@ -135,6 +135,7 @@ Nine pages had a real mismatch; all nine are fixed:
 | 11 | The three narrowing controls were absent | Added company / status / source filters and a `filter` prop on `ResourceTable` |
 | 12 | Title was the short «الفرص» | Corrected to «الفرص التجارية والاستثمارية»; the screen states a decision creates no project |
 | 14 | Salary was readable by any `hr:view` holder | New `hr:view_salary` permission enforced in `hr.py`; the UI shows «مقيد» without the amount |
+| 15 | The Show/Hide public-visibility toggle answered 422 (the endpoint declared a `visible` query parameter, the screen sent a `public_visible` JSON body) and the reject action had no control at all | The endpoint takes a `VisibilityUpdate` body; the screen gained a «رفض» button; both are covered by `test_website_visibility_accepts_a_json_body_and_rejects` and four browser assertions |
 | 18 | Subfields lacked the reference arrow marker | The report form indents a child field under its parent with «↳» |
 | 22 | The period banner and five action buttons were missing | `DashboardOut` gained `banner_ar/en` and `actions` |
 | 23 | No upload control for the mandatory bank statement | Required bank-statement field with upload, «مرفق» chip and download |
@@ -148,7 +149,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  46 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  47 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)

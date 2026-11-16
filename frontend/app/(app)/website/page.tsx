@@ -64,6 +64,17 @@ export default function WebsitePage() {
     }
   }
 
+  async function reject(id: number) {
+    setMessage(null);
+    try {
+      await api.post(`/api/v1/website/submissions/${id}/reject`);
+      setMessage(locale === "ar" ? "تم رفض الطلب." : "Submission rejected.");
+      await load();
+    } catch {
+      setMessage(locale === "ar" ? "تعذّر رفض الطلب." : "Could not reject the submission.");
+    }
+  }
+
   async function toggleVisibility(companyId: number, next: boolean) {
     setMessage(null);
     try {
@@ -130,6 +141,9 @@ export default function WebsitePage() {
                           </button>
                           <button type="button" className="btn-ghost" onClick={() => void convert(r.id, "opportunity")}>
                             {locale === "ar" ? "تحويل إلى فرصة" : "Convert to opportunity"}
+                          </button>
+                          <button type="button" className="btn-ghost" onClick={() => void reject(r.id)}>
+                            {locale === "ar" ? "رفض" : "Reject"}
                           </button>
                         </>
                       )}

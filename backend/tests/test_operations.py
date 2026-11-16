@@ -146,6 +146,38 @@ def test_public_submission_rate_limit_and_conversion(client, make_user, login, d
     assert client.post(f"/api/v1/website/submissions/{sid}/convert", headers=h_owner, json={"target": "lead"}).status_code == 409
 
 
+def test_website_visibility_accepts_a_json_body_and_rejects(client, make_user, login):
+    """PDF p.15: the admin toggles a company's public visibility and can reject a
+    submission. The screen sent a JSON body but the endpoint declared a query
+    parameter, so every Show/Hide click answered 422 and the toggle did nothing.
+    """
+    make_user("vis_owner@safir-platform.com", ["owner"])
+    h_owner = login("vis_owner@safir-platform.com")
+    cid = _company(client, h_owner, "VIS-1")
+
+    shown = client.patch(f"/api/v1/website/companies/{cid}/visibility", headers=h_owner, json={"public_visible": True})
+    assert shown.status_code == 200, shown.text
+    assert shown.json()["public_visible"] is True
+    assert client.get(f"/api/v1/companies/{cid}", headers=h_owner).json()["public_visible"] is True
+
+    hidden = client.patch(f"/api/v1/website/companies/{cid}/visibility", headers=h_owner, json={"public_visible": False})
+    assert hidden.status_code == 200, hidden.text
+    assert hidden.json()["public_visible"] is False
+
+    sub = client.post(
+        "/api/v1/public/submissions",
+        json={"kind": "contact", "name": "زائر", "email": "r@example.com", "message": "x", "company_id": cid},
+    )
+    assert sub.status_code == 201, sub.text
+    rejected = client.post(f"/api/v1/website/submissions/{sub.json()['id']}/reject", headers=h_owner)
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["status"] == "rejected"
+
+    actions = {e["action"] for e in client.get("/api/v1/audit", headers=h_owner).json()}
+    assert "website.visibility" in actions
+    assert "website.reject" in actions
+
+
 def test_form_field_versioning_preserves_history(client, make_user, login):
     make_user("f_owner@safir-platform.com", ["owner"])
     h = login("f_owner@safir-platform.com")

@@ -280,6 +280,41 @@ def check_password_reset(browser) -> None:
     ctx.close()
 
 
+def check_website_admin(browser) -> None:
+    """PDF p.15: the admin toggles public visibility and rejects a submission.
+
+    The visibility endpoint declared a query parameter while the screen sent a
+    JSON body, so every toggle answered 422. This drives the real buttons.
+    """
+    ctx, page = _sign_in(browser, "owner")
+    page.evaluate(
+        """async () => {
+            await fetch('/api/backend/api/v1/public/submissions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({kind: 'contact', name: 'زائر تجربة', email: 'zz@example.com', message: 'مرحبا'}),
+            });
+        }"""
+    )
+    page.goto(f"{BASE}/website")
+    page.wait_for_timeout(2500)
+
+    toggle = page.query_selector("button:has-text('إظهار'), button:has-text('إخفاء')")
+    _record(15, "the public-visibility toggle is present", bool(toggle))
+    if toggle:
+        toggle.click()
+        page.wait_for_timeout(2000)
+        _record(15, "toggling visibility is confirmed", "تم تحديث الظهور العام" in page.inner_text("body"))
+
+    reject = page.query_selector("button:has-text('رفض')")
+    _record(15, "the submission reject control is present", bool(reject))
+    if reject:
+        reject.click()
+        page.wait_for_timeout(2000)
+        _record(15, "rejecting a submission is confirmed", "تم رفض الطلب" in page.inner_text("body"))
+    ctx.close()
+
+
 def check_company_logo(browser) -> None:
     """PDF p.6 lists the official logo as a company field.
 
@@ -387,6 +422,9 @@ def main() -> int:
         page.wait_for_timeout(1500)
         check_page_24(page)
         ctx.close()
+
+        print("page 15 — website administration")
+        check_website_admin(browser)
 
         print("page 6 — company logo upload")
         check_company_logo(browser)

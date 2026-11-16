@@ -536,6 +536,10 @@ class SubmissionConvert(BaseModel):
     target: str
 
 
+class VisibilityUpdate(BaseModel):
+    public_visible: bool
+
+
 # --- Advisor ----------------------------------------------------------------
 class AdvisorMessageCreate(BaseModel):
     recipient_id: int
