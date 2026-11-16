@@ -99,14 +99,42 @@ Password for all: `Safir!2026`. Change or remove them before any real deployment
 
 ## Tests
 
+The suite has two halves. `tests/test_auth_rbac.py`, `tests/test_operations.py`
+and `tests/test_reporting_workflow.py` run in-process against `safir_test`,
+which they truncate between tests. `tests/test_e2e_journeys.py` drives the real
+HTTP API, so it needs a running server and a *separate* database — if the live
+server shared `safir_test`, the truncation would delete the seeded accounts
+mid-run.
+
 ```bash
+# 1. The journey database, once
+createdb safir_e2e
+
+# 2. Migrate and seed it, then start the API it will talk to
 cd backend
-pytest -q                                     # 32 tests
+export E2E_DATABASE_URL="postgresql+psycopg://safir:safir@localhost:5432/safir_e2e"
+DATABASE_URL="$E2E_DATABASE_URL" alembic upgrade head
+DATABASE_URL="$E2E_DATABASE_URL" python scripts/seed.py
+DATABASE_URL="$E2E_DATABASE_URL" uvicorn app.main:app --port 8000 &
+
+# 3. Run everything
+pytest -q                                     # 36 tests
 SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 ```
 
-The journey suite drives a live server over HTTP. Coverage is listed in
-`docs/verification/functional-acceptance.md`.
+`pytest.ini` puts the backend root on `sys.path`, so the suite runs with no
+`PYTHONPATH` set — the same way CI invokes it. Coverage is listed in
+`docs/verification/functional-acceptance.md`; `.github/workflows/ci.yml` runs
+exactly the sequence above.
+
+### Browser captures
+
+With both servers running and the journey database seeded:
+
+```bash
+python3 scripts/capture_screens.py   # 46 screenshots into docs/screenshots/impl/
+python3 scripts/check_mobile.py      # asserts no horizontal scroll at 400px
+```
 
 ```bash
 cd frontend
