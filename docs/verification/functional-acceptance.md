@@ -20,8 +20,10 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `32 passed`, of which 12 are the end-to-end
-journeys in `tests/test_e2e_journeys.py`.
+Result at the time of writing: `36 passed` — 13 end-to-end journeys in
+`tests/test_e2e_journeys.py`, 6 reporting-workflow tests in
+`tests/test_reporting_workflow.py`, 8 in `tests/test_auth_rbac.py` and 9 in
+`tests/test_operations.py`.
 
 ## Journey coverage
 
@@ -50,18 +52,29 @@ journeys in `tests/test_e2e_journeys.py`.
 | 21 | Unauthorized cross-company access is denied | `test_cross_company_access_is_denied` (`404`, no leak) | PASS |
 | 22 | AI reports configuration status; never fabricates | `test_ai_reports_configuration_status_without_fabricating` | PASS |
 | 23 | Audit log is read-only | `test_audit_log_is_read_only_and_scoped` | PASS |
+| 24 | Owner and developer see only reports sent to management | `test_owner_and_developer_see_only_reports_sent_to_management` | PASS |
+| 25 | Accountant can open the review queue | `test_accountant_can_list_reports_for_review` | PASS |
+| 26 | Owner cannot approve or forward (accountant's duty) | `test_owner_does_not_hold_the_accountants_review_duties` | PASS |
 
 ## Browser verification
 
 Recorded in `docs/screenshots/impl/`:
 
+46 captures, produced by `scripts/capture_screens.py` against the live app.
+
 | File | What it shows |
 |---|---|
-| `03-login-ar-light.png` | Arabic RTL sign-in, brand mark, no simulation controls |
-| `01-owner-dashboard-ar-light.png` | Owner dashboard, permission-filtered sidebar on the right |
-| `02-companies-ar-light.png` | Companies list rendering rows persisted by the API |
-| `05-owner-dashboard-ar-dark.png` | Dark theme applied through the token set |
-| `06-owner-dashboard-en-dark.png` | English LTR: sidebar moves to the left, all labels translated |
+| `05-owner-dashboard.png` | Owner dashboard, permission-filtered sidebar on the right |
+| `06-companies.png` | Companies list rendering rows persisted by the API |
+| `22-manager-dashboard.png` | Manager dashboard with the period banner and five actions |
+| `23-report-submission.png` | Report screen with the mandatory bank-statement upload |
+| `25-report-review.png` | Accountant review queue |
+| `30-owner-dashboard-mobile.png` | 400px viewport, no horizontal page scroll |
+| `31-owner-dashboard-en.png` | English LTR: sidebar moves to the left, all labels translated |
+| `32-05-owner-dashboard-dark.png` | Dark theme applied through the token set |
+
+`scripts/check_mobile.py` asserts the 400px claim rather than leaving it to
+inspection: it reports `400 = 400` on all nine main routes.
 
 ## Bugs found and fixed during this pass
 

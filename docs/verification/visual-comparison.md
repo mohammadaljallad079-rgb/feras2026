@@ -41,9 +41,9 @@ row says so rather than inventing a wording.
 | 27 | `/dashboard` (marketer) | `pdf/page-27.png` | `impl/27-marketer-dashboard.png` | Assigned leads and owner complaints matched | — | Verified |
 | 28 | `/dashboard` (designer) | `pdf/page-28.png` | `impl/28-designer-dashboard.png` | Assigned design requests only | — | Verified |
 | 29 | `/dashboard` (advisor) | `pdf/page-29.png` | `impl/29-advisor-dashboard.png` | Own messages only | — | Verified |
-| 30 | responsive shell | `pdf/page-30.png` | §3 below | Breakpoint and min-width matched | — | Verified |
-| 31 | `en` locale | `pdf/page-31.png` | `impl/31-owner-dashboard-en.png` | Sidebar moves to the left, labels translate fully, numbers keep LTR direction | — | Verified |
-| 32 | dark theme | `pdf/page-32.png` | `impl/32-owner-dashboard-dark.png` | Dark tokens applied verbatim; the capture set for page 32 is still being collected page by page | Tokens and toggle in place; remaining page captures pending | Partial |
+| 30 | responsive shell | `pdf/page-30.png` | `impl/30-owner-dashboard-mobile.png`, `impl/30-manager-dashboard-mobile.png` | Breakpoint and min-width matched | — | Verified |
+| 31 | `en` locale | `pdf/page-31.png` | `impl/31-owner-dashboard-en.png`, `impl/31-companies-en.png` | Sidebar moves to the left, labels translate fully, numbers keep LTR direction | — | Verified |
+| 32 | dark theme | `pdf/page-32.png` | `impl/32-NN-<screen>-dark.png` (17 screens) | Dark tokens applied verbatim | Every screen captured in dark mode; the first pixel of the dark dashboard is `#111d30`, the dark `--card` token, against white in light mode | Verified |
 
 ## 2. Deliberate non-matches
 
@@ -64,11 +64,30 @@ scrolls horizontally at 400px; wide tables scroll inside their own container
 (`.table-scroll`). The reference's mobile panels (owner and manager) correspond
 to the same dashboard routes at the narrow viewport.
 
-## 4. How to reproduce
+Checked rather than assumed: `scripts/check_mobile.py` walks the nine main
+routes at a 400px viewport and compares `documentElement.scrollWidth` with
+`clientWidth`. All nine report `400 = 400`, so there is no horizontal page
+scroll.
+
+```
+/dashboard /companies /leads /reports /hr /users /audit /accounting /service-requests
+HORIZONTAL OVERFLOW AT 400px: none
+```
+
+## 4. Dark mode coverage (page 32)
+
+Every screen is captured in dark mode (`impl/32-NN-<screen>-dark.png`, 17
+screens). The tokens come from the specification verbatim; sampling the first
+pixel of the dark owner dashboard returns `#111d30`, the dark `--card` token,
+against `#ffffff` in light mode, which confirms the theme is actually applied
+rather than merely toggled.
+
+## 5. How to reproduce
 
 ```
 # backend on :8000 (seeded), frontend on :12000
-python3 scripts/capture_screens.py
+python3 scripts/capture_screens.py    # 46 captures: roles, locales, dark, mobile
+python3 scripts/check_mobile.py       # asserts no horizontal scroll at 400px
 ```
 
 The script signs in as each demo role, switches locale/theme, and writes one

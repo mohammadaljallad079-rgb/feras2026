@@ -137,20 +137,20 @@ Seven pages had a real mismatch; all seven are fixed:
 | 22 | The period banner and five action buttons were missing | `DashboardOut` gained `banner_ar/en` and `actions` |
 | 23 | No upload control for the mandatory bank statement | Required bank-statement field with upload, «مرفق» chip and download |
 
-Page 32 is the only partial row: the dark tokens and the toggle are in place and
-captured across six screens, but the full page-by-page dark capture set is still
-being completed.
+Page 32 is closed too: all 17 screens are captured in dark mode and the first
+pixel of the dark dashboard is the dark `--card` token, so the theme is applied
+rather than merely toggled. No row remains partial.
 
 ## 7. Test results
 
 ```
-backend:  36 passed  (includes 15 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  36 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build generates all 22 routes
-browser:  34 screens captured across 7 roles, 2 locales, light/dark and 400px
+browser:  46 screens captured across 7 roles, 2 locales, light/dark and 400px
+mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)
 ```
 
 ## 8. What remains before final sign-off
 
 1. Commit `assets/brand/holding-logo.png` unchanged and place it in the header.
-2. Finish the page-by-page dark capture set for page 32.
-3. Supply an approved specification for the public holding website.
+2. Supply an approved specification for the public holding website.

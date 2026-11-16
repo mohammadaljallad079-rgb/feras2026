@@ -68,7 +68,9 @@ covered by automated tests:
 ## What remains
 
 1. `assets/brand/holding-logo.png` committed unchanged (see the asset-status note).
-2. The dark-mode pass for page 32 recorded against a fresh capture set; the
-   tokens and the toggle are in place, the screenshot pair is pending.
-3. An approved specification for the public holding-company website. The PDF
+2. An approved specification for the public holding-company website. The PDF
    covers the management platform only, so no website screen claims fidelity.
+
+Every screen row is now MATCH against its rendered reference page; the evidence
+is `docs/verification/visual-comparison.md` and the captures in
+`docs/screenshots/impl/`.

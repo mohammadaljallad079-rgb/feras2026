@@ -55,13 +55,30 @@ SHOTS: list[tuple[str, str, str, str, str, tuple[int, int]]] = [
     ("30-manager-dashboard-mobile", "/dashboard", "company_manager", "ar", "light", (400, 900)),
     ("31-owner-dashboard-en", "/dashboard", "owner", "en", "light", (1440, 1000)),
     ("31-companies-en", "/companies", "owner", "en", "light", (1440, 1000)),
-    ("32-owner-dashboard-dark", "/dashboard", "owner", "ar", "dark", (1440, 1000)),
-    ("32-companies-dark", "/companies", "owner", "ar", "dark", (1440, 1000)),
-    ("32-accounting-dark", "/accounting", "accountant", "ar", "dark", (1440, 1000)),
-    ("32-hr-dark", "/hr", "owner", "ar", "dark", (1440, 1000)),
-    ("32-users-dark", "/users", "owner", "ar", "dark", (1440, 1000)),
 ]
 
+
+
+# Page 32: the whole application in dark mode, one capture per screen.
+DARK_ROUTES = [
+    ("05-owner-dashboard", "/dashboard"),
+    ("06-companies", "/companies"),
+    ("07-company-wizard", "/companies/new"),
+    ("08-owner-reports", "/reports"),
+    ("09-accounting", "/accounting"),
+    ("10-service-requests", "/service-requests"),
+    ("11-leads", "/leads"),
+    ("12-opportunities", "/opportunities"),
+    ("13-directives", "/directives"),
+    ("14-hr", "/hr"),
+    ("15-website", "/website"),
+    ("16-advisor", "/advisor"),
+    ("17-assistant", "/assistant"),
+    ("18-form-builder", "/form-builder"),
+    ("19-users", "/users"),
+    ("20-user-new", "/users/new"),
+    ("21-audit", "/audit"),
+]
 
 def _open(browser, role: str, locale: str, theme: str, viewport: tuple[int, int]):
     ctx: BrowserContext = browser.new_context(viewport={"width": viewport[0], "height": viewport[1]})
@@ -110,6 +127,17 @@ def main() -> int:
             page.wait_for_timeout(1200)
             page.screenshot(path=str(OUT / f"{name}.png"), full_page=True)
             print(f"captured {name}.png")
+
+        # Page 32: every screen in dark mode.
+        dark_key = ("owner", "ar", "dark", (1440, 1000))
+        if dark_key not in sessions:
+            sessions[dark_key] = _open(browser, "owner", "ar", "dark", (1440, 1000))
+        _, dark_page = sessions[dark_key]
+        for name, route in DARK_ROUTES:
+            dark_page.goto(f"{BASE}{route}")
+            dark_page.wait_for_timeout(1100)
+            dark_page.screenshot(path=str(OUT / f"32-{name}-dark.png"), full_page=True)
+            print(f"captured 32-{name}-dark.png")
 
         # Pages 23 and 25: the report detail screen, in the state each role sees.
         for name, role, status in [
