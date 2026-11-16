@@ -139,6 +139,23 @@ def main() -> int:
             dark_page.screenshot(path=str(OUT / f"32-{name}-dark.png"), full_page=True)
             print(f"captured 32-{name}-dark.png")
 
+        # Public authentication screens, including the password-reset flow.
+        for locale in ("ar", "en"):
+            ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
+            page = ctx.new_page()
+            page.goto(f"{BASE}/login")
+            page.wait_for_timeout(800)
+            if locale == "en":
+                page.click("button:has-text('English')")
+                page.wait_for_timeout(400)
+            page.screenshot(path=str(OUT / f"login-{locale}.png"), full_page=True)
+            print(f"captured login-{locale}.png")
+            page.goto(f"{BASE}/forgot-password")
+            page.wait_for_timeout(800)
+            page.screenshot(path=str(OUT / f"forgot-password-{locale}.png"), full_page=True)
+            print(f"captured forgot-password-{locale}.png")
+            ctx.close()
+
         # Pages 23 and 25: the report detail screen, in the state each role sees.
         for name, role, status in [
             ("23-report-submission", "company_manager", "draft"),

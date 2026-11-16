@@ -67,7 +67,7 @@ against the rendered reference page is recorded in
 |---|---|---|
 | Database-backed login/logout | Done | `api/v1/auth.py`, `test_auth_rbac.py` |
 | Password hashing | Done | bcrypt via `core/security.py` |
-| Password reset, single-use expiring links | Done | `auth.py`; exercised in `test_e2e_journeys.py` |
+| Password reset, single-use expiring links | Done | `auth.py`; single-use and expiring in `test_auth_rbac.py`, and reachable end to end through `/forgot-password` and `/reset-password` (28 browser assertions) |
 | Access + refresh tokens | Done | `_issue_tokens`, `/refresh` |
 | Role-based permissions | Done | `core/permissions.py`, `api/deps.py` |
 | Company-level isolation | Done | `assert_company_access`; `test_cross_company_access_is_denied` |
@@ -147,8 +147,8 @@ rather than merely toggled. No row remains partial.
 
 ```
 backend:  44 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
-frontend: tsc --noEmit clean; next build generates all 22 routes
-browser:  46 screens captured across 7 roles, 2 locales, light/dark and 400px
+frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
+browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)
 ```
 

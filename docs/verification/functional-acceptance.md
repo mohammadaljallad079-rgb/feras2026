@@ -22,8 +22,16 @@ pytest -q
 
 Result at the time of writing: `44 passed` — 13 end-to-end journeys in
 `tests/test_e2e_journeys.py`, 8 reporting-workflow tests in
-`tests/test_reporting_workflow.py`, 12 in `tests/test_auth_rbac.py` and 10 in
+`tests/test_reporting_workflow.py`, 12 in `tests/test_auth_rbac.py` and 11 in
 `tests/test_operations.py`.
+
+The browser audit in `scripts/check_visual_fixes.py` drives the running app and
+currently asserts 28 behaviours (the visual mismatches plus the password-reset
+flow); it needs a seeded backend on :8000 and the frontend on :12000.
+
+```bash
+python3 scripts/check_visual_fixes.py    # 28/28 assertions passed
+```
 
 ## Journey coverage
 

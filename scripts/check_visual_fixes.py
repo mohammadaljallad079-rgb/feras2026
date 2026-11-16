@@ -201,6 +201,74 @@ def check_page_24(page: Page) -> None:
         _record(24, f"?kind={kind} selects the {kind} tab", bool(selected) and label in selected, f"selected={selected}")
 
 
+def check_password_reset(browser) -> None:
+    """The forgot/reset flow: reachable from login, single-use, and effective."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
+    page = ctx.new_page()
+    page.goto(f"{BASE}/login")
+    page.wait_for_timeout(1000)
+    _record(5, "login links to the password-reset request", bool(page.query_selector("a[href='/forgot-password']")))
+
+    page.click("a[href='/forgot-password']")
+    page.wait_for_url("**/forgot-password", timeout=15000)
+    page.fill("#email", "advisor@safir-platform.com")
+    page.click("button[type=submit]")
+    page.wait_for_timeout(2500)
+    token_el = page.query_selector("p[dir=ltr]")
+    token = token_el.inner_text().strip() if token_el else ""
+    _record(5, "a reset link is issued", bool(token), "no token shown")
+
+    page.click("text=متابعة إلى تعيين كلمة المرور")
+    page.wait_for_url("**/reset-password**", timeout=15000)
+    _record(5, "the reset token is carried into the form", page.input_value("#token") == token)
+
+    # The password must match confirmation and meet the minimum length.
+    page.fill("#new-password", "Safir!2026New")
+    page.fill("#confirm-password", "Safir!2026Differs")
+    page.click("button[type=submit]")
+    page.wait_for_timeout(1200)
+    _record(5, "a mismatched confirmation is refused", "غير متطابق" in page.inner_text("body"))
+
+    page.fill("#confirm-password", "Safir!2026New")
+    page.click("button[type=submit]")
+    page.wait_for_timeout(2500)
+    _record(5, "a valid token sets the password", "تم تعيين كلمة المرور" in page.inner_text("body"))
+
+    # The new password works, and the token cannot be replayed.
+    page.goto(f"{BASE}/login")
+    page.wait_for_timeout(1000)
+    page.fill("#email", "advisor@safir-platform.com")
+    page.fill("#password", "Safir!2026New")
+    page.click("button[type=submit]")
+    page.wait_for_url("**/dashboard", timeout=25000)
+    _record(5, "the new password signs the user in", page.url.endswith("/dashboard"))
+
+    page.goto(f"{BASE}/reset-password?token={token}")
+    page.wait_for_timeout(1200)
+    page.fill("#new-password", "Replay!2026")
+    page.fill("#confirm-password", "Replay!2026")
+    page.click("button[type=submit]")
+    page.wait_for_timeout(2000)
+    _record(5, "a used token is refused", "غير صالح" in page.inner_text("body"))
+
+    # Restore the seeded password so the rest of the audit keeps working.
+    page.goto(f"{BASE}/forgot-password")
+    page.wait_for_timeout(1000)
+    page.fill("#email", "advisor@safir-platform.com")
+    page.click("button[type=submit]")
+    page.wait_for_timeout(2500)
+    fresh = page.query_selector("p[dir=ltr]")
+    restore = fresh.inner_text().strip() if fresh else ""
+    page.goto(f"{BASE}/reset-password?token={restore}")
+    page.wait_for_timeout(1200)
+    page.fill("#new-password", PASSWORD)
+    page.fill("#confirm-password", PASSWORD)
+    page.click("button[type=submit]")
+    page.wait_for_timeout(2500)
+    _record(5, "the seeded password is restored", "تم تعيين كلمة المرور" in page.inner_text("body"))
+    ctx.close()
+
+
 def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path="/usr/bin/chromium", args=["--no-sandbox"])
@@ -256,6 +324,9 @@ def main() -> int:
         page.wait_for_timeout(1500)
         check_page_24(page)
         ctx.close()
+
+        print("page 5 — password reset flow")
+        check_password_reset(browser)
 
         browser.close()
 

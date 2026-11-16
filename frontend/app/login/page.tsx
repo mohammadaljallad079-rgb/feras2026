@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { appName, t } from "@/lib/i18n";
@@ -83,6 +84,11 @@ export default function LoginPage() {
           <button type="submit" className="btn-primary w-full" disabled={busy}>
             {t("common", "login", locale)}
           </button>
+          <p className="text-center">
+            <Link className="underline" href="/forgot-password">
+              {t("login", "forgot", locale)}
+            </Link>
+          </p>
         </form>
       </div>
     </main>
