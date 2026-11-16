@@ -125,7 +125,7 @@ mismatches found were corrected. The full record — page, route, both images, t
 mismatch, the resolution and the verdict — is
 `docs/verification/visual-comparison.md`.
 
-Seven pages had a real mismatch; all seven are fixed:
+Eight pages had a real mismatch; all eight are fixed:
 
 | Page | Mismatch | Fix |
 |---|---|---|
@@ -136,6 +136,7 @@ Seven pages had a real mismatch; all seven are fixed:
 | 18 | Subfields lacked the reference arrow marker | The report form indents a child field under its parent with «↳» |
 | 22 | The period banner and five action buttons were missing | `DashboardOut` gained `banner_ar/en` and `actions` |
 | 23 | No upload control for the mandatory bank statement | Required bank-statement field with upload, «مرفق» chip and download |
+| 24 | The three entry buttons all opened the accounting screen's default tab | Each carries `?kind=`; the accounting screen reads it and pre-selects the section |
 
 Page 32 is closed too: all 17 screens are captured in dark mode and the first
 pixel of the dark dashboard is the dark `--card` token, so the theme is applied
