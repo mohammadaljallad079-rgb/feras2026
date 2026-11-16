@@ -17,6 +17,7 @@ export default function CompanyDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [edit, setEdit] = useState(false);
   const [form, setForm] = useState<Partial<Company>>({});
+  const [people, setPeople] = useState<{ id: number; full_name_ar: string; full_name_en: string }[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +46,15 @@ export default function CompanyDetailPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (edit && people.length === 0) {
+      api
+        .get<{ id: number; full_name_ar: string; full_name_en: string }[]>("/api/v1/users/directory")
+        .then(setPeople)
+        .catch(() => undefined);
+    }
+  }, [edit, people.length]);
+
   async function save() {
     setMessage(null);
     try {
@@ -57,6 +67,8 @@ export default function CompanyDetailPage() {
         contact_phone: form.contact_phone,
         ownership_percent: form.ownership_percent,
         currency: form.currency,
+        manager_user_id: form.manager_user_id ? Number(form.manager_user_id) : null,
+        activation_notes: form.activation_notes || null,
       });
       setMessage(locale === "ar" ? "تم الحفظ." : "Saved.");
       setEdit(false);
@@ -164,6 +176,32 @@ export default function CompanyDetailPage() {
                     />
                   </div>
                 ))}
+                <div>
+                  <label className="label" htmlFor="co-manager">{locale === "ar" ? "مدير الشركة" : "Company manager"}</label>
+                  <select
+                    id="co-manager"
+                    className="input"
+                    value={String(form.manager_user_id ?? "")}
+                    onChange={(e) => setForm({ ...form, manager_user_id: e.target.value ? Number(e.target.value) : null })}
+                  >
+                    <option value="">{locale === "ar" ? "— بلا مدير —" : "— No manager —"}</option>
+                    {people.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {locale === "ar" ? p.full_name_ar : p.full_name_en}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="label" htmlFor="co-activation">{locale === "ar" ? "معلومات التفعيل" : "Activation information"}</label>
+                  <textarea
+                    id="co-activation"
+                    className="input"
+                    rows={3}
+                    value={String(form.activation_notes ?? "")}
+                    onChange={(e) => setForm({ ...form, activation_notes: e.target.value })}
+                  />
+                </div>
                 <div className="sm:col-span-2">
                   <button type="button" className="btn-primary" onClick={() => void save()}>
                     {locale === "ar" ? "حفظ" : "Save"}
@@ -190,6 +228,20 @@ export default function CompanyDetailPage() {
                     <dd dir={key === "name_ar" ? "rtl" : "ltr"}>{String(company[key] ?? "—")}</dd>
                   </div>
                 ))}
+                <div>
+                  <dt className="muted">{locale === "ar" ? "مدير الشركة" : "Company manager"}</dt>
+                  <dd>
+                    {company.manager_name_ar || company.manager_name_en
+                      ? locale === "ar"
+                        ? company.manager_name_ar
+                        : company.manager_name_en
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="muted">{locale === "ar" ? "معلومات التفعيل" : "Activation information"}</dt>
+                  <dd>{company.activation_notes || "—"}</dd>
+                </div>
               </>
             )}
           </div>

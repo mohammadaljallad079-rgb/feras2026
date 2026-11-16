@@ -171,6 +171,7 @@ class CompanyOut(ORMModel):
     manager_name_en: str | None = None
     activated_at: datetime | None
     closed_at: datetime | None
+    activation_notes: str | None = None
     public_visible: bool
     created_at: datetime
 

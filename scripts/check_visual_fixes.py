@@ -295,6 +295,28 @@ def check_recipient_picker(browser) -> None:
     ctx.close()
 
 
+def check_company_manager_and_activation(browser) -> None:
+    """PDF p.6 lists the company manager and the activation information.
+
+    The edit form offered neither, and the activation note was not even read
+    back, so a company could be activated with no manager recorded.
+    """
+    ctx, page = _sign_in(browser, "owner")
+    page.goto(f"{BASE}/companies")
+    page.wait_for_timeout(2500)
+    page.locator("table tbody tr").first.locator("a, button").first.click()
+    page.wait_for_timeout(2500)
+    page.get_by_role("button", name="تعديل").click()
+    page.wait_for_timeout(1500)
+    has_manager = page.locator("#co-manager").count() == 1
+    has_activation = page.locator("#co-activation").count() == 1
+    options = page.evaluate("() => document.querySelector('#co-manager')?.options.length ?? 0")
+    _record(6, "the edit form offers a company manager picker", has_manager, "present" if has_manager else "missing")
+    _record(6, "the manager picker is populated", options > 1, f"{options} options")
+    _record(6, "the edit form offers activation information", has_activation, "present" if has_activation else "missing")
+    ctx.close()
+
+
 def check_website_admin(browser) -> None:
     """PDF p.15: the admin toggles public visibility and rejects a submission.
 
@@ -446,6 +468,9 @@ def main() -> int:
 
         print("page 6 — company logo upload")
         check_company_logo(browser)
+
+        print("page 6 — company manager and activation information")
+        check_company_manager_and_activation(browser)
 
         print("page 5 — password reset flow")
         check_password_reset(browser)

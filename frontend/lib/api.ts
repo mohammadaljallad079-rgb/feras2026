@@ -129,6 +129,7 @@ export type Company = {
   manager_name_en: string | null;
   activated_at: string | null;
   closed_at: string | null;
+  activation_notes: string | null;
   public_visible: boolean;
   created_at: string;
 };

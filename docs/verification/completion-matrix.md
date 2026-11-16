@@ -130,6 +130,7 @@ Nine pages had a real mismatch; all nine are fixed:
 | Page | Mismatch | Fix |
 |---|---|---|
 | 6 | The official logo was a read-only field: the schema exposed `logo_file_id` but no screen or write path could set it, so every company showed «بلا شعار» | Added `logo_file_id` to `CompanyUpdate` with an ownership/type guard, an upload control on the company screen, and a token-aware `AuthImage` so the private logo renders from the authenticated endpoint (verified in `test_company_logo_must_be_an_uploaded_image_of_that_company`) |
+| 6 | The company manager and the activation information were listed fields, but the edit form offered neither and `activation_notes` was not even read back — a company could be activated with no manager recorded | `CompanyOut` now carries `activation_notes`; the edit form gained a populated manager picker and an activation note; `manager_user_id` and `activation_notes` are saved (covered by `test_company_manager_and_activation_information_are_settable`) |
 | 8 | Owner saw every draft instead of only reports sent to management | `reporting.py` restricts a `report:view_all` holder without `report:review` to approved/forwarded; the owner template no longer carries the accountant's duties |
 | 9 | The accounting screen had no export control although `GET /accounting/export.xlsx` existed and was audited | The header carries a «تصدير Excel» button for any `accounting:view` holder; the workbook is scoped to the companies the caller may see (verified in `test_accounting_export_covers_exactly_the_visible_entries`) |
 | 10/11/13 | The recipient and assignee pickers rendered empty for a marketer, designer or advisor: they hold no `user:view`, so `/users` answered 403 | New `GET /users/directory` returns a minimal identity behind `require_any(directive:view, lead:view, service:view, advisor:view)`; the four screens read it (covered by `test_the_directory_serves_pickers_without_the_admin_listing`) |
@@ -150,7 +151,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  48 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  49 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)

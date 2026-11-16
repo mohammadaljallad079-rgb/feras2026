@@ -334,6 +334,36 @@ def test_company_logo_must_be_an_uploaded_image_of_that_company(client, make_use
     assert missing.status_code == 404
 
 
+def test_company_manager_and_activation_information_are_settable(client, make_user, login):
+    """PDF p.6 lists the company manager and the activation information.
+
+    Both were carried by the model but neither could be written and the
+    activation note was not even read back, so the two fields were decorative.
+    """
+    make_user("mgr_owner@safir-platform.com", ["owner"])
+    make_user("mgr_person@safir-platform.com", ["company_manager"])
+    h_owner = login("mgr_owner@safir-platform.com")
+    cid = _company(client, h_owner, "MGR-1")
+
+    people = client.get("/api/v1/users/directory", headers=h_owner).json()
+    manager_id = next(p["id"] for p in people if p["full_name_en"] == "mgr_person@safir-platform.com")
+
+    patched = client.patch(
+        f"/api/v1/companies/{cid}",
+        headers=h_owner,
+        json={"manager_user_id": manager_id, "activation_notes": "فُعّلت بعد استيفاء السجل التجاري."},
+    )
+    assert patched.status_code == 200, patched.text
+    body = patched.json()
+    assert body["manager_user_id"] == manager_id
+    assert body["activation_notes"] == "فُعّلت بعد استيفاء السجل التجاري."
+
+    # The values survive a re-read rather than living only in the response.
+    reread = client.get(f"/api/v1/companies/{cid}", headers=h_owner).json()
+    assert reread["manager_user_id"] == manager_id
+    assert reread["activation_notes"] == "فُعّلت بعد استيفاء السجل التجاري."
+
+
 def test_every_ai_source_link_points_at_a_real_screen():
     """Each "open the source record" link must resolve to a screen that exists.
 
