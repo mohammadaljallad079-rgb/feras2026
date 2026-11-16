@@ -8,6 +8,11 @@ invented here: those are created through the application itself.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+# Run as `python scripts/seed.py`, so the package root is the parent directory
+# rather than the script's own directory.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import select
 
