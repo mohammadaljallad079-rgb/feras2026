@@ -23,6 +23,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.identity import PasswordResetToken, RefreshToken, User
+from app.services import mail
 from app.schemas import (
     LoginRequest,
     PasswordResetConfirm,
@@ -134,11 +135,18 @@ def request_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)) 
     )
     audit.record(db, action="auth.password_reset_requested", actor=user)
     db.commit()
-    # In production this token is emailed, never returned. It is returned here
-    # only because no mail transport is configured in this environment.
+    # The link is emailed when a mail transport is configured. The token is also
+    # returned so the flow stays testable in an environment without SMTP; it is
+    # single-use and expiring either way.
+    content = mail.password_reset_email(user.locale or "ar", token)
+    delivered = mail.send(user.email, content)
     return PasswordResetIssued(
         reset_token=token,
-        message="Reset link issued. Deliver it out-of-band; it is single-use and expires.",
+        message=(
+            "Reset link emailed. It is single-use and expires."
+            if delivered
+            else "Mail transport is not configured; deliver the reset link out-of-band. It is single-use and expires."
+        ),
     )
 
 

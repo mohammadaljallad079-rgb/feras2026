@@ -2,8 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Arabic typeface — Tajawal (SIL Open Font License 1.1), self-hosted from
+ * `public/fonts/`. The reference defers the choice of a licensed Arabic font
+ * to the designer (page 2: "خطوط النظام … عند الإنتاج يختار المصمم خطًا عربيًا
+ * مرخّصًا"; page 32 lists "اختيار خط عربي مرخّص وتحديث tokens" as a designer
+ * task). Tajawal is that choice, applied only to the Arabic interface so the
+ * English interface keeps the system stack the reference names.
+ */
+@font-face {
+  font-family: "Tajawal";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/tajawal-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Tajawal";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/tajawal-500.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Tajawal";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/tajawal-700.ttf") format("truetype");
+}
+
 /* Design tokens — reproduced verbatim from the delivery specification. */
 :root {
+  /* Latin/system stack exactly as named in the reference (page 2). */
+  --font-ui: system-ui, "Segoe UI", Tahoma, sans-serif;
+  /* Arabic stack: the licensed Arabic face first, system fallback after it. */
+  --font-ar: "Tajawal", system-ui, "Segoe UI", Tahoma, sans-serif;
   --bg: #f4f6f8;
   --card: #ffffff;
   --ink: #0b192c;
@@ -56,6 +90,18 @@ body {
   font-size: 15px;
   line-height: 1.7;
   min-width: 400px;
+  /* Arabic uses Tajawal; English keeps the system stack the reference names. */
+  font-family: var(--font-ui);
+}
+
+html[lang="ar"] body {
+  font-family: var(--font-ar);
+}
+
+/* Figures in tables and indicators are tabular (reference page 2). */
+table,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Visible keyboard focus on every interactive element. */
@@ -118,7 +164,9 @@ body {
   .nav-item {
     @apply flex items-center gap-3 rounded-control px-3 py-2 text-secondary hover:bg-white/10;
   }
+  /* The reference marks the active entry with the gold accent, not a tint of
+     the sidebar colour (page 2: `--gold` is "العنصر النشط في القائمة"). */
   .nav-item-active {
-    @apply bg-white/15 font-semibold text-white;
+    @apply bg-gold font-semibold text-ink;
   }
 }

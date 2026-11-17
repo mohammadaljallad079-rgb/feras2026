@@ -63,6 +63,36 @@ against the rendered reference page is recorded in
 | 30 | Mobile layouts | responsive shell | Done | n/a |
 | 31 | English LTR | `en` locale | Done | n/a |
 | 32 | Dark mode | theme toggle | Done | n/a |
+| 32 | Licensed Arabic font + tokens | `public/fonts/tajawal-*.ttf`, `globals.css` `--font-ar` | Done | n/a |
+| 32 | Sidebar icon system | `components/NavIcon.tsx` | Done | Done |
+| 32 | Global loading and error states | `app/loading.tsx`, `app/error.tsx` | Done | Done |
+| 32 | Login and password screens | `/login`, `/forgot-password`, `/reset-password` | Done | Done |
+| 32 | Account email templates | `backend/app/services/mail.py` | Done | Done |
+| 32 | Logo design (تصميم الشعار) | — | **Blocked** | n/a |
+
+The page-32 designer items are closed as follows. The licensed Arabic face is
+Tajawal (SIL OFL 1.1), self-hosted from `frontend/public/fonts/` and applied to
+the Arabic interface only, so English keeps the system stack the reference names;
+the three weights load and the computed Arabic `font-family` begins with Tajawal.
+The sidebar icon set is a self-contained SVG component with no icon-font or
+network dependency: 15 nav entries each render an 18px glyph inheriting
+`currentColor`. Global loading and error states are designed, bilingual and
+generic (the error state logs only the digest, never the message, which may carry
+protected data). The three account screens exist and are reachable. The account
+emails are bilingual, carry exactly one secure `/reset-password?token=` link and
+no financial detail, and the sender reports failure honestly — with no
+`SMTP_HOST` configured it returns `False` rather than claiming a message, so the
+link is handed back for out-of-band delivery.
+
+The logo remains blocked: no logo asset exists anywhere in the repository or its
+history, and page 32 lists its design as a designer task. `BrandMark` renders a
+neutral placeholder flagged `data-logo="missing"` rather than an invented mark.
+The drop-in path was verified end to end — with an asset at
+`frontend/public/brand/holding-logo.png` the element reports `data-logo="official"`
+and renders at the file's own aspect ratio. A bug in that path was found and
+fixed: the server-rendered `<img>` 404s before hydration, so `onError` never fires
+for the first failure and the page showed a broken-image icon; `BrandMark` now
+re-checks `complete && naturalWidth === 0` on mount.
 
 ## 3. Authentication and RBAC (spec §5)
 
@@ -154,13 +184,20 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  51 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
-frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
+backend:  56 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+frontend: tsc --noEmit clean; next build lists 24 routes
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)
 ```
 
+The 4 tests added for the page-32 items cover the account emails, the invitation
+link and the mail transport: the reset and invitation messages carry exactly one
+`/reset-password?token=` link and no amount, the invited user's token is accepted
+by the confirm endpoint, an unconfigured sender reports `False` instead of a
+fabricated success, and an SMTP failure does not raise.
+
 ## 8. What remains before final sign-off
 
-1. Commit `assets/brand/holding-logo.png` unchanged and place it in the header.
+1. Commit `assets/brand/holding-logo.png` unchanged and place it in the header
+   (`frontend/public/brand/`); the wiring and the fallback are already verified.
 2. Supply an approved specification for the public holding website.

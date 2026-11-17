@@ -21,6 +21,7 @@ from app.models.identity import (
     UserCompany,
     UserRole,
 )
+from app.services import mail
 from app.schemas import (
     RoleCreate,
     RoleOut,
@@ -227,10 +228,15 @@ def invite_user(
     audit.record(db, action="user.invite", actor=actor, target_type="user", target_id=user.id)
     db.commit()
     db.refresh(user)
+    role_label = ", ".join(sorted(payload.role_slugs))
+    mail.send(
+        user.email,
+        mail.invitation_email(payload.locale, token, role_label),
+    )
     return UserInviteResult(
         user=_user_out(user),
         setup_token=token,
-        setup_url=f"/{payload.locale}/set-password?token={token}",
+        setup_url=f"/reset-password?token={token}",
     )
 
 

@@ -92,3 +92,39 @@ python3 scripts/check_mobile.py       # asserts no horizontal scroll at 400px
 
 The script signs in as each demo role, switches locale/theme, and writes one
 full-page PNG per row of §1 into `docs/screenshots/impl/`.
+
+## 6. Page-32 designer items — visual verification
+
+The reference's final page lists outstanding design work. Four of those items
+are now delivered and were checked against the running application, not assumed:
+
+- **Licensed Arabic font.** Tajawal (SIL OFL 1.1) is self-hosted from
+  `frontend/public/fonts/` and applied only to the Arabic interface. In the
+  browser the three weights report `status: "loaded"` and the computed Arabic
+  `font-family` is `Tajawal, system-ui, "Segoe UI", Tahoma, sans-serif`; the
+  English interface keeps `system-ui, "Segoe UI", Tahoma, sans-serif`, which is
+  the stack the reference names.
+- **Sidebar icon system.** `components/NavIcon.tsx` supplies the glyphs; every
+  one of the 15 nav entries renders an 18×18 `svg` that inherits `currentColor`,
+  with no icon font and no network request.
+- **Active navigation item.** The reference marks the current entry with the gold
+  accent (`--gold`, "العنصر النشط في القائمة"). The item is now a gold pill with
+  ink text, not a tint of the sidebar colour. Sampling the owner dashboard
+  confirms the pill: gold pixels occupy x 1215–1424, a 37px-tall row on the
+  sidebar, matching the reference's gold band (rows 197–233 of page 5).
+- **Global loading and error states, login and password screens.** `app/loading.tsx`
+  and `app/error.tsx` render bilingual, generic states; `/login`,
+  `/forgot-password` and `/reset-password` all answer 200. The error state logs
+  only the digest, never the message, which may carry protected data.
+- **Account emails.** `backend/app/services/mail.py` produces bilingual reset and
+  invitation messages, each with exactly one secure `/reset-password?token=` link
+  and no amount, currency or report value.
+
+Captures for these states are in `docs/screenshots/deliverables/`:
+`login-ar-desktop.png`, `dashboard-ar-desktop.png`, `dashboard-ar-dark.png`,
+`dashboard-en-desktop.png`, `dashboard-ar-mobile-400.png`.
+
+The **logo** is the one item that cannot be delivered: it is a designer
+deliverable (page 32, «تصميم الشعار»), no asset exists, and no substitute was
+drawn. The handover path is verified — see
+`docs/verification/reference-asset-blocker.md`.

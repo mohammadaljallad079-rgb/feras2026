@@ -44,6 +44,24 @@ every screenshot rather than silently passing as approved branding. The
 component already points at `/brand/holding-logo.png`; dropping the file into
 `frontend/public/brand/` completes the requirement with no code change.
 
+## Drop-in path verified
+
+The handover path was exercised with a temporary asset, then the asset was
+removed so nothing unapproved ships:
+
+- With `frontend/public/brand/holding-logo.png` present the header element
+  reports `data-logo="official"` and renders at the file's own aspect ratio
+  (a 320×320 test file rendered 48×48 at `size={48}`, unmodified).
+- With the file absent the element reports `data-logo="missing"` and shows the
+  neutral placeholder.
+
+A defect in that path was found and fixed. The logo `<img>` is server-rendered,
+so a missing file returns 404 *before* React hydrates; the `onError` handler
+never fires for that first failure and the page showed a browser broken-image
+icon instead of the flagged placeholder. `BrandMark` now re-checks
+`img.complete && img.naturalWidth === 0` in a mount effect and falls back
+correctly.
+
 ## Action required
 
 ```

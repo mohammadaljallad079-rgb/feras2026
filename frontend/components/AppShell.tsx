@@ -6,25 +6,26 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Locale, appName, t } from "@/lib/i18n";
 import { BrandMark } from "@/components/BrandMark";
+import { NavIcon, NavIconName } from "@/components/NavIcon";
 import { api } from "@/lib/api";
 
 /** Sidebar entries, each gated by the permission the backend enforces. */
-const NAV: { href: string; section: string; key: string; permission: string }[] = [
-  { href: "/dashboard", section: "nav", key: "dashboard", permission: "" },
-  { href: "/companies", section: "nav", key: "companies", permission: "company:view" },
-  { href: "/reports", section: "nav", key: "reports", permission: "report:view_own" },
-  { href: "/accounting", section: "nav", key: "accounting", permission: "accounting:view" },
-  { href: "/service-requests", section: "nav", key: "serviceRequests", permission: "service:view" },
-  { href: "/leads", section: "nav", key: "leads", permission: "lead:view" },
-  { href: "/opportunities", section: "nav", key: "opportunities", permission: "opportunity:view" },
-  { href: "/directives", section: "nav", key: "directives", permission: "directive:view" },
-  { href: "/hr", section: "nav", key: "hr", permission: "hr:view" },
-  { href: "/website", section: "nav", key: "website", permission: "website:view" },
-  { href: "/advisor", section: "nav", key: "advisor", permission: "advisor:view" },
-  { href: "/assistant", section: "nav", key: "assistant", permission: "ai:use" },
-  { href: "/form-builder", section: "nav", key: "formBuilder", permission: "form:manage" },
-  { href: "/users", section: "nav", key: "users", permission: "user:view" },
-  { href: "/audit", section: "nav", key: "audit", permission: "audit:view" },
+const NAV: { href: string; section: string; key: string; permission: string; icon: NavIconName }[] = [
+  { href: "/dashboard", section: "nav", key: "dashboard", permission: "", icon: "dashboard" },
+  { href: "/companies", section: "nav", key: "companies", permission: "company:view", icon: "companies" },
+  { href: "/reports", section: "nav", key: "reports", permission: "report:view_own", icon: "reports" },
+  { href: "/accounting", section: "nav", key: "accounting", permission: "accounting:view", icon: "accounting" },
+  { href: "/service-requests", section: "nav", key: "serviceRequests", permission: "service:view", icon: "serviceRequests" },
+  { href: "/leads", section: "nav", key: "leads", permission: "lead:view", icon: "leads" },
+  { href: "/opportunities", section: "nav", key: "opportunities", permission: "opportunity:view", icon: "opportunities" },
+  { href: "/directives", section: "nav", key: "directives", permission: "directive:view", icon: "directives" },
+  { href: "/hr", section: "nav", key: "hr", permission: "hr:view", icon: "hr" },
+  { href: "/website", section: "nav", key: "website", permission: "website:view", icon: "website" },
+  { href: "/advisor", section: "nav", key: "advisor", permission: "advisor:view", icon: "advisor" },
+  { href: "/assistant", section: "nav", key: "assistant", permission: "ai:use", icon: "assistant" },
+  { href: "/form-builder", section: "nav", key: "formBuilder", permission: "form:manage", icon: "formBuilder" },
+  { href: "/users", section: "nav", key: "users", permission: "user:view", icon: "users" },
+  { href: "/audit", section: "nav", key: "audit", permission: "audit:view", icon: "audit" },
 ];
 
 type Period = { label: string; due: string | null };
@@ -80,7 +81,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={`nav-item text-sidefg ${active ? "nav-item-active" : ""}`}
                 onClick={() => setMenuOpen(false)}
               >
-                {t(item.section, item.key, locale)}
+                <NavIcon name={item.icon} />
+                <span>{t(item.section, item.key, locale)}</span>
               </Link>
             );
           })}

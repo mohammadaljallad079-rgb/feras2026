@@ -63,6 +63,18 @@ overridden for that one process.
   the reference's order and an optional `filter` for narrowing controls.
 - Bilingual fields are `*_ar` / `*_en`; UI strings come from the locale
   dictionaries, not inline literals.
+- Arabic uses the self-hosted Tajawal face (SIL OFL 1.1, `frontend/public/fonts/`),
+  declared in `app/globals.css` and applied through `--font-ar`. English keeps the
+  system stack the reference names. Page 32 defers the licensed Arabic font to the
+  designer; Tajawal is that licensed choice.
+- Sidebar icons come from `components/NavIcon.tsx`, a self-contained SVG set keyed
+  by `NavIconName`; `NAV` entries carry an `icon` field and `AppShell` renders it.
+  No icon font or external icon dependency.
+- Global loading/error states live in `app/loading.tsx` and `app/error.tsx`.
+- Outbound mail is `backend/app/services/mail.py`: bilingual templates for password
+  reset and invitation, one secure link each and no financial detail (page 32).
+  SMTP is optional — with no `SMTP_HOST`, `send()` returns `False` and the caller
+  returns the link for out-of-band delivery instead of claiming a message.
 
 ## Known gaps
 
@@ -70,4 +82,6 @@ overridden for that one process.
   neutral mark with `data-logo="missing"` rather than an unapproved stand-in.
   `BrandMark` already points at `/brand/holding-logo.png`; adding the file to
   `frontend/public/brand/` completes the requirement with no code change.
+  `BrandMark` re-checks on mount, because the server-rendered `<img>` 404s before
+  hydration and `onError` never fires for that first failure.
 - The public holding website has no approved specification.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Official brand mark.
@@ -26,22 +26,35 @@ export function BrandMark({
   tone?: "onDark" | "onCard";
 }) {
   const [failed, setFailed] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  // The logo is server-rendered, so a missing file 404s before React hydrates
+  // and `onError` never fires — the page would show a broken-image icon with an
+  // empty box. Re-check on mount to catch that pre-hydration failure.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth === 0) setFailed(true);
+  }, []);
 
   return (
     <span className="flex items-center gap-3">
       {failed ? (
+        // Deliberately neutral — pearl, not the gold brand accent — so it can
+        // never be mistaken for approved branding. The reference defers the
+        // logo to the designer (page 32), so nothing here imitates one.
         <span
           data-logo="missing"
           title="Official logo not supplied: expected frontend/public/brand/holding-logo.png"
-          className="flex items-center justify-center rounded-full bg-gold font-bold text-goldink"
+          className="flex items-center justify-center rounded-control border border-dashed border-sidefg/40 bg-sidefg/10 font-semibold text-sidefg"
           style={{ height: size, width: size }}
           aria-hidden="true"
         >
-          ص
+          ⌾
         </span>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={imgRef}
           data-logo="official"
           src="/brand/holding-logo.png"
           alt={name}

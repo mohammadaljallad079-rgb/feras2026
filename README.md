@@ -25,7 +25,16 @@ database, with domain modules under `backend/app/api/v1/`.
 > it. `BrandMark` therefore falls back to a neutral placeholder flagged
 > `data-logo="missing"`, so the gap is visible in the DOM and in every screenshot
 > rather than passing as approved branding. No substitute logo has been drawn.
-> See `docs/verification/reference-asset-blocker.md`.
+> The drop-in path is verified end to end: placing the file at
+> `frontend/public/brand/holding-logo.png` renders it unaltered at its own aspect
+> ratio, with no code change. See `docs/verification/reference-asset-blocker.md`.
+>
+> The remaining designer tasks listed on page 32 are delivered: a licensed Arabic
+> face (Tajawal, SIL OFL 1.1) is self-hosted and wired into the tokens, the sidebar
+> has a built-in icon set, global loading and error states plus the login and
+> password screens are in place, and the account emails carry concise bilingual
+> text with one secure link and no financial detail. Only the logo remains
+> outstanding, and it is a designer deliverable rather than a code change.
 >
 > The reference does **not** describe the public holding website, whose design
 > is a separate, unapproved deliverable.

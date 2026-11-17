@@ -34,6 +34,19 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     public_rate_limit_per_hour: int = 20
 
+    # Public base URL of the frontend, used to build the secure links in the
+    # account emails (password reset, invitation).
+    frontend_base_url: str = "http://localhost:3000"
+
+    # Outbound mail. When SMTP_HOST is empty the platform reports the mail
+    # transport as unconfigured instead of pretending a message was delivered.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "no-reply@safir-platform.com"
+    smtp_use_tls: bool = True
+
     # AI provider abstraction. The approved provider is selected here; no other
     # provider is substituted silently. Missing key => configuration status,
     # never a fabricated answer.
@@ -60,6 +73,10 @@ class Settings(BaseSettings):
     @property
     def ai_configured(self) -> bool:
         return bool(self.openai_api_key)
+
+    @property
+    def mail_configured(self) -> bool:
+        return bool(self.smtp_host)
 
 
 @lru_cache
