@@ -191,10 +191,14 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  56 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
-frontend: tsc --noEmit clean; next build lists 24 routes
+backend:  63 passed  (13 end-to-end journeys over live HTTP + PostgreSQL,
+                       plus 7 tests for the public-site CMS)
+frontend: tsc --noEmit clean; next build lists 25 routes
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
-mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)
+website:  85 route/viewport combinations inspected, 0 failures (scripts/check_matrix.py)
+          23 public-site render checks, 3 form journeys, 4 CMS authorisation and
+          propagation checks — see docs/verification/website-cms.md
+mobile:   no horizontal scroll on 11 routes at 400px (scripts/check_mobile.py)
 ```
 
 The 4 tests added for the page-32 items cover the account emails, the invitation
@@ -203,13 +207,27 @@ link and the mail transport: the reset and invitation messages carry exactly one
 by the confirm endpoint, an unconfigured sender reports `False` instead of a
 fabricated success, and an SMTP failure does not raise.
 
+## 7b. Public holding website and CMS
+
+The corporate website for **START UP SPHERE HOLDING CO W.L.L** is implemented and
+served at `/{locale}` (`ar` default, `en`), with the admin console moved to
+`/platform/*` so the site can own the root. A CMS drives every string on it:
+settings, sections, hero slides, services and navigation, all editable from
+`/platform/website/content` and published through `/api/v1/public/site`.
+
+This deliverable is **provisional pending owner approval**: the reference PDF
+covers the management platform only and does not specify the marketing site, so
+its design is not claimed to be visually faithful to the reference. Every string
+the missing `content-ar.md` / `content-en.md` would have supplied is seeded with
+`needs_review: true`. Full evidence in `docs/verification/website-cms.md`.
+
 ## 8. What remains before final sign-off
 
-1. Supply an approved visual specification for the public holding website. The
-   reference covers the management platform only, so no website screen is
-   presented as visually faithful; the administrative half of page 15 (the
-   inbox, conversion, and public-visibility controls) is implemented, and the
-   public API endpoints that website will call are live.
+1. Obtain owner approval for the public holding website. The reference covers the
+   management platform only, so no website screen is presented as visually
+   faithful. The site is built and live as a preview; the administrative half of
+   page 15 (the inbox, conversion, and public-visibility controls) is implemented,
+   and the public API endpoints the site calls are live and tested.
 2. Configure a real AI provider (`AI_PROVIDER` plus its server-side key) in the
    target environment. The abstraction, grounding and configuration-status
    handling are implemented and tested; with no key the assistant reports an

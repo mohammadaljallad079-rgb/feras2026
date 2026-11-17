@@ -24,6 +24,18 @@ const config: Config = {
         side: "var(--side)",
         sidefg: "var(--sidefg)",
         pearl: "var(--pearl)",
+        // Public-website brand palette, taken from the official logo artwork
+        // (deep teal #096b82, bright teal #0c8fad) and a warm sand accent.
+        brand: {
+          deep: "var(--brand-deep)",
+          bright: "var(--brand-bright)",
+          ink: "var(--brand-ink)",
+          sand: "var(--brand-sand)",
+          mist: "var(--brand-mist)",
+          paper: "var(--brand-paper)",
+          slate: "var(--brand-slate)",
+          line: "var(--brand-line)",
+        },
       },
       borderRadius: {
         card: "10px",

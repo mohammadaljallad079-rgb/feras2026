@@ -38,23 +38,23 @@ ACCOUNTS = {
 
 # (route, role) for every screen the reference defines.
 ROUTES = [
-    ("/dashboard", "owner"),
-    ("/companies", "owner"),
-    ("/companies/new", "owner"),
-    ("/reports", "owner"),
-    ("/accounting", "accountant"),
-    ("/service-requests", "owner"),
-    ("/leads", "owner"),
-    ("/opportunities", "owner"),
-    ("/directives", "owner"),
-    ("/hr", "owner"),
-    ("/website", "owner"),
-    ("/advisor", "owner"),
-    ("/assistant", "owner"),
-    ("/form-builder", "owner"),
-    ("/users", "owner"),
-    ("/users/new", "owner"),
-    ("/audit", "owner"),
+    ("/platform/dashboard", "owner"),
+    ("/platform/companies", "owner"),
+    ("/platform/companies/new", "owner"),
+    ("/platform/reports", "owner"),
+    ("/platform/accounting", "accountant"),
+    ("/platform/service-requests", "owner"),
+    ("/platform/leads", "owner"),
+    ("/platform/opportunities", "owner"),
+    ("/platform/directives", "owner"),
+    ("/platform/hr", "owner"),
+    ("/platform/website", "owner"),
+    ("/platform/advisor", "owner"),
+    ("/platform/assistant", "owner"),
+    ("/platform/form-builder", "owner"),
+    ("/platform/users", "owner"),
+    ("/platform/users/new", "owner"),
+    ("/platform/audit", "owner"),
 ]
 
 # Light-mode tokens from the specification, and their dark counterparts.
@@ -109,11 +109,11 @@ def _sign_in(browser: Browser, role: str, locale: str, theme: str, width: int, h
     page = ctx.new_page()
     errors: list[str] = []
     page.on("pageerror", lambda e: errors.append(str(e)[:160]))
-    page.goto(f"{BASE}/login")
+    page.goto(f"{BASE}/platform/login")
     page.fill("#email", ACCOUNTS[role])
     page.fill("#password", PASSWORD)
     page.click("button[type=submit]")
-    page.wait_for_url("**/dashboard", timeout=25000)
+    page.wait_for_url("**/platform/dashboard", timeout=25000)
     if locale == "en":
         page.select_option("#locale-select", "en")
         page.wait_for_timeout(700)

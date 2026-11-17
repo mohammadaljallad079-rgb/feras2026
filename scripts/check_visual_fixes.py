@@ -50,11 +50,11 @@ def _record(page_no: int, title: str, ok: bool, detail: str = "", **extra) -> No
 def _sign_in(browser, role: str, locale: str = "ar"):
     ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
     page = ctx.new_page()
-    page.goto(f"{BASE}/login")
+    page.goto(f"{BASE}/platform/login")
     page.fill("#email", ACCOUNTS[role])
     page.fill("#password", PASSWORD)
     page.click("button[type=submit]")
-    page.wait_for_url("**/dashboard", timeout=25000)
+    page.wait_for_url("**/platform/dashboard", timeout=25000)
     if locale != "ar":
         page.select_option("#locale-select", locale)
         page.wait_for_timeout(600)
@@ -129,7 +129,7 @@ def check_page_18(page: Page) -> None:
     if report_id is None:
         _record(18, "a report exists to open", False, "no reports")
         return
-    page.goto(f"{BASE}/reports/{report_id}")
+    page.goto(f"{BASE}/platform/reports/{report_id}")
     page.wait_for_timeout(1500)
     arrows = page.evaluate("() => document.querySelectorAll('[aria-label=\"حقل فرعي\"], [aria-label=\"Subfield\"]').length")
     _record(18, "subfield rows render the «↳» marker", arrows > 0, f"markers={arrows}")
@@ -162,7 +162,7 @@ def check_page_22(page: Page) -> None:
 
 def check_page_23(page: Page) -> None:
     """Submission screen has the mandatory bank-statement upload."""
-    page.goto(f"{BASE}/reports")
+    page.goto(f"{BASE}/platform/reports")
     page.wait_for_timeout(1200)
     report_id = page.evaluate(
         """async () => {
@@ -176,7 +176,7 @@ def check_page_23(page: Page) -> None:
     if report_id is None:
         _record(23, "a manager report exists", False, "none")
         return
-    page.goto(f"{BASE}/reports/{report_id}")
+    page.goto(f"{BASE}/platform/reports/{report_id}")
     page.wait_for_timeout(1500)
     has_input = page.evaluate("() => !!document.querySelector('#bank-statement')")
     _record(23, "bank-statement upload control exists", has_input)
@@ -187,14 +187,14 @@ def check_page_23(page: Page) -> None:
 def check_page_24(page: Page) -> None:
     """The three accountant entry buttons deep-link to their own section."""
     hrefs = page.evaluate(
-        "() => [...document.querySelectorAll('main a')].map(a => a.getAttribute('href')).filter(h => h && h.includes('/accounting'))"
+        "() => [...document.querySelectorAll('main a')].map(a => a.getAttribute('href')).filter(h => h && h.includes('/platform/accounting'))"
     )
     wanted = {"/accounting?kind=expense", "/accounting?kind=invoice", "/accounting?kind=commission"}
     _record(24, "three accounting deep links exist", wanted.issubset(set(hrefs)), f"hrefs={hrefs}")
     # Each link must actually select its own tab. The tab captions are the
     # plural forms shown in the reference («المصاريف», «الفواتير», «العمولات»).
     for kind, label in [("expense", "المصاريف"), ("invoice", "الفواتير"), ("commission", "العمولات")]:
-        page.goto(f"{BASE}/accounting?kind={kind}")
+        page.goto(f"{BASE}/platform/accounting?kind={kind}")
         page.wait_for_timeout(1200)
         selected = page.evaluate(
             "() => {const el=document.querySelector('[role=tab][aria-selected=true]'); return el ? el.textContent.trim() : null;}"
@@ -202,7 +202,7 @@ def check_page_24(page: Page) -> None:
         _record(24, f"?kind={kind} selects the {kind} tab", bool(selected) and label in selected, f"selected={selected}")
     # PDF p.9 asks for export where applicable; the button must be reachable and
     # download a real workbook rather than a dead control.
-    page.goto(f"{BASE}/accounting")
+    page.goto(f"{BASE}/platform/accounting")
     page.wait_for_timeout(1500)
     button = page.query_selector("button:has-text('تصدير Excel')")
     _record(24, "the accounting export button is present", bool(button))
@@ -222,7 +222,7 @@ def check_forbidden_message(browser) -> None:
     now routes through ``loadError`` so a 403 is named.
     """
     ctx, page = _sign_in(browser, "designer")
-    for path in ("/users", "/accounting", "/hr"):
+    for path in ("/platform/users", "/platform/accounting", "/platform/hr"):
         page.goto(f"{BASE}{path}")
         page.wait_for_timeout(2000)
         body = page.inner_text("body")
@@ -241,7 +241,7 @@ def check_password_reset(browser) -> None:
     """The forgot/reset flow: reachable from login, single-use, and effective."""
     ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
     page = ctx.new_page()
-    page.goto(f"{BASE}/login")
+    page.goto(f"{BASE}/platform/login")
     page.wait_for_timeout(1000)
     _record(5, "login links to the password-reset request", bool(page.query_selector("a[href='/forgot-password']")))
 
@@ -274,12 +274,12 @@ def check_password_reset(browser) -> None:
     _record(5, "a valid token sets the password", "تم تعيين كلمة المرور" in page.inner_text("body"))
 
     # The new password works, and the token cannot be replayed.
-    page.goto(f"{BASE}/login")
+    page.goto(f"{BASE}/platform/login")
     page.wait_for_timeout(1000)
     page.fill("#email", "advisor@safir-platform.com")
     page.fill("#password", "Safir!2026New")
     page.click("button[type=submit]")
-    page.wait_for_url("**/dashboard", timeout=25000)
+    page.wait_for_url("**/platform/dashboard", timeout=25000)
     _record(5, "the new password signs the user in", page.url.endswith("/dashboard"))
 
     page.goto(f"{BASE}/reset-password?token={token}")
@@ -515,7 +515,7 @@ def check_brand_logo(browser) -> None:
     # once rather than twice (the artwork already carries the wordmark).
     ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
     page = ctx.new_page()
-    page.goto(f"{BASE}/login")
+    page.goto(f"{BASE}/platform/login")
     page.wait_for_timeout(1500)
     for locale, name in [("ar", "ستارت أب سفير القابضة"), ("en", "Start Up Sphere Holding")]:
         if locale == "en":
@@ -543,7 +543,7 @@ def main() -> int:
 
         print("page 8 — owner report visibility")
         ctx, page = _sign_in(browser, "owner")
-        page.goto(f"{BASE}/reports")
+        page.goto(f"{BASE}/platform/reports")
         page.wait_for_timeout(1500)
         check_page_8(page)
         ctx.close()

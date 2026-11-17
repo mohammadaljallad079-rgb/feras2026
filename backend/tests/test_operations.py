@@ -163,7 +163,7 @@ def test_public_submission_rate_limit_and_conversion(client, make_user, login, d
 
     sub = client.post(
         "/api/v1/public/submissions",
-        json={"kind": "contact", "name": "زائر", "email": "v@example.com", "message": "مرحبا", "company_id": cid},
+        json={"kind": "contact", "name": "زائر", "email": "v@example.com", "message": "مرحبا", "company_id": cid, "consent": True},
     )
     assert sub.status_code == 201, sub.text
     sid = sub.json()["id"]
@@ -197,7 +197,7 @@ def test_website_visibility_accepts_a_json_body_and_rejects(client, make_user, l
 
     sub = client.post(
         "/api/v1/public/submissions",
-        json={"kind": "contact", "name": "زائر", "email": "r@example.com", "message": "x", "company_id": cid},
+        json={"kind": "contact", "name": "زائر", "email": "r@example.com", "message": "x", "company_id": cid, "consent": True},
     )
     assert sub.status_code == 201, sub.text
     rejected = client.post(f"/api/v1/website/submissions/{sub.json()['id']}/reject", headers=h_owner)
@@ -511,9 +511,12 @@ def test_every_ai_source_link_points_at_a_real_screen():
     reference requires the user to be able to open the original record.
     """
     repo = Path(__file__).resolve().parents[2]
+    # Admin screens live under app/(admin)/platform after the public site took
+    # the locale root. Scan that tree so a route rename cannot silently pass.
+    admin_root = repo / "frontend" / "app" / "(admin)" / "platform"
     routes = {
-        str(p.parent.relative_to(repo / "frontend" / "app" / "(app)"))
-        for p in (repo / "frontend" / "app" / "(app)").rglob("page.tsx")
+        str(p.parent.relative_to(admin_root)).replace("(app)", "").strip("/")
+        for p in admin_root.rglob("page.tsx")
     }
     assert routes, "no frontend routes found; the scan is broken"
 

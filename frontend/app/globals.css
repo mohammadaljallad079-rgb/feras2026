@@ -182,3 +182,184 @@ table,
     @apply bg-white p-1;
   }
 }
+
+/*
+ * Public-website brand tokens.
+ *
+ * Derived from the official logo artwork, which is deep teal (#096b82) with a
+ * brighter teal (#0c8fad) highlight — not the platform's navy/gold. The logo is
+ * never recoloured; these tokens let the site match it. Values are proposed for
+ * owner approval, and the site is presented as a preview until approved.
+ */
+:root {
+  --brand-deep: #075e73;
+  --brand-bright: #0c8fad;
+  --brand-ink: #0d2230;
+  --brand-sand: #c7a15e;
+  --brand-mist: #eef6f8;
+  --brand-paper: #ffffff;
+  --brand-slate: #5c6b76;
+  --brand-line: #dbe4e8;
+  --brand-font: "Tajawal", system-ui, "Segoe UI", Tahoma, sans-serif;
+  --brand-font-latin: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --- Public site base --------------------------------------------------- */
+.site-root {
+  background: var(--brand-paper);
+  color: var(--brand-ink);
+  font-family: var(--brand-font-latin);
+}
+.site-root[dir="rtl"] {
+  font-family: var(--brand-font);
+}
+.site-container {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+/* Header */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--brand-paper) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--brand-line);
+}
+.site-nav-link {
+  position: relative;
+  padding-block: 6px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--brand-ink);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.site-nav-link:hover,
+.site-nav-link[aria-current="page"] {
+  border-color: var(--brand-sand);
+}
+
+/* Buttons */
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.site-btn-primary {
+  background: var(--brand-deep);
+  color: #fff;
+}
+.site-btn-primary:hover {
+  background: var(--brand-bright);
+}
+.site-btn-sand {
+  background: var(--brand-sand);
+  color: #2b2109;
+}
+.site-btn-sand:hover {
+  filter: brightness(0.94);
+}
+.site-btn-outline {
+  background: transparent;
+  color: var(--brand-deep);
+  border-color: var(--brand-line);
+}
+.site-btn-outline:hover {
+  border-color: var(--brand-deep);
+}
+.site-btn-ghost {
+  background: transparent;
+  color: #fff;
+  border-color: color-mix(in srgb, #fff 55%, transparent);
+}
+.site-btn-ghost:hover {
+  background: color-mix(in srgb, #fff 14%, transparent);
+}
+.site-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Section rhythm */
+.site-section {
+  padding-block: 84px;
+}
+.site-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-sand);
+}
+.site-eyebrow::before {
+  content: "";
+  width: 26px;
+  height: 1.5px;
+  background: var(--brand-sand);
+}
+.site-h2 {
+  margin-top: 14px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.site-lead {
+  margin-top: 14px;
+  max-width: 640px;
+  color: var(--brand-slate);
+  font-size: 16px;
+}
+.site-card {
+  background: var(--brand-paper);
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  padding: 28px;
+}
+.site-field {
+  width: 100%;
+  border: 1px solid var(--brand-line);
+  border-radius: 8px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 15px;
+  background: #fff;
+  color: var(--brand-ink);
+}
+.site-field:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 1px;
+}
+.site-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--brand-ink);
+}
+.site-req {
+  color: #b3261e;
+}
+
+/* Keyboard focus must stay visible everywhere. */
+.site-root :focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 2px;
+}

@@ -84,11 +84,11 @@ DARK_ROUTES = [
 def _open(browser, role: str, locale: str, theme: str, viewport: tuple[int, int]):
     ctx: BrowserContext = browser.new_context(viewport={"width": viewport[0], "height": viewport[1]})
     page = ctx.new_page()
-    page.goto(f"{BASE}/login")
+    page.goto(f"{BASE}/platform/login")
     page.fill("#email", EMAILS[role])
     page.fill("#password", PASSWORD)
     page.click("button[type=submit]")
-    page.wait_for_url("**/dashboard", timeout=20000)
+    page.wait_for_url("**/platform/dashboard", timeout=20000)
     if locale == "en":
         page.select_option("#locale-select", "en")
         page.wait_for_timeout(500)
@@ -144,7 +144,7 @@ def main() -> int:
         for locale in ("ar", "en"):
             ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
             page = ctx.new_page()
-            page.goto(f"{BASE}/login")
+            page.goto(f"{BASE}/platform/login")
             page.wait_for_timeout(800)
             if locale == "en":
                 page.click("button:has-text('English')")
@@ -166,13 +166,13 @@ def main() -> int:
             if key not in sessions:
                 sessions[key] = _open(browser, role, "ar", "light", (1440, 1000))
             _, page = sessions[key]
-            page.goto(f"{BASE}/reports")
+            page.goto(f"{BASE}/platform/reports")
             page.wait_for_timeout(1200)
             report_id = _first_report_id(page, status)
             if report_id is None:
                 print(f"skipped {name}: no {status} report in the database")
                 continue
-            page.goto(f"{BASE}/reports/{report_id}")
+            page.goto(f"{BASE}/platform/reports/{report_id}")
             page.wait_for_timeout(1200)
             page.screenshot(path=str(OUT / f"{name}.png"), full_page=True)
             print(f"captured {name}.png")

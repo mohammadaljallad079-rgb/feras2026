@@ -11,21 +11,21 @@ import { api } from "@/lib/api";
 
 /** Sidebar entries, each gated by the permission the backend enforces. */
 const NAV: { href: string; section: string; key: string; permission: string; icon: NavIconName }[] = [
-  { href: "/dashboard", section: "nav", key: "dashboard", permission: "", icon: "dashboard" },
-  { href: "/companies", section: "nav", key: "companies", permission: "company:view", icon: "companies" },
-  { href: "/reports", section: "nav", key: "reports", permission: "report:view_own", icon: "reports" },
-  { href: "/accounting", section: "nav", key: "accounting", permission: "accounting:view", icon: "accounting" },
-  { href: "/service-requests", section: "nav", key: "serviceRequests", permission: "service:view", icon: "serviceRequests" },
-  { href: "/leads", section: "nav", key: "leads", permission: "lead:view", icon: "leads" },
-  { href: "/opportunities", section: "nav", key: "opportunities", permission: "opportunity:view", icon: "opportunities" },
-  { href: "/directives", section: "nav", key: "directives", permission: "directive:view", icon: "directives" },
-  { href: "/hr", section: "nav", key: "hr", permission: "hr:view", icon: "hr" },
-  { href: "/website", section: "nav", key: "website", permission: "website:view", icon: "website" },
-  { href: "/advisor", section: "nav", key: "advisor", permission: "advisor:view", icon: "advisor" },
-  { href: "/assistant", section: "nav", key: "assistant", permission: "ai:use", icon: "assistant" },
-  { href: "/form-builder", section: "nav", key: "formBuilder", permission: "form:manage", icon: "formBuilder" },
-  { href: "/users", section: "nav", key: "users", permission: "user:view", icon: "users" },
-  { href: "/audit", section: "nav", key: "audit", permission: "audit:view", icon: "audit" },
+  { href: "/platform/dashboard", section: "nav", key: "dashboard", permission: "", icon: "dashboard" },
+  { href: "/platform/companies", section: "nav", key: "companies", permission: "company:view", icon: "companies" },
+  { href: "/platform/reports", section: "nav", key: "reports", permission: "report:view_own", icon: "reports" },
+  { href: "/platform/accounting", section: "nav", key: "accounting", permission: "accounting:view", icon: "accounting" },
+  { href: "/platform/service-requests", section: "nav", key: "serviceRequests", permission: "service:view", icon: "serviceRequests" },
+  { href: "/platform/leads", section: "nav", key: "leads", permission: "lead:view", icon: "leads" },
+  { href: "/platform/opportunities", section: "nav", key: "opportunities", permission: "opportunity:view", icon: "opportunities" },
+  { href: "/platform/directives", section: "nav", key: "directives", permission: "directive:view", icon: "directives" },
+  { href: "/platform/hr", section: "nav", key: "hr", permission: "hr:view", icon: "hr" },
+  { href: "/platform/website", section: "nav", key: "website", permission: "website:view", icon: "website" },
+  { href: "/platform/advisor", section: "nav", key: "advisor", permission: "advisor:view", icon: "advisor" },
+  { href: "/platform/assistant", section: "nav", key: "assistant", permission: "ai:use", icon: "assistant" },
+  { href: "/platform/form-builder", section: "nav", key: "formBuilder", permission: "form:manage", icon: "formBuilder" },
+  { href: "/platform/users", section: "nav", key: "users", permission: "user:view", icon: "users" },
+  { href: "/platform/audit", section: "nav", key: "audit", permission: "audit:view", icon: "audit" },
 ];
 
 type Period = { label: string; due: string | null };
@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="p-6 muted">{locale === "ar" ? "جارٍ التحميل…" : "Loading…"}</div>;
   }
   if (!me) {
-    if (typeof window !== "undefined") router.replace("/login");
+    if (typeof window !== "undefined") router.replace("/platform/login");
     return null;
   }
 
@@ -120,7 +120,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button type="button" className="btn-ghost" onClick={toggleTheme} aria-pressed={theme === "dark"}>
               {t("common", "dark", locale)}
             </button>
-            <button type="button" className="btn-primary" onClick={() => void logout().then(() => router.push("/login"))}>
+            <button type="button" className="btn-primary" onClick={() => void logout().then(() => router.push("/platform/login"))}>
               {t("common", "logout", locale)}
             </button>
           </div>
