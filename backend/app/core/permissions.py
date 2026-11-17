@@ -52,6 +52,11 @@ HR_VIEW_SALARY = "hr:view_salary"
 
 WEBSITE_VIEW = "website:view"
 WEBSITE_MANAGE = "website:manage"
+# Public-site CMS: content editing and the submission inbox are separate grants
+# so a role can read the inbox without being able to rewrite the website.
+SITE_MANAGE = "site:manage"
+SITE_SUBMISSIONS = "site:submissions"
+SITE_ASSIGN = "site:assign"
 
 ADVISOR_VIEW = "advisor:view"
 ADVISOR_SUBMIT = "advisor:submit"
@@ -73,6 +78,7 @@ ALL_PERMISSIONS: tuple[str, ...] = (
     DIRECTIVE_VIEW, DIRECTIVE_CREATE, DIRECTIVE_UPDATE,
     HR_VIEW, HR_MANAGE, HR_VIEW_CONFIDENTIAL, HR_VIEW_SALARY,
     WEBSITE_VIEW, WEBSITE_MANAGE,
+    SITE_MANAGE, SITE_SUBMISSIONS, SITE_ASSIGN,
     ADVISOR_VIEW, ADVISOR_SUBMIT,
     AI_USE, AI_CONFIGURE,
     AUDIT_VIEW,
@@ -129,7 +135,8 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "permissions": [
             COMPANY_VIEW, REPORT_VIEW_ALL, LEAD_VIEW, LEAD_MANAGE,
             OPP_VIEW, OPP_CREATE, SERVICE_VIEW, SERVICE_CREATE,
-            ADVISOR_VIEW, ADVISOR_SUBMIT, WEBSITE_VIEW, WEBSITE_MANAGE, AI_USE,
+            ADVISOR_VIEW, ADVISOR_SUBMIT, WEBSITE_VIEW, WEBSITE_MANAGE,
+            SITE_SUBMISSIONS, SITE_ASSIGN, AI_USE,
         ],
     },
     MARKETER: {

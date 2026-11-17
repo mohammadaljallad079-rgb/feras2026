@@ -207,18 +207,52 @@ class WebsiteSubmission(Base, TimestampMixin):
     __tablename__ = "website_submissions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    reference_no: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True, index=True)
     kind: Mapped[str] = mapped_column(String(32), index=True)
     name: Mapped[str] = mapped_column(String(255))
     email: Mapped[str] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Service requests carry the requested service type; opportunities carry a
+    # project country and a subject; job applications carry an area of expertise.
+    service_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    expertise: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    consent: Mapped[bool] = mapped_column(Boolean, default=False)
     company_id: Mapped[int | None] = mapped_column(
         ForeignKey("companies.id", ondelete="SET NULL"), nullable=True
     )
+    # Optional study file (opportunity) or CV (job application); private.
+    attachment_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stored_files.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default=SubmissionStatus.NEW.value, index=True)
     converted_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     converted_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WebsiteSubmissionEvent(Base, TimestampMixin):
+    """Append-only status/assignment history for a website submission."""
+
+    __tablename__ = "website_submission_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[int] = mapped_column(
+        ForeignKey("website_submissions.id", ondelete="CASCADE"), index=True
+    )
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    from_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AdvisorMessage(Base, TimestampMixin):

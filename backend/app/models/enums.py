@@ -104,7 +104,11 @@ class SubmissionKind(StrEnum):
 
 class SubmissionStatus(StrEnum):
     NEW = "new"
+    IN_REVIEW = "in_review"
+    NEEDS_FOLLOWUP = "needs_followup"
     CONVERTED = "converted"
+    COMPLETED = "completed"
+    CLOSED = "closed"
     REJECTED = "rejected"
 
 

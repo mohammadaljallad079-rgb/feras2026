@@ -32,4 +32,12 @@ from app.models.operations import (  # noqa: F401
     ServiceRequestReply,
     StoredFile,
     WebsiteSubmission,
+    WebsiteSubmissionEvent,
+)
+from app.models.site import (  # noqa: F401
+    SiteNavLink,
+    SiteSection,
+    SiteService,
+    SiteSetting,
+    SiteSlide,
 )

@@ -526,24 +526,41 @@ class EmployeeEventOut(ORMModel):
 # --- Website submissions ----------------------------------------------------
 class PublicSubmission(BaseModel):
     kind: str
-    name: str
+    name: str = Field(min_length=1, max_length=255)
     email: EmailStr
-    phone: str | None = None
+    phone: str | None = Field(default=None, max_length=64)
     message: str | None = None
+    # Per-kind fields (brief §8). All optional at the base level; the router
+    # enforces what each kind requires so the same schema serves the three forms.
+    service_type: str | None = Field(default=None, max_length=128)
+    country: str | None = Field(default=None, max_length=64)
+    subject: str | None = Field(default=None, max_length=255)
+    expertise: str | None = Field(default=None, max_length=255)
     company_id: int | None = None
+    consent: bool = False
 
 
 class SubmissionOut(ORMModel):
     id: int
+    reference_no: str | None
     kind: str
     name: str
     email: str
     phone: str | None
     message: str | None
+    service_type: str | None
+    country: str | None
+    subject: str | None
+    expertise: str | None
+    consent: bool
     company_id: int | None
+    attachment_file_id: int | None
+    assigned_user_id: int | None
+    internal_notes: str | None
     status: str
     converted_type: str | None
     converted_id: int | None
+    reviewed_at: datetime | None
     created_at: datetime
 
 
@@ -551,8 +568,194 @@ class SubmissionConvert(BaseModel):
     target: str
 
 
+class SubmissionUpdate(BaseModel):
+    status: str | None = None
+    assigned_user_id: int | None = None
+    internal_notes: str | None = None
+
+
+class SubmissionEventOut(ORMModel):
+    id: int
+    from_status: str | None
+    to_status: str | None
+    note: str | None
+    actor_user_id: int | None
+    created_at: datetime
+
+
 class VisibilityUpdate(BaseModel):
     public_visible: bool
+
+
+# --- Public site content (CMS) ----------------------------------------------
+class SiteSettingOut(ORMModel):
+    id: int
+    key: str
+    value_ar: str | None
+    value_en: str | None
+
+
+class SiteSettingUpdate(BaseModel):
+    value_ar: str | None = None
+    value_en: str | None = None
+
+
+class SiteSectionOut(ORMModel):
+    id: int
+    key: str
+    title_ar: str | None
+    title_en: str | None
+    body_ar: str | None
+    body_en: str | None
+    image_file_id: int | None
+    sort_order: int
+    is_visible: bool
+    needs_review: bool
+
+
+class SiteSectionUpdate(BaseModel):
+    title_ar: str | None = None
+    title_en: str | None = None
+    body_ar: str | None = None
+    body_en: str | None = None
+    image_file_id: int | None = None
+    sort_order: int | None = None
+    is_visible: bool | None = None
+    needs_review: bool | None = None
+
+
+class SiteSlideOut(ORMModel):
+    id: int
+    title_ar: str
+    title_en: str
+    body_ar: str | None
+    body_en: str | None
+    image_file_id: int | None
+    cta_primary_label_ar: str | None
+    cta_primary_label_en: str | None
+    cta_primary_href: str | None
+    cta_secondary_label_ar: str | None
+    cta_secondary_label_en: str | None
+    cta_secondary_href: str | None
+    sort_order: int
+    is_active: bool
+
+
+class SiteSlideCreate(BaseModel):
+    title_ar: str
+    title_en: str
+    body_ar: str | None = None
+    body_en: str | None = None
+    image_file_id: int | None = None
+    cta_primary_label_ar: str | None = None
+    cta_primary_label_en: str | None = None
+    cta_primary_href: str | None = None
+    cta_secondary_label_ar: str | None = None
+    cta_secondary_label_en: str | None = None
+    cta_secondary_href: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class SiteSlideUpdate(BaseModel):
+    title_ar: str | None = None
+    title_en: str | None = None
+    body_ar: str | None = None
+    body_en: str | None = None
+    image_file_id: int | None = None
+    cta_primary_label_ar: str | None = None
+    cta_primary_label_en: str | None = None
+    cta_primary_href: str | None = None
+    cta_secondary_label_ar: str | None = None
+    cta_secondary_label_en: str | None = None
+    cta_secondary_href: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class SiteServiceOut(ORMModel):
+    id: int
+    slug: str
+    name_ar: str
+    name_en: str
+    description_ar: str | None
+    description_en: str | None
+    icon: str | None
+    sort_order: int
+    is_active: bool
+    needs_review: bool
+
+
+class SiteServiceCreate(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    name_ar: str
+    name_en: str
+    description_ar: str | None = None
+    description_en: str | None = None
+    icon: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class SiteServiceUpdate(BaseModel):
+    name_ar: str | None = None
+    name_en: str | None = None
+    description_ar: str | None = None
+    description_en: str | None = None
+    icon: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+    needs_review: bool | None = None
+
+
+class SiteNavLinkOut(ORMModel):
+    id: int
+    location: str
+    label_ar: str
+    label_en: str
+    href: str
+    sort_order: int
+    is_active: bool
+
+
+class SiteNavLinkCreate(BaseModel):
+    location: str
+    label_ar: str
+    label_en: str
+    href: str
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class SiteNavLinkUpdate(BaseModel):
+    label_ar: str | None = None
+    label_en: str | None = None
+    href: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class PublicCompanyOut(BaseModel):
+    """The only company fields the public website may expose (brief §5.D)."""
+
+    code: str
+    name_ar: str
+    name_en: str
+    sector: str
+    country: str
+    logo_url: str | None = None
+
+
+class SiteBootstrap(BaseModel):
+    """Everything the public site needs for one render, in one request."""
+
+    settings: dict[str, dict[str, str | None]]
+    sections: list[SiteSectionOut]
+    slides: list[SiteSlideOut]
+    services: list[SiteServiceOut]
+    header_nav: list[SiteNavLinkOut]
+    footer_nav: list[SiteNavLinkOut]
+    opportunity_countries: list[dict[str, str]]
 
 
 # --- Advisor ----------------------------------------------------------------
