@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
-import { api } from "@/lib/api";
+import { api, loadError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Person = { id: number; full_name_ar: string; full_name_en: string };
@@ -41,8 +41,8 @@ export default function DirectivesPage() {
     try {
       setRows(await api.get<Directive[]>("/api/v1/directives"));
       setOverdue(await api.get<Directive[]>("/api/v1/directives/overdue").catch(() => []));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

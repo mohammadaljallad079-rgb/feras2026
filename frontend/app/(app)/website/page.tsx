@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
-import { api, Company } from "@/lib/api";
+import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Submission = {
@@ -32,8 +32,8 @@ export default function WebsitePage() {
     setLoading(true);
     try {
       setRows(await api.get<Submission[]>("/api/v1/website/submissions"));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

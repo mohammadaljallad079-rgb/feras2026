@@ -26,6 +26,7 @@ ACCOUNTS = {
     "accountant": "accountant@safir-platform.com",
     "bd": "bd@safir-platform.com",
     "marketer": "marketer@safir-platform.com",
+    "designer": "designer@safir-platform.com",
 }
 
 
@@ -210,6 +211,30 @@ def check_page_24(page: Page) -> None:
             button.click()
         name = download.value.suggested_filename
         _record(24, "the export downloads a workbook", name.endswith(".xlsx"), f"name={name}")
+
+
+def check_forbidden_message(browser) -> None:
+    """A screen the role may not read must say so, not report a generic failure.
+
+    The designer holds no ``user:view`` or ``audit:view``. ``/users`` and
+    ``/accounting`` used to collapse the backend's 403 into «تعذّر تحميل
+    البيانات», which reads as a broken screen rather than a refusal. Every read
+    now routes through ``loadError`` so a 403 is named.
+    """
+    ctx, page = _sign_in(browser, "designer")
+    for path in ("/users", "/accounting", "/hr"):
+        page.goto(f"{BASE}{path}")
+        page.wait_for_timeout(2000)
+        body = page.inner_text("body")
+        refused = "لا تملك صلاحية عرض هذه البيانات" in body
+        generic = "تعذّر تحميل البيانات" in body
+        _record(
+            19,
+            f"a refused screen names the permission ({path})",
+            refused and not generic,
+            "generic failure message shown" if generic else ("no message" if not refused else ""),
+        )
+    ctx.close()
 
 
 def check_password_reset(browser) -> None:
@@ -588,6 +613,9 @@ def main() -> int:
 
         print("page 5 — password reset flow")
         check_password_reset(browser)
+
+        print("page 19 — a refused screen names the permission")
+        check_forbidden_message(browser)
 
         browser.close()
 

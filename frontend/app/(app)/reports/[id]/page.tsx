@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, FormField, MonthlyReport } from "@/lib/api";
+import { api, loadError, FormField, MonthlyReport } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
@@ -42,15 +42,11 @@ export default function ReportDetailPage() {
       const f = await api.get<FormField[]>("/api/v1/form-fields").catch(() => []);
       setFields(f);
     } catch (e) {
-      const err = e as { status: number };
       setError(
-        err.status === 404
-          ? locale === "ar"
-            ? "التقرير غير موجود أو غير مصرّح بالوصول إليه."
-            : "The report does not exist or you are not permitted to view it."
-          : locale === "ar"
-            ? "تعذّر تحميل البيانات."
-            : "Could not load data.",
+        loadError(e, locale, {
+          ar: "التقرير غير موجود أو غير مصرّح بالوصول إليه.",
+          en: "The report does not exist or you are not permitted to view it.",
+        }),
       );
     } finally {
       setLoading(false);

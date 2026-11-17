@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError } from "@/lib/api";
+import { api, loadError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
@@ -57,16 +57,7 @@ export function ResourceTable<T extends { id: number }>({
       const data = await api.get<T[]>(endpoint);
       setRows(data);
     } catch (e) {
-      const err = e as ApiError;
-      setError(
-        err.status === 403
-          ? locale === "ar"
-            ? "لا تملك صلاحية عرض هذه البيانات."
-            : "You are not permitted to view this data."
-          : locale === "ar"
-            ? "تعذّر تحميل البيانات."
-            : "Could not load data.",
-      );
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

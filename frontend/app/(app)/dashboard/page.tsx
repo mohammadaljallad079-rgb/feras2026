@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, Dashboard } from "@/lib/api";
+import { api, loadError, Dashboard } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
@@ -25,7 +25,7 @@ export default function DashboardPage() {
     api
       .get<Dashboard>("/api/v1/dashboard")
       .then(setData)
-      .catch(() => setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data."))
+      .catch((e) => setError(loadError(e, locale)))
       .finally(() => setLoading(false));
   }, [locale]);
 

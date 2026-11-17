@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
-import { api, Company, FormField } from "@/lib/api";
+import { api, loadError, Company, FormField } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 const FIELD_TYPES = ["text", "number", "amount", "date", "boolean", "select"];
@@ -20,8 +20,8 @@ export default function FormBuilderPage() {
     setLoading(true);
     try {
       setFields(await api.get<FormField[]>("/api/v1/form-fields"));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

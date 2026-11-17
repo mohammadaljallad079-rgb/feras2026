@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, Company } from "@/lib/api";
+import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
@@ -27,15 +27,11 @@ export default function CompanyDetailPage() {
       setCompany(c);
       setForm(c);
     } catch (e) {
-      const err = e as { status: number };
       setError(
-        err.status === 404
-          ? locale === "ar"
-            ? "الشركة غير موجودة أو غير مصرّح بالوصول إليها."
-            : "The company does not exist or you are not permitted to view it."
-          : locale === "ar"
-            ? "تعذّر تحميل البيانات."
-            : "Could not load data.",
+        loadError(e, locale, {
+          ar: "الشركة غير موجودة أو غير مصرّح بالوصول إليها.",
+          en: "The company does not exist or you are not permitted to view it.",
+        }),
       );
     } finally {
       setLoading(false);

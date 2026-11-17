@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Column } from "@/components/ResourceTable";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
-import { api, Company } from "@/lib/api";
+import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Opportunity = {
@@ -37,8 +37,8 @@ export default function OpportunitiesPage() {
     setLoading(true);
     try {
       setRows(await api.get<Opportunity[]>("/api/v1/opportunities"));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

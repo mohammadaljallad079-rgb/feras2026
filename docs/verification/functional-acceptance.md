@@ -139,3 +139,21 @@ ever hold, plus two routes that demanded the wrong one:
    scroll to the cited record. A source the platform cannot open is rendered as
    plain text rather than a link that goes nowhere. `test_every_ai_source_link_points_at_a_real_screen`
    now fails if a source URL stops mapping to a real route.
+
+## Bug found and fixed in the read-authorization audit
+
+A later pass signed in as each of the eight personas and opened every screen,
+then called every read and write endpoint directly. The permission matrix, the
+write authorization and all eleven business processes behaved correctly; one
+presentation defect surfaced:
+
+10. **A refused screen reported a generic failure instead of a refusal.** Twelve
+    pages collapsed the backend's `403` into «تعذّر تحميل البيانات» /
+    "Could not load data.", which reads as a broken screen rather than a
+    permission refusal — and the two detail pages special-cased `404` but not
+    `403`. `ResourceTable` already named the refusal. The read paths now share
+    one `loadError()` helper in `frontend/lib/api.ts`, which reports a `403` as
+    «لا تملك صلاحية عرض هذه البيانات.» / "You are not permitted to view this
+    data." and still lets a caller supply the `404` wording. The `check_visual_fixes.py`
+    "page 19 — a refused screen names the permission" assertion fails if any of
+    `/users`, `/accounting` or `/hr` regresses to the generic message.

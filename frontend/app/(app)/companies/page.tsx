@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, Company } from "@/lib/api";
+import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
@@ -24,8 +24,8 @@ export default function CompaniesPage() {
     try {
       const query = closedOnly ? "?status=closed" : "";
       setRows(await api.get<Company[]>(`/api/v1/companies${query}`));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

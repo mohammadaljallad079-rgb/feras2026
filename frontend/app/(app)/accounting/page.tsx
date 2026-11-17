@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusChip } from "@/components/StatusChip";
 import { DataStates } from "@/components/DataStates";
-import { api, Company } from "@/lib/api";
+import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Entry = {
@@ -59,8 +59,8 @@ export default function AccountingPage() {
     setError(null);
     try {
       setEntries(await api.get<Entry[]>("/api/v1/accounting"));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }

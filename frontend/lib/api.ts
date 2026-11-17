@@ -6,6 +6,26 @@
 
 export type ApiError = { status: number; detail: unknown };
 
+/**
+ * Localised message for a failed read. A 403 is reported as a permission
+ * refusal rather than a generic failure, matching what the backend enforces.
+ */
+export function loadError(
+  e: unknown,
+  locale: string,
+  notFound?: { ar: string; en: string },
+): string {
+  const status = (e as ApiError | undefined)?.status;
+  const ar = locale === "ar";
+  if (status === 403) {
+    return ar ? "لا تملك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
+  }
+  if (status === 404 && notFound) {
+    return ar ? notFound.ar : notFound.en;
+  }
+  return ar ? "تعذّر تحميل البيانات." : "Could not load data.";
+}
+
 const ACCESS_KEY = "safir.access";
 const REFRESH_KEY = "safir.refresh";
 

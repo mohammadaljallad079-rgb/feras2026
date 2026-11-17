@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
-import { api, Role, UserOut } from "@/lib/api";
+import { api, loadError, Role, UserOut } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export default function UsersPage() {
@@ -19,8 +19,8 @@ export default function UsersPage() {
     try {
       setUsers(await api.get<UserOut[]>("/api/v1/users"));
       setRoles(await api.get<Role[]>("/api/v1/roles").catch(() => []));
-    } catch {
-      setError(locale === "ar" ? "تعذّر تحميل البيانات." : "Could not load data.");
+    } catch (e) {
+      setError(loadError(e, locale));
     } finally {
       setLoading(false);
     }
