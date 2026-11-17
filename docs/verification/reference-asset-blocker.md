@@ -2,12 +2,18 @@
 
 ## Summary
 
-The delivery specification names two authoritative inputs:
+The delivery specification names two authoritative inputs, and both are now in
+the repository:
 
-| Asset | Expected path | Status |
+| Asset | Path in this repository | Status |
 |---|---|---|
 | Authoritative design document (32 pages) | `platform-design-ar.pdf` | **Present** (repository root) |
-| Official brand logo | `assets/brand/holding-logo.png` | **MISSING** |
+| Official brand logo | `frontend/public/brand/holding-logo.png` | **Present** (served at `/brand/holding-logo.png`) |
+
+The specification quoted `assets/brand/holding-logo.png` as the expected path.
+The file is kept in the Next.js public directory so the browser can fetch it
+directly, which is the only path the running application can serve; no copy is
+recoloured or redrawn. Nothing else about the asset is transformed.
 
 ## Design reference — resolved
 
@@ -27,43 +33,36 @@ separately specified deliverables:
 - The prototype's **simulation controls** (role switcher banner, "demo data"
   notes). These must not appear in the production application and do not.
 
-## Brand logo — still blocking
+## Brand logo — resolved
 
-`assets/brand/holding-logo.png` does not exist. This was verified by:
+The asset was supplied and is committed at
+`frontend/public/brand/holding-logo.png` (14 KB, PNG RGBA, 245×132). It was
+first absent, and that gap is recorded here rather than deleted, because the
+fallback path it produced is still live code:
 
-- `git ls-files` and the full git history (three commits) — no logo file.
-- A filesystem search for `holding-logo*` / `*.png` / `*.svg` outside
-  `node_modules`, `.venv`, `.next` and `docs/screenshots` — no match.
-- `frontend/public/brand/` is empty.
+- `components/BrandMark.tsx` still re-checks `img.complete && img.naturalWidth
+  === 0` in a mount effect. The `<img>` is server-rendered, so a missing file
+  returns 404 *before* React hydrates and `onError` never fires for that first
+  failure; without the check the page would show a browser broken-image icon.
+  With the check it degrades to the platform name alone.
+- The `data-logo` placeholder attribute was removed once the asset shipped, and
+  the "no placeholder logo remains in the DOM" assertion now guards that.
 
-Impact: the specification requires the supplied logo to be used unaltered, with
-its proportions, colours and internal artwork preserved. Until the file is
-supplied, `components/BrandMark.tsx` renders a neutral text mark and sets
-`data-logo="missing"` on the element, so the gap is visible in the DOM and in
-every screenshot rather than silently passing as approved branding. The
-component already points at `/brand/holding-logo.png`; dropping the file into
-`frontend/public/brand/` completes the requirement with no code change.
+### How the supplied artwork is used
 
-## Drop-in path verified
+The lockup is dark teal on transparency, drawn for a light background, and it
+contains its own wordmark in Arabic and English. Two consequences shaped the
+integration:
 
-The handover path was exercised with a temporary asset, then the asset was
-removed so nothing unapproved ships:
+- On the navy sidebar (`--side`, `#0b192c`) the artwork measured 3.85:1 on
+  average with 22.4% of its opaque pixels below 3:1. It is therefore seated on a
+  light plate on that surface, where the same pixels measure 4.83:1 with 4.9%
+  below 3:1; the file itself is untouched. On light cards and in light mode it
+  sits directly on the surface.
+- Because the artwork carries the wordmark, the auth cards no longer print the
+  platform name a second time beside it.
 
-- With `frontend/public/brand/holding-logo.png` present the header element
-  reports `data-logo="official"` and renders at the file's own aspect ratio
-  (a 320×320 test file rendered 48×48 at `size={48}`, unmodified).
-- With the file absent the element reports `data-logo="missing"` and shows the
-  neutral placeholder.
-
-A defect in that path was found and fixed. The logo `<img>` is server-rendered,
-so a missing file returns 404 *before* React hydrates; the `onError` handler
-never fires for that first failure and the page showed a browser broken-image
-icon instead of the flagged placeholder. `BrandMark` now re-checks
-`img.complete && img.naturalWidth === 0` in a mount effect and falls back
-correctly.
-
-## Action required
-
-```
-frontend/public/brand/holding-logo.png   # the supplied asset, unchanged
-```
+The rendered height is the only property constrained, so the artwork always
+keeps its own aspect ratio. A browser assertion set covers the sidebar, the auth
+cards, the aspect ratio, the plate and the absence of a placeholder; see
+`scripts/check_visual_fixes.py`, section "page 32 — official brand logo".

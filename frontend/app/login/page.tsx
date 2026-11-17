@@ -42,7 +42,7 @@ export default function LoginPage() {
         </div>
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
           <div className="text-center">
-            <BrandMark name={appName(locale)} size={48} tone="onCard" />
+            <BrandMark size={48} tone="onCard" />
             <h1 className="page-title mt-3">{appName(locale)}</h1>
             <p className="muted">{t("login", "title", locale)}</p>
           </div>

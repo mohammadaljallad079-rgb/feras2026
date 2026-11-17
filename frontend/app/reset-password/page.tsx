@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { appName, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { BrandMark } from "@/components/BrandMark";
 
 function ResetPasswordForm() {
@@ -60,7 +60,7 @@ function ResetPasswordForm() {
         </div>
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
           <div className="text-center">
-            <BrandMark name={appName(locale)} size={48} tone="onCard" />
+            <BrandMark size={48} tone="onCard" />
             <h1 className="page-title mt-3">{t("passwordReset", "confirmTitle", locale)}</h1>
           </div>
 

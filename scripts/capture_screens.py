@@ -7,6 +7,7 @@ seeded backend on :8000 and a running frontend on BASE.
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -177,6 +178,26 @@ def main() -> int:
             print(f"captured {name}.png")
 
         browser.close()
+
+    # The handover set referenced by docs/verification/visual-comparison.md is a
+    # subset of the audit captures; copy rather than shoot them twice so the two
+    # directories cannot drift apart.
+    deliverables = OUT.parent / "deliverables"
+    deliverables.mkdir(parents=True, exist_ok=True)
+    for source, target in [
+        ("login-ar.png", "login-ar-desktop.png"),
+        ("05-owner-dashboard.png", "dashboard-ar-desktop.png"),
+        ("32-05-owner-dashboard-dark.png", "dashboard-ar-dark.png"),
+        ("31-owner-dashboard-en.png", "dashboard-en-desktop.png"),
+        ("30-owner-dashboard-mobile.png", "dashboard-ar-mobile-400.png"),
+    ]:
+        src, dst = OUT / source, deliverables / target
+        if not src.exists():
+            print(f"skipped {target}: {source} was not captured")
+            continue
+        shutil.copyfile(src, dst)
+        print(f"copied {source} -> deliverables/{target}")
+
     return 0
 
 

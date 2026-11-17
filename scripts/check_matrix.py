@@ -119,9 +119,12 @@ def _sign_in(browser: Browser, role: str, locale: str, theme: str, width: int, h
         page.wait_for_timeout(700)
     # Drive the real control rather than forcing the attribute, so the check
     # covers the user's path (the toggle persists the choice and re-applies it).
+    # The header renders only once the session resolves, so wait for the control
+    # instead of sampling the DOM immediately — `query_selector` does not wait
+    # and would otherwise fail intermittently.
     if theme == "dark":
-        toggle = page.query_selector("button[aria-pressed]")
-        if toggle is None or toggle.get_attribute("aria-pressed") != "true":
+        toggle = page.wait_for_selector("button[aria-pressed]", timeout=20000)
+        if toggle.get_attribute("aria-pressed") != "true":
             toggle.click()
             page.wait_for_timeout(500)
     return ctx, page, errors

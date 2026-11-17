@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         aria-label={t("common", "menu", locale)}
       >
         <div className="mb-6">
-          <BrandMark name={appName(locale)} />
+          <BrandMark name={appName(locale)} layout="stack" />
           <p className="mt-2 text-secondary text-sidefg opacity-80">{me.roles.join(" · ")}</p>
           {period && (
             <p className="mt-1 text-secondary text-sidefg opacity-70" dir="ltr">

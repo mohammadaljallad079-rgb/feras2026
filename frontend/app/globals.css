@@ -169,4 +169,16 @@ table,
   .nav-item-active {
     @apply bg-gold font-semibold text-ink;
   }
+  /* The supplied logo is dark teal on transparency, so it needs a light surface
+     to stay legible. The plate seats it on one without altering the artwork:
+     solid on the navy sidebar, dark-theme-only on the auth cards. */
+  .brand-plate {
+    @apply inline-flex rounded-control;
+  }
+  .brand-plate-solid {
+    @apply bg-white p-1;
+  }
+  [data-theme="dark"] .brand-plate-adaptive {
+    @apply bg-white p-1;
+  }
 }

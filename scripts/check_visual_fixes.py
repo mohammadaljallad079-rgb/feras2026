@@ -452,6 +452,66 @@ def check_company_logo(browser) -> None:
     ctx.close()
 
 
+def check_brand_logo(browser) -> None:
+    """PDF p.32 lists the logo as a designer deliverable; the owner supplied it.
+
+    The official asset must render at its own aspect ratio on every surface —
+    the navy sidebar, the auth cards and dark mode — without a broken-image icon
+    and without a placeholder. The artwork is dark teal on transparency, so on
+    the navy sidebar it is seated on a light plate rather than recoloured.
+    """
+    ctx, page = _sign_in(browser, "owner")
+    for route in ["/dashboard", "/companies", "/users"]:
+        page.goto(f"{BASE}{route}")
+        page.wait_for_timeout(1200)
+        info = page.evaluate(
+            """() => {
+                const img = document.querySelector('aside img[src="/brand/holding-logo.png"]');
+                if (!img) return null;
+                const r = img.getBoundingClientRect();
+                return {natural: [img.naturalWidth, img.naturalHeight], complete: img.complete,
+                        w: r.width, h: r.height, plate: getComputedStyle(img.parentElement).backgroundColor};
+            }"""
+        )
+        _record(32, f"the official logo renders in the sidebar on {route}", bool(info) and info["complete"] and info["natural"] == [245, 132], str(info))
+        if info:
+            _record(32, f"the logo keeps its own aspect ratio on {route}", abs(info["w"] / info["h"] - 245 / 132) < 0.02, f"{info['w']}/{info['h']}")
+            _record(32, f"the logo is seated on a light plate on the navy sidebar on {route}", info["plate"] == "rgb(255, 255, 255)", info["plate"])
+    # The placeholder must be gone now that the asset ships.
+    _record(
+        32,
+        "no placeholder logo remains in the DOM",
+        page.evaluate("() => !document.querySelector('[data-logo]')"),
+        "data-logo attribute still present",
+    )
+    ctx.close()
+
+    # Auth cards: the mark renders on the card, and the platform name is shown
+    # once rather than twice (the artwork already carries the wordmark).
+    ctx = browser.new_context(viewport={"width": 1440, "height": 1000})
+    page = ctx.new_page()
+    page.goto(f"{BASE}/login")
+    page.wait_for_timeout(1500)
+    for locale, name in [("ar", "ستارت أب سفير القابضة"), ("en", "Start Up Sphere Holding")]:
+        if locale == "en":
+            page.get_by_role("button", name="English").click()
+            page.wait_for_timeout(900)
+        info = page.evaluate(
+            """(name) => {
+                const card = document.querySelector('form.card');
+                const img = card.querySelector('img[src="/brand/holding-logo.png"]');
+                const r = img.getBoundingClientRect();
+                const text = card.innerText;
+                return {occ: text.split(name).length - 1, ar: r.width / r.height, h: r.height,
+                        complete: img.complete && img.naturalWidth === 245};
+            }""",
+            name,
+        )
+        _record(32, f"the official logo renders on the {locale} login card", info["complete"] and info["h"] > 0, str(info))
+        _record(32, f"the {locale} platform name is not printed twice", info["occ"] == 1, f"occurrences={info['occ']}")
+    ctx.close()
+
+
 def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path="/usr/bin/chromium", args=["--no-sandbox"])
@@ -522,6 +582,9 @@ def main() -> int:
 
         print("page 6 — company manager and activation information")
         check_company_manager_and_activation(browser)
+
+        print("page 32 — official brand logo")
+        check_brand_logo(browser)
 
         print("page 5 — password reset flow")
         check_password_reset(browser)

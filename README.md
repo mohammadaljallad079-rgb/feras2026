@@ -20,21 +20,23 @@ database, with domain modules under `backend/app/api/v1/`.
 > `docs/screenshots/pdf/page-NN.png`; the page-by-page fidelity record is
 > `docs/verification/visual-comparison.md`.
 >
-> The **brand logo is still missing**: `assets/brand/holding-logo.png` has never
-> been supplied, and neither the git history nor either remote branch contains
-> it. `BrandMark` therefore falls back to a neutral placeholder flagged
-> `data-logo="missing"`, so the gap is visible in the DOM and in every screenshot
-> rather than passing as approved branding. No substitute logo has been drawn.
-> The drop-in path is verified end to end: placing the file at
-> `frontend/public/brand/holding-logo.png` renders it unaltered at its own aspect
-> ratio, with no code change. See `docs/verification/reference-asset-blocker.md`.
+> The **official brand logo is in place**: the owner supplied
+> `assets/brand/holding-logo.png`, and it is committed here at
+> `frontend/public/brand/holding-logo.png` (PNG RGBA, 245×132) so the browser can
+> serve it at `/brand/holding-logo.png`. It is used exactly as supplied — never
+> recoloured, cropped or redrawn — and only its rendered height is constrained,
+> so the artwork always keeps its own aspect ratio. Because it is dark teal on
+> transparency, on the navy sidebar it is seated on a light plate (which lifts
+> the mark from 3.85:1 to 4.83:1) rather than being recoloured. See
+> `docs/verification/reference-asset-blocker.md` for the asset history and
+> `scripts/check_visual_fixes.py` for the browser assertions.
 >
 > The remaining designer tasks listed on page 32 are delivered: a licensed Arabic
 > face (Tajawal, SIL OFL 1.1) is self-hosted and wired into the tokens, the sidebar
 > has a built-in icon set, global loading and error states plus the login and
 > password screens are in place, and the account emails carry concise bilingual
-> text with one secure link and no financial detail. Only the logo remains
-> outstanding, and it is a designer deliverable rather than a code change.
+> text with one secure link and no financial detail. All five page-32 items are
+> now complete.
 >
 > The reference does **not** describe the public holding website, whose design
 > is a separate, unapproved deliverable.

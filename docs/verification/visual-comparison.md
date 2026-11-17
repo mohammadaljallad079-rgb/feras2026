@@ -112,6 +112,26 @@ are now delivered and were checked against the running application, not assumed:
   ink text, not a tint of the sidebar colour. Sampling the owner dashboard
   confirms the pill: gold pixels occupy x 1215–1424, a 37px-tall row on the
   sidebar, matching the reference's gold band (rows 197–233 of page 5).
+- **Official brand logo.** The supplied asset
+  `frontend/public/brand/holding-logo.png` (245×132) now ships and renders on
+  every screen. It is used exactly as supplied — never recoloured, cropped or
+  redrawn — and only its rendered height is constrained, so the artwork keeps
+  its own aspect ratio (`width / height` measures 1.856 against the file's
+  1.856). The artwork is dark teal on transparency (opaque pixels average RGB
+  42/124/142), so it reads on a light card but not on the navy sidebar: measured
+  against `#0b192c` it reaches only 3.85:1 on average, with 22.4% of its opaque
+  pixels below the 3:1 that WCAG 1.4.11 asks of a graphical object. On a white
+  plate those same pixels measure 4.83:1 with 4.9% below 3:1, so
+  `components/BrandMark.tsx` seats the mark on a light plate there instead of
+  recolouring it — the usual way a light-background logo is carried on dark
+  chrome. The reference's sidebar header is navy with a light-tone logo (page 5,
+  the top ~64 rows of the sidebar band are `#0b192c`), so the plate is a
+  legibility device forced by the supplied artwork's own colours, not a
+  redesign. The name is no longer printed beside the mark on the auth cards,
+  because the artwork already carries the wordmark in both scripts. The browser
+  assertions in `scripts/check_visual_fixes.py` ("page 32 — official brand
+  logo") cover the sidebar, the auth cards, the aspect ratio, the plate and the
+  absence of a placeholder.
 - **Global loading and error states, login and password screens.** `app/loading.tsx`
   and `app/error.tsx` render bilingual, generic states; `/login`,
   `/forgot-password` and `/reset-password` all answer 200. The error state logs
@@ -124,7 +144,5 @@ Captures for these states are in `docs/screenshots/deliverables/`:
 `login-ar-desktop.png`, `dashboard-ar-desktop.png`, `dashboard-ar-dark.png`,
 `dashboard-en-desktop.png`, `dashboard-ar-mobile-400.png`.
 
-The **logo** is the one item that cannot be delivered: it is a designer
-deliverable (page 32, «تصميم الشعار»), no asset exists, and no substitute was
-drawn. The handover path is verified — see
-`docs/verification/reference-asset-blocker.md`.
+All five page-32 designer items are now delivered; see
+`docs/verification/reference-asset-blocker.md` for the asset history.

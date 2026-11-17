@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { appName, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { BrandMark } from "@/components/BrandMark";
 
 type Issued = { reset_token: string | null; message: string };
@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
         </div>
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
           <div className="text-center">
-            <BrandMark name={appName(locale)} size={48} tone="onCard" />
+            <BrandMark size={48} tone="onCard" />
             <h1 className="page-title mt-3">{t("passwordReset", "requestTitle", locale)}</h1>
             <p className="muted">{t("passwordReset", "requestHint", locale)}</p>
           </div>
