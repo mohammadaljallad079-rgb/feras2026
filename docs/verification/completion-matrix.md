@@ -48,6 +48,7 @@ against the rendered reference page is recorded in
 | 11 | Leads | `/leads` | Done | Done |
 | 12 | Opportunities | `/opportunities` | Done | Done |
 | 13 | Executive directives | `/directives` | Done | Done |
+| 13 | `/directives/overdue` returned every overdue directive system-wide, so a company manager holding `directive:view` could read directives addressed to other people — titles and bodies included | The endpoint now scopes to the actor as sender or recipient, matching the scoped list and the company filter (covered by `test_overdue_directives_stay_with_their_sender_and_recipient` and the p.13 browser assertion) |
 | 14 | Employees and HR | `/hr` | Done | Done |
 | 15 | Website management | `/website` | Done | Done |
 | 15 | The form-inbox summary counted `kind === "service"` and `kind === "job"`, but the stored values are `service_request` and `job_application`, so two of the four counters always read zero; "awaiting conversion" also counted rejected items | The summary compares the real enum values and counts only `status === "new"` as awaiting conversion |
@@ -153,7 +154,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  50 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
+backend:  51 passed  (13 end-to-end journeys over live HTTP + PostgreSQL)
 frontend: tsc --noEmit clean; next build lists 23 routes (22 screens + not-found), plus the root redirect
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 mobile:   no horizontal scroll on 9 routes at 400px (scripts/check_mobile.py)

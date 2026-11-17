@@ -280,6 +280,31 @@ def check_password_reset(browser) -> None:
     ctx.close()
 
 
+def check_page_13(browser) -> None:
+    """PDF p.13: a directive has a single recipient.
+
+    ``/directives/overdue`` returned every overdue directive system-wide, so a
+    company manager could read directives addressed to other people. Every
+    overdue id must appear in the same user's scoped directive list.
+    """
+    ctx, page = _sign_in(browser, "manager")
+    page.goto(f"{BASE}/directives")
+    page.wait_for_timeout(1500)
+    data = page.evaluate(
+        """async () => {
+            const t = sessionStorage.getItem('safir.access');
+            const get = async (u) => (await fetch(u, {headers: {Authorization: `Bearer ${t}`}})).json();
+            return {
+                list: (await get('/api/backend/api/v1/directives')).map(d => d.id),
+                overdue: (await get('/api/backend/api/v1/directives/overdue')).map(d => d.id),
+            };
+        }"""
+    )
+    outside = [i for i in data["overdue"] if i not in set(data["list"])]
+    _record(13, "the overdue list stays inside the user's own directives", not outside, f"foreign ids: {outside}")
+    ctx.close()
+
+
 def check_recipient_picker(browser) -> None:
     """Pages 10, 11 and 13 assign a colleague, but the roles that use them hold
     no ``user:view``: ``/users`` answered 403 and the picker rendered empty, so a
@@ -479,6 +504,9 @@ def main() -> int:
         page.wait_for_timeout(1500)
         check_page_24(page)
         ctx.close()
+
+        print("page 13 — overdue directive scoping")
+        check_page_13(browser)
 
         print("page 11 — recipient picker reachability")
         check_recipient_picker(browser)

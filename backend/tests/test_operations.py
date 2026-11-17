@@ -79,6 +79,37 @@ def test_directive_receive_and_complete(client, make_user, login):
     assert all(d["id"] != did for d in overdue)
 
 
+def test_overdue_directives_stay_with_their_sender_and_recipient(client, make_user, login):
+    """PDF p.13: a directive has a single recipient.
+
+    The overdue list returned every overdue directive system-wide, so a
+    company manager holding `directive:view` could read directives addressed to
+    other people — including their titles and bodies.
+    """
+    owner = make_user("od_owner@safir-platform.com", ["owner"])
+    accountant = make_user("od_acct@safir-platform.com", ["accountant"])
+    outsider = make_user("od_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("od_owner@safir-platform.com")
+    h_outsider = login("od_manager@safir-platform.com")
+
+    created = client.post(
+        "/api/v1/directives",
+        headers=h_owner,
+        json={"title": "سري للمحاسب", "body": "نص سري", "recipient_id": accountant.id, "follow_up_on": "2020-01-01"},
+    )
+    assert created.status_code == 201, created.text
+    did = created.json()["id"]
+    assert client.post(f"/api/v1/directives/{did}/send", headers=h_owner).json()["status"] == "sent"
+
+    # The sender sees their own overdue directive.
+    sender_overdue = client.get("/api/v1/directives/overdue", headers=h_owner).json()
+    assert any(d["id"] == did for d in sender_overdue)
+
+    # An unrelated directive:view holder does not.
+    outsider_overdue = client.get("/api/v1/directives/overdue", headers=h_outsider).json()
+    assert all(d["id"] != did for d in outsider_overdue)
+
+
 def test_service_request_thread_and_recipient_scoping(client, make_user, login):
     owner = make_user("s_owner@safir-platform.com", ["owner"])
     designer = make_user("s_designer@safir-platform.com", ["designer"])

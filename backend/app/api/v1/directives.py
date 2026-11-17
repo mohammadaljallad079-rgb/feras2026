@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import allowed_company_ids, require
@@ -36,8 +36,6 @@ def list_directives(
     elif box == "sent":
         stmt = stmt.where(ExecutiveDirective.created_by_id == user.id)
     else:
-        from sqlalchemy import or_
-
         stmt = stmt.where(
             or_(ExecutiveDirective.recipient_id == user.id, ExecutiveDirective.created_by_id == user.id)
         )
@@ -134,13 +132,26 @@ def overdue(
     db: Session = Depends(get_db),
 ) -> list[DirectiveOut]:
     today = date.today()
-    rows = db.execute(
-        select(ExecutiveDirective).where(
-            ExecutiveDirective.follow_up_on.is_not(None),
-            ExecutiveDirective.follow_up_on < today,
-            ExecutiveDirective.status != DirectiveStatus.COMPLETED.value,
+    stmt = select(ExecutiveDirective).where(
+        ExecutiveDirective.follow_up_on.is_not(None),
+        ExecutiveDirective.follow_up_on < today,
+        ExecutiveDirective.status != DirectiveStatus.COMPLETED.value,
+    )
+    # A directive has a single recipient. An overdue one is the sender's
+    # business or its recipient's; it must not surface to an unrelated holder
+    # of directive:view (PDF p.13).
+    stmt = stmt.where(
+        or_(
+            ExecutiveDirective.recipient_id == actor.id,
+            ExecutiveDirective.created_by_id == actor.id,
         )
-    ).scalars().all()
+    )
+    allowed = allowed_company_ids(db, actor)
+    if allowed is not None:
+        stmt = stmt.where(
+            (ExecutiveDirective.company_id.is_(None)) | (ExecutiveDirective.company_id.in_(allowed or {-1}))
+        )
+    rows = db.execute(stmt.order_by(ExecutiveDirective.id.desc())).scalars().all()
     return [_decorate(d) for d in rows]
 
 
