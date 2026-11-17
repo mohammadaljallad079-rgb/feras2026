@@ -8,13 +8,15 @@ resulting screen compared against the rendered page. That comparison, with the
 mismatches it found and how each was resolved, is in
 `docs/verification/visual-comparison.md`.
 
-One reference asset is still missing: `assets/brand/holding-logo.png`. The
-header therefore renders a neutral mark with `data-logo="missing"` rather than a
-stand-in presented as approved branding. See
+Both authoritative inputs are in the repository: the 32-page design reference
+and the official brand logo. The logo was supplied as
+`assets/brand/holding-logo.png` and is committed at
+`frontend/public/brand/holding-logo.png` so the browser can serve it; it is used
+unaltered, at its own aspect ratio. See
 `docs/verification/reference-asset-blocker.md`.
 
-Everything else is implemented, wired to PostgreSQL through the API, and covered
-by automated tests.
+Every deliverable is implemented, wired to PostgreSQL through the API, and
+covered by automated tests.
 
 ## 1. Requirements
 
@@ -68,7 +70,7 @@ against the rendered reference page is recorded in
 | 32 | Global loading and error states | `app/loading.tsx`, `app/error.tsx` | Done | Done |
 | 32 | Login and password screens | `/login`, `/forgot-password`, `/reset-password` | Done | Done |
 | 32 | Account email templates | `backend/app/services/mail.py` | Done | Done |
-| 32 | Logo design (تصميم الشعار) | — | **Blocked** | n/a |
+| 32 | Logo design (تصميم الشعار) | `frontend/public/brand/holding-logo.png`, `components/BrandMark.tsx` | Done | n/a |
 
 The page-32 designer items are closed as follows. The licensed Arabic face is
 Tajawal (SIL OFL 1.1), self-hosted from `frontend/public/fonts/` and applied to
@@ -84,15 +86,20 @@ no financial detail, and the sender reports failure honestly — with no
 `SMTP_HOST` configured it returns `False` rather than claiming a message, so the
 link is handed back for out-of-band delivery.
 
-The logo remains blocked: no logo asset exists anywhere in the repository or its
-history, and page 32 lists its design as a designer task. `BrandMark` renders a
-neutral placeholder flagged `data-logo="missing"` rather than an invented mark.
-The drop-in path was verified end to end — with an asset at
-`frontend/public/brand/holding-logo.png` the element reports `data-logo="official"`
-and renders at the file's own aspect ratio. A bug in that path was found and
-fixed: the server-rendered `<img>` 404s before hydration, so `onError` never fires
-for the first failure and the page showed a broken-image icon; `BrandMark` now
-re-checks `complete && naturalWidth === 0` on mount.
+The **official logo** is integrated. The supplied asset (PNG RGBA, 245×132) is
+used exactly as supplied — never recoloured, cropped or redrawn — and only its
+rendered height is constrained, so it keeps its own aspect ratio. Because the
+artwork is dark teal on transparency and reaches only 3.85:1 on average against
+the navy sidebar (22.4% of its opaque pixels below 3:1), `BrandMark` seats it on
+a light plate there rather than altering its colours, which lifts those pixels to
+4.83:1. The auth cards no longer print the platform name beside the mark, because
+the artwork already carries the wordmark in both scripts. The pre-hydration
+failure path is still guarded: the server-rendered `<img>` 404s before hydration,
+so `onError` never fires for the first failure; `BrandMark` re-checks
+`complete && naturalWidth === 0` on mount and degrades to the name alone. A
+`data-logo` placeholder must not reappear — an assertion fails if one does. The
+14 browser assertions covering this are in `scripts/check_visual_fixes.py`
+("page 32 — official brand logo").
 
 ## 3. Authentication and RBAC (spec §5)
 
@@ -198,6 +205,12 @@ fabricated success, and an SMTP failure does not raise.
 
 ## 8. What remains before final sign-off
 
-1. Commit `assets/brand/holding-logo.png` unchanged and place it in the header
-   (`frontend/public/brand/`); the wiring and the fallback are already verified.
-2. Supply an approved specification for the public holding website.
+1. Supply an approved visual specification for the public holding website. The
+   reference covers the management platform only, so no website screen is
+   presented as visually faithful; the administrative half of page 15 (the
+   inbox, conversion, and public-visibility controls) is implemented, and the
+   public API endpoints that website will call are live.
+2. Configure a real AI provider (`AI_PROVIDER` plus its server-side key) in the
+   target environment. The abstraction, grounding and configuration-status
+   handling are implemented and tested; with no key the assistant reports an
+   unconfigured provider rather than fabricating an answer.
