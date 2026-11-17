@@ -42,6 +42,7 @@ export default function HrPage() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [events, setEvents] = useState<EmployeeEvent[]>([]);
   const [eventForm, setEventForm] = useState({ kind: "leave", detail: "", effective_on: "" });
+  const [eventFile, setEventFile] = useState<File | null>(null);
   const [form, setForm] = useState({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", hired_on: "" });
 
   const load = useCallback(async () => {
@@ -72,11 +73,23 @@ export default function HrPage() {
 
   async function addEvent(id: number) {
     if (!eventForm.detail) return;
+    let attachment_file_id: number | null = null;
+    if (eventFile) {
+      // HR attachments are confidential: the file is stored with the flag so a
+      // reader without hr:view_confidential sees «مرفق مقيد» instead.
+      const body = new FormData();
+      body.append("file", eventFile);
+      body.append("is_confidential", "true");
+      const stored = await api.upload<{ id: number }>("/api/v1/files", body);
+      attachment_file_id = stored.id;
+    }
     await api.post(`/api/v1/employees/${id}/events`, {
       ...eventForm,
       effective_on: eventForm.effective_on || null,
+      attachment_file_id,
     });
     setEventForm({ kind: "leave", detail: "", effective_on: "" });
+    setEventFile(null);
     setEvents(await api.get<EmployeeEvent[]>(`/api/v1/employees/${id}/events`).catch(() => []));
   }
 
@@ -252,6 +265,12 @@ export default function HrPage() {
                       </select>
                       <input className="input" placeholder={locale === "ar" ? "التفاصيل" : "Detail"} value={eventForm.detail} onChange={(e) => setEventForm({ ...eventForm, detail: e.target.value })} />
                       <input type="date" className="input w-auto" dir="ltr" value={eventForm.effective_on} onChange={(e) => setEventForm({ ...eventForm, effective_on: e.target.value })} />
+                      <input
+                        type="file"
+                        className="input w-auto"
+                        aria-label={locale === "ar" ? "مرفق السجل" : "Record attachment"}
+                        onChange={(e) => setEventFile(e.target.files?.[0] ?? null)}
+                      />
                       <button type="button" className="btn-primary" onClick={() => void addEvent(openId)}>
                         {locale === "ar" ? "إضافة سجل" : "Add record"}
                       </button>

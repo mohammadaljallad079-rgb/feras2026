@@ -20,7 +20,7 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `51 passed` — 13 end-to-end journeys in
+Result at the time of writing: `52 passed` — 13 end-to-end journeys in
 `tests/test_e2e_journeys.py`, 8 reporting-workflow tests in
 `tests/test_reporting_workflow.py`, 13 in `tests/test_auth_rbac.py` and 18 in
 `tests/test_operations.py`.
@@ -31,7 +31,7 @@ the accounting export, the company-logo upload, website administration and recip
 :8000 and the frontend on :12000.
 
 ```bash
-python3 scripts/check_visual_fixes.py    # 44/44 assertions passed
+python3 scripts/check_visual_fixes.py    # 45/45 assertions passed
 ```
 
 ## Journey coverage
@@ -68,6 +68,7 @@ python3 scripts/check_visual_fixes.py    # 44/44 assertions passed
 | 28 | Accountant exports a validated report to Excel | `test_accountant_exports_a_report_to_excel` | PASS |
 | 29 | Every permission name used in code exists in the catalog | `test_every_permission_checked_in_code_is_in_the_catalog` | PASS |
 | 30 | Every `can()` gate in the UI is a permission the backend defines | `test_frontend_permission_gates_are_names_the_backend_can_grant` | PASS |
+| 31 | Confidential HR attachment reads «مرفق مقيد» to the owner, downloads for the manager | `test_confidential_hr_attachment_is_restricted_to_the_manager` | PASS |
 
 ## Browser verification
 

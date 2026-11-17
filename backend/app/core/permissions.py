@@ -95,9 +95,13 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "name_en": "Holding Owner",
         # Broad oversight, but not the accountant's review/forward duties: the
         # owner reads the reports that were formally sent to management
-        # (design reference page 8), rather than every draft.
+        # (design reference page 8), rather than every draft. Confidential HR
+        # attachments are withheld from the owner too: page 14 says leave
+        # attachments read «مرفق مقيد» to the owner.
         "permissions": [
-            p for p in ALL_PERMISSIONS if p not in (REPORT_REVIEW, REPORT_FORWARD)
+            p
+            for p in ALL_PERMISSIONS
+            if p not in (REPORT_REVIEW, REPORT_FORWARD, HR_VIEW_CONFIDENTIAL)
         ],
     },
     COMPANY_MANAGER: {
@@ -106,7 +110,8 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "permissions": [
             COMPANY_VIEW, USER_VIEW, REPORT_VIEW_OWN, REPORT_SUBMIT, FORM_MANAGE,
             SERVICE_VIEW, SERVICE_CREATE, SERVICE_REPLY, LEAD_VIEW,
-            DIRECTIVE_VIEW, DIRECTIVE_UPDATE, HR_VIEW, HR_MANAGE, HR_VIEW_SALARY,
+            DIRECTIVE_VIEW, DIRECTIVE_UPDATE, HR_VIEW, HR_MANAGE,
+            HR_VIEW_CONFIDENTIAL, HR_VIEW_SALARY,
             ACCOUNTING_VIEW, WEBSITE_VIEW, AI_USE,
         ],
     },

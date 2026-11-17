@@ -453,6 +453,55 @@ def test_owner_dashboard_revenue_column_names_the_revenue_field(client, make_use
     assert "42" not in row[3], row
 
 
+def test_confidential_hr_attachment_is_restricted_to_the_manager(client, make_user, login):
+    """Page 14: a leave attachment reads «مرفق مقيد» to the owner.
+
+    The owner holds broad oversight, but the reference names confidential HR
+    attachments as information withheld even from the owner. The manager who
+    records the leave may still download it; the owner must be refused and see
+    the marker instead of a link.
+    """
+    make_user("owner-hr@example.com", ["owner"])
+    manager = make_user("manager-hr@example.com", ["company_manager"])
+    h_owner = login("owner-hr@example.com")
+    h_manager = login("manager-hr@example.com")
+
+    cid = _company(client, h_owner, "HRC-1")
+    # The manager must be scoped to the company before it can record its staff.
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+
+    emp = client.post(
+        "/api/v1/employees",
+        headers=h_manager,
+        json={"name_ar": "سارة", "name_en": "Sara", "job_title": "مديرة", "company_id": cid},
+    )
+    assert emp.status_code == 201, emp.text
+
+    upload = client.post(
+        "/api/v1/files",
+        headers=h_manager,
+        files={"file": ("leave.pdf", b"%PDF-1.4 leave", "application/pdf")},
+        data={"is_confidential": "true"},
+    )
+    assert upload.status_code == 201, upload.text
+    file_id = upload.json()["id"]
+
+    event = client.post(
+        f"/api/v1/employees/{emp.json()['id']}/events",
+        headers=h_manager,
+        json={"kind": "leave", "detail": "إجازة سنوية", "attachment_file_id": file_id},
+    )
+    assert event.status_code == 201, event.text
+    assert event.json()["attachment_file_id"] == file_id
+
+    # The manager who filed it may download the attachment.
+    assert client.get(f"/api/v1/files/{file_id}/download", headers=h_manager).status_code == 200
+    # The owner must be refused, so the UI shows «مرفق مقيد» rather than a link.
+    denied = client.get(f"/api/v1/files/{file_id}/download", headers=h_owner)
+    assert denied.status_code == 403, denied.text
+    assert denied.json()["detail"]["error"] == "restricted_attachment"
+
+
 def test_every_ai_source_link_points_at_a_real_screen():
     """Each "open the source record" link must resolve to a screen that exists.
 

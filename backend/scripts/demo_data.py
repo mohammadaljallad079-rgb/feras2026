@@ -412,7 +412,17 @@ def build() -> int:
             201,
         )
         if created:
-            _step("employee event", owner.post(f"/api/v1/employees/{created['id']}/events", json={"kind": "leave", "detail": "إجازة سنوية", "effective_on": "2026-03-01"}), 201)
+            # A confidential attachment makes the page-14 «مرفق مقيد» state
+            # reachable: the owner sees the marker, the manager sees a download.
+            leave_file = owner.post(
+                "/api/v1/files",
+                files={"file": ("demo-leave.pdf", b"%PDF-1.4 demo leave request", "application/pdf")},
+                data={"is_confidential": "true"},
+            )
+            payload = {"kind": "leave", "detail": "إجازة سنوية", "effective_on": "2026-03-01"}
+            if leave_file.status_code == 201:
+                payload["attachment_file_id"] = leave_file.json()["id"]
+            _step("employee event", owner.post(f"/api/v1/employees/{created['id']}/events", json=payload), 201)
 
     print("advisor messages")
     if not any(m["subject"].startswith(TAG) for m in clients["advisor"].get("/api/v1/advisor/messages").json()):
@@ -445,28 +455,63 @@ def build() -> int:
 
 
 def purge() -> int:
-    """Remove only the rows this script created, by their DEMO markers."""
+    """Remove only the rows this script created, by their DEMO markers.
+
+    The build writes across most of the schema, so the delete has to follow the
+    foreign-key order: child rows (accounting entries, reports, replies, events)
+    before the companies and files they hang from, and reports before the form
+    fields and periods they reference.
+    """
     from sqlalchemy import delete, or_, select  # local import: script must run standalone
 
     sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
     from app.core.db import SessionLocal
-    from app.models.business import Company, Employee, Lead, Opportunity
-    from app.models.operations import ServiceRequest
+    from app.models.business import Company, FormField, MonthlyReport, ReportingPeriod
+    from app.models.operations import (
+        AccountingEntry,
+        AdvisorMessage,
+        Employee,
+        ExecutiveDirective,
+        Lead,
+        Opportunity,
+        ServiceRequest,
+        StoredFile,
+        WebsiteSubmission,
+    )
 
     db = SessionLocal()
     try:
+        company_ids = list(db.execute(select(Company.id).where(Company.code.like(f"{TAG}-%"))).scalars())
+
+        def _drop(stmt) -> int:
+            return db.execute(stmt).rowcount or 0
+
         removed = 0
-        for model, column, pattern in [
-            (Lead, Lead.name, f"{TAG}%"),
-            (Opportunity, Opportunity.title, f"{TAG}%"),
-            (ServiceRequest, ServiceRequest.subject, f"{TAG}%"),
-            (Employee, Employee.name_en, f"{TAG}%"),
-            (Company, Company.code, f"{TAG}-%"),
-        ]:
-            rows = db.execute(select(model).where(column.like(pattern))).scalars().all()
-            for row in rows:
-                db.delete(row)
-                removed += 1
+        # Reports own their values and events (CASCADE) but are referenced by
+        # periods and form fields (RESTRICT), so they go first.
+        removed += _drop(delete(MonthlyReport).where(MonthlyReport.company_id.in_(company_ids)))
+        removed += _drop(delete(AccountingEntry).where(
+            or_(AccountingEntry.company_id.in_(company_ids), AccountingEntry.reference.like(f"{TAG}-%"))
+        ))
+        removed += _drop(delete(FormField).where(
+            or_(FormField.company_id.in_(company_ids), FormField.code.like(f"{TAG}%"))
+        ))
+        removed += _drop(delete(ServiceRequest).where(ServiceRequest.subject.like(f"{TAG}%")))
+        removed += _drop(delete(ExecutiveDirective).where(ExecutiveDirective.title.like(f"{TAG}%")))
+        removed += _drop(delete(AdvisorMessage).where(AdvisorMessage.subject.like(f"{TAG}%")))
+        removed += _drop(delete(Employee).where(Employee.name_en.like(f"{TAG}%")))
+        removed += _drop(delete(Lead).where(Lead.name.like(f"{TAG}%")))
+        removed += _drop(delete(Opportunity).where(Opportunity.title.like(f"{TAG}%")))
+        removed += _drop(delete(WebsiteSubmission).where(WebsiteSubmission.name.like(f"{TAG}%")))
+        removed += _drop(delete(Company).where(Company.id.in_(company_ids)))
+        removed += _drop(delete(StoredFile).where(StoredFile.original_name.like("demo-%")))
+        # A period this script opened is removable once no report references it.
+        orphan_periods = select(ReportingPeriod.id).where(
+            ReportingPeriod.year == 2026,
+            ReportingPeriod.month.in_([2, 3, 4]),
+            ~select(MonthlyReport.id).where(MonthlyReport.period_id == ReportingPeriod.id).exists(),
+        )
+        removed += _drop(delete(ReportingPeriod).where(ReportingPeriod.id.in_(orphan_periods)))
         db.commit()
         print(f"Removed {removed} demo rows.")
     finally:

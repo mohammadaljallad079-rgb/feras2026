@@ -231,6 +231,9 @@ def check_password_reset(browser) -> None:
 
     page.click("text=متابعة إلى تعيين كلمة المرور")
     page.wait_for_url("**/reset-password**", timeout=15000)
+    # The form prefills from the query string in an effect after navigation, so
+    # wait for the value rather than reading it on the first paint.
+    page.wait_for_function("() => document.querySelector('#token').value !== ''", timeout=10000)
     _record(5, "the reset token is carried into the form", page.input_value("#token") == token)
 
     # The password must match confirmation and meet the minimum length.
