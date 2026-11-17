@@ -1,0 +1,365 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Arabic typeface — Tajawal (SIL Open Font License 1.1), self-hosted from
+ * `public/fonts/`. The reference defers the choice of a licensed Arabic font
+ * to the designer (page 2: "خطوط النظام … عند الإنتاج يختار المصمم خطًا عربيًا
+ * مرخّصًا"; page 32 lists "اختيار خط عربي مرخّص وتحديث tokens" as a designer
+ * task). Tajawal is that choice, applied only to the Arabic interface so the
+ * English interface keeps the system stack the reference names.
+ */
+@font-face {
+  font-family: "Tajawal";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/tajawal-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Tajawal";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/tajawal-500.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Tajawal";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/tajawal-700.ttf") format("truetype");
+}
+
+/* Design tokens — reproduced verbatim from the delivery specification. */
+:root {
+  /* Latin/system stack exactly as named in the reference (page 2). */
+  --font-ui: system-ui, "Segoe UI", Tahoma, sans-serif;
+  /* Arabic stack: the licensed Arabic face first, system fallback after it. */
+  --font-ar: "Tajawal", system-ui, "Segoe UI", Tahoma, sans-serif;
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --ink: #0b192c;
+  --mut: #5b6575;
+  --line: #dde1e7;
+  --gold: #c3a36b;
+  --goldink: #73562b;
+  --acc: #0b192c;
+  --accfg: #ffffff;
+  --ok: #1d7a52;
+  --warn: #a86a00;
+  --bad: #b3261e;
+  --okbg: #e4f3ec;
+  --warnbg: #fbf0dc;
+  --badbg: #fbe5e3;
+  --side: #0b192c;
+  --sidefg: #e8ebf0;
+  --pearl: #eef1f4;
+}
+
+[data-theme="dark"] {
+  --bg: #0a1220;
+  --card: #111d30;
+  --ink: #e8ebf0;
+  --mut: #9aa6b8;
+  --line: #243249;
+  --gold: #c3a36b;
+  --goldink: #d9c096;
+  --acc: #c6a87c;
+  --accfg: #0b192c;
+  --ok: #5fd0a0;
+  --warn: #f0b955;
+  --bad: #ff8f87;
+  --okbg: #12342a;
+  --warnbg: #3a2d10;
+  --badbg: #401a18;
+  --side: #060d18;
+  --sidefg: #e8ebf0;
+  --pearl: #16243a;
+}
+
+html {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.7;
+  min-width: 400px;
+  /* Arabic uses Tajawal; English keeps the system stack the reference names. */
+  font-family: var(--font-ui);
+}
+
+html[lang="ar"] body {
+  font-family: var(--font-ar);
+}
+
+/* Figures in tables and indicators are tabular (reference page 2). */
+table,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visible keyboard focus on every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Wide tables scroll inside their own container, never the page. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-line bg-card p-4;
+  }
+  .page-title {
+    @apply text-page font-semibold text-ink;
+  }
+  .section-title {
+    @apply text-section font-semibold text-ink;
+  }
+  .muted {
+    @apply text-secondary text-mut;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-control px-4 py-2 text-secondary font-medium transition;
+  }
+  .btn-primary {
+    @apply btn bg-acc text-accfg hover:opacity-90 disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-card text-ink hover:bg-pearl;
+  }
+  .btn-gold {
+    @apply btn bg-gold text-goldink hover:opacity-90;
+  }
+  .input {
+    @apply w-full rounded-control border border-line bg-card px-3 py-2 text-base text-ink;
+  }
+  .label {
+    @apply mb-1 block text-secondary font-medium text-ink;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-secondary font-medium;
+  }
+  .chip-ok {
+    @apply chip bg-okbg text-ok;
+  }
+  .chip-warn {
+    @apply chip bg-warnbg text-warn;
+  }
+  .chip-bad {
+    @apply chip bg-badbg text-bad;
+  }
+  .chip-neutral {
+    @apply chip border border-line bg-pearl text-mut;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 rounded-control px-3 py-2 text-secondary hover:bg-white/10;
+  }
+  /* The reference marks the active entry with the gold accent, not a tint of
+     the sidebar colour (page 2: `--gold` is "العنصر النشط في القائمة"). */
+  .nav-item-active {
+    @apply bg-gold font-semibold text-ink;
+  }
+  /* The supplied logo is dark teal on transparency, so it needs a light surface
+     to stay legible. The plate seats it on one without altering the artwork:
+     solid on the navy sidebar, dark-theme-only on the auth cards. */
+  .brand-plate {
+    @apply inline-flex rounded-control;
+  }
+  .brand-plate-solid {
+    @apply bg-white p-1;
+  }
+  [data-theme="dark"] .brand-plate-adaptive {
+    @apply bg-white p-1;
+  }
+}
+
+/*
+ * Public-website brand tokens.
+ *
+ * Derived from the official logo artwork, which is deep teal (#096b82) with a
+ * brighter teal (#0c8fad) highlight — not the platform's navy/gold. The logo is
+ * never recoloured; these tokens let the site match it. Values are proposed for
+ * owner approval, and the site is presented as a preview until approved.
+ */
+:root {
+  --brand-deep: #075e73;
+  --brand-bright: #0c8fad;
+  --brand-ink: #0d2230;
+  --brand-sand: #c7a15e;
+  --brand-mist: #eef6f8;
+  --brand-paper: #ffffff;
+  --brand-slate: #5c6b76;
+  --brand-line: #dbe4e8;
+  --brand-font: "Tajawal", system-ui, "Segoe UI", Tahoma, sans-serif;
+  --brand-font-latin: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --- Public site base --------------------------------------------------- */
+.site-root {
+  background: var(--brand-paper);
+  color: var(--brand-ink);
+  font-family: var(--brand-font-latin);
+}
+.site-root[dir="rtl"] {
+  font-family: var(--brand-font);
+}
+.site-container {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+/* Header */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--brand-paper) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--brand-line);
+}
+.site-nav-link {
+  position: relative;
+  padding-block: 6px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--brand-ink);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.site-nav-link:hover,
+.site-nav-link[aria-current="page"] {
+  border-color: var(--brand-sand);
+}
+
+/* Buttons */
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.site-btn-primary {
+  background: var(--brand-deep);
+  color: #fff;
+}
+.site-btn-primary:hover {
+  background: var(--brand-bright);
+}
+.site-btn-sand {
+  background: var(--brand-sand);
+  color: #2b2109;
+}
+.site-btn-sand:hover {
+  filter: brightness(0.94);
+}
+.site-btn-outline {
+  background: transparent;
+  color: var(--brand-deep);
+  border-color: var(--brand-line);
+}
+.site-btn-outline:hover {
+  border-color: var(--brand-deep);
+}
+.site-btn-ghost {
+  background: transparent;
+  color: #fff;
+  border-color: color-mix(in srgb, #fff 55%, transparent);
+}
+.site-btn-ghost:hover {
+  background: color-mix(in srgb, #fff 14%, transparent);
+}
+.site-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Section rhythm */
+.site-section {
+  padding-block: 84px;
+}
+.site-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-sand);
+}
+.site-eyebrow::before {
+  content: "";
+  width: 26px;
+  height: 1.5px;
+  background: var(--brand-sand);
+}
+.site-h2 {
+  margin-top: 14px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.site-lead {
+  margin-top: 14px;
+  max-width: 640px;
+  color: var(--brand-slate);
+  font-size: 16px;
+}
+.site-card {
+  background: var(--brand-paper);
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  padding: 28px;
+}
+.site-field {
+  width: 100%;
+  border: 1px solid var(--brand-line);
+  border-radius: 8px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 15px;
+  background: #fff;
+  color: var(--brand-ink);
+}
+.site-field:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 1px;
+}
+.site-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--brand-ink);
+}
+.site-req {
+  color: #b3261e;
+}
+
+/* Keyboard focus must stay visible everywhere. */
+.site-root :focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 2px;
+}

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start Up Sphere Holding — Design Preview</title>
+<style>
+  @font-face{font-family:"Tajawal";font-weight:400;src:url("tajawal-400.ttf") format("truetype")}
+  @font-face{font-family:"Tajawal";font-weight:500;src:url("tajawal-500.ttf") format("truetype")}
+  @font-face{font-family:"Tajawal";font-weight:700;src:url("tajawal-700.ttf") format("truetype")}
+  :root{
+    --navy:#101D32; --midnight:#172B45; --gold:#C5A574; --ivory:#F7F5F0;
+    --white:#fff; --slate:#667085; --line:#E7E2D8; --ink:#101D32; --mut:#667085;
+    --font-ar:"Tajawal",system-ui,sans-serif;
+    --font-en:"Inter","Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:16px}
+  body{background:var(--ivory);color:var(--ink);font-family:var(--font-en);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+  .en-only,.ar-only{display:none}
+  html[lang="ar"] .ar-only{display:revert}
+  html[lang="en"] .en-only{display:revert}
+  html[lang="ar"] body{font-family:var(--font-ar)}
+
+  /* ---------- top bar ---------- */
+  .topbar{background:var(--navy);color:#C9D2E0;font-size:12.5px;letter-spacing:.02em}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:40px}
+  .topbar .khaleej{display:flex;align-items:center;gap:8px;opacity:.92}
+  .topbar .khaleej .flag{width:18px;height:12px;border-radius:2px;background:linear-gradient(90deg,#fff 0 22%,#CE1126 22% 100%);position:relative;overflow:hidden}
+  .topbar .khaleej .flag::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,transparent 50%,rgba(255,255,255,.0) 50%)}
+  .langsw{display:flex;align-items:center;gap:6px}
+  .langsw button{background:none;border:0;color:#C9D2E0;font:inherit;cursor:pointer;opacity:.7;padding:2px 4px}
+  .langsw button.on{opacity:1;color:var(--gold);font-weight:600}
+  .langsw .sep{opacity:.4}
+
+  /* ---------- header ---------- */
+  header.hdr{background:var(--white);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  header.hdr .wrap{display:flex;align-items:center;gap:28px;height:78px}
+  .brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+  .brand img{height:44px;width:auto;display:block}
+  .brand .bn{display:flex;flex-direction:column;line-height:1.15}
+  .brand .bn b{font-size:15px;font-weight:700;letter-spacing:.01em}
+  .brand .bn span{font-size:11.5px;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+  nav.main{display:flex;gap:26px;margin-inline-start:auto}
+  nav.main a{color:#2A3648;text-decoration:none;font-size:14.5px;font-weight:500;padding:6px 0;border-bottom:2px solid transparent}
+  nav.main a:hover{color:var(--navy);border-color:var(--gold)}
+  .cta{display:flex;gap:10px;align-items:center}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:14px;font-weight:600;border-radius:7px;padding:11px 20px;text-decoration:none;cursor:pointer;border:1.5px solid transparent;transition:.18s}
+  .btn.gold{background:var(--gold);color:#241a06}
+  .btn.gold:hover{background:#B8945F}
+  .btn.navy{background:var(--navy);color:#fff}
+  .btn.navy:hover{background:var(--midnight)}
+  .btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.55)}
+  .btn.ghost:hover{background:rgba(255,255,255,.12)}
+  .btn.outline{background:transparent;color:var(--navy);border-color:#C9CFDA}
+  .btn.outline:hover{border-color:var(--navy)}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;background:var(--navy);color:#fff;overflow:hidden}
+  .hero .bg{position:absolute;inset:0;background:
+      radial-gradient(1100px 520px at 78% -10%,rgba(197,165,116,.22),transparent 60%),
+      linear-gradient(115deg,#101D32 0%,#172B45 58%,#0C1728 100%);}
+  .hero .grid{position:absolute;inset:0;opacity:.16;background-image:
+      linear-gradient(rgba(255,255,255,.10) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.10) 1px,transparent 1px);
+      background-size:64px 64px}
+  .hero .wrap{position:relative;padding-top:92px;padding-bottom:96px;max-width:1180px}
+  .hero .eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:600}
+  .hero .eyebrow::before{content:"";width:34px;height:1.5px;background:var(--gold)}
+  .hero h1{font-size:46px;line-height:1.22;font-weight:700;margin:22px 0 0;max-width:820px;letter-spacing:-.01em}
+  .hero p{font-size:17px;color:#C4CEDC;max-width:620px;margin-top:20px}
+  .hero .acts{display:flex;gap:12px;margin-top:36px;flex-wrap:wrap}
+  .hero .dots{display:flex;gap:9px;margin-top:48px;align-items:center}
+  .hero .dots i{width:34px;height:3px;border-radius:2px;background:rgba(255,255,255,.28)}
+  .hero .dots i.on{background:var(--gold);width:52px}
+  .hero .slidehint{position:absolute;inset-inline-end:32px;bottom:88px;font-size:12px;color:#8A97AC;letter-spacing:.14em;text-transform:uppercase}
+
+  /* ---------- section shell ---------- */
+  section{padding:84px 0}
+  .sec-eyebrow{font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700;display:flex;align-items:center;gap:10px}
+  .sec-eyebrow::before{content:"";width:26px;height:1.5px;background:var(--gold)}
+  h2.sec{font-size:32px;font-weight:700;line-height:1.28;margin-top:16px;letter-spacing:-.01em}
+  .lead{color:var(--mut);font-size:16px;margin-top:14px;max-width:640px}
+
+  /* ---------- about ---------- */
+  .about{background:var(--white)}
+  .split{display:grid;grid-template-columns:1.05fr 1fr;gap:64px;align-items:center}
+  .ph{position:relative;border-radius:12px;overflow:hidden;background:linear-gradient(140deg,#1B2E4A,#0E1B2E);min-height:420px}
+  .ph::after{content:"";position:absolute;inset:0;background:
+      repeating-linear-gradient(135deg,rgba(197,165,116,.10) 0 2px,transparent 2px 22px),
+      radial-gradient(420px 260px at 70% 20%,rgba(197,165,116,.30),transparent 60%)}
+  .ph .badge{position:absolute;inset-inline-start:24px;bottom:24px;background:rgba(255,255,255,.94);color:var(--navy);border-radius:9px;padding:14px 18px;font-size:13px;font-weight:600;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+  .ph .badge b{display:block;color:var(--gold);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px}
+  .about ul.pts{list-style:none;margin-top:26px;display:grid;gap:14px}
+  .about ul.pts li{display:flex;gap:12px;align-items:flex-start;color:#33415A;font-size:15px}
+  .about ul.pts li::before{content:"";flex:0 0 8px;width:8px;height:8px;margin-top:8px;border-radius:2px;background:var(--gold);transform:rotate(45deg)}
+
+  /* ---------- companies ---------- */
+  .companies{background:var(--ivory)}
+  .chips{display:flex;gap:9px;flex-wrap:wrap;margin-top:26px}
+  .chip{font-size:13.5px;font-weight:600;padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:#fff;color:#46536B;cursor:pointer}
+  .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .ccards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px}
+  .ccard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px;transition:.2s}
+  .ccard:hover{border-color:var(--gold);box-shadow:0 14px 34px rgba(16,29,50,.09);transform:translateY(-2px)}
+  .ccard .lg{height:52px;display:flex;align-items:center}
+  .ccard .lg span{width:52px;height:52px;border-radius:10px;background:linear-gradient(140deg,#172B45,#101D32);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;font-size:19px}
+  .ccard h3{font-size:18px;font-weight:700;margin-top:20px}
+  .ccard .meta{font-size:13.5px;color:var(--mut);margin-top:6px;display:flex;gap:8px;align-items:center}
+  .ccard .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8A6A2E;background:#F6EEDD;border-radius:5px;padding:3px 9px;margin-top:14px}
+  .ccard .lnk{display:inline-flex;align-items:center;gap:7px;margin-top:20px;color:var(--navy);font-weight:600;font-size:14px;text-decoration:none;border-bottom:1.5px solid var(--gold);padding-bottom:3px}
+  .empty{margin-top:30px;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:38px;text-align:center;color:var(--mut)}
+
+  /* ---------- services ---------- */
+  .services{background:var(--white)}
+  .scards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:36px}
+  .scard{border:1px solid var(--line);border-radius:12px;padding:30px;background:#fff;transition:.2s;display:flex;flex-direction:column}
+  .scard:hover{border-color:var(--gold);box-shadow:0 14px 34px rgba(16,29,50,.08)}
+  .scard .ic{width:52px;height:52px;border-radius:11px;background:#F4EFE5;border:1px solid #EADFC8;display:flex;align-items:center;justify-content:center;color:#8A6A2E}
+  .scard h3{font-size:17px;font-weight:700;margin-top:20px;line-height:1.4}
+  .scard .btn{margin-top:22px;align-self:flex-start}
+
+  /* ---------- band (service request) ---------- */
+  .band{background:linear-gradient(115deg,#101D32,#172B45);color:#fff}
+  .band .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:56px;align-items:center}
+  .band h2{font-size:30px;font-weight:700;line-height:1.3;margin-top:14px}
+  .band p{color:#C4CEDC;margin-top:14px;font-size:16px}
+  .band .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:30px}
+  .band .card .r{display:flex;justify-content:space-between;font-size:14.5px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+  .band .card .r:last-child{border:0}
+  .band .card .r span{color:#A9B6C9}
+
+  /* ---------- opportunities ---------- */
+  .opp{background:var(--ivory)}
+  .opp .grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:34px}
+  .opp .o{border-radius:12px;padding:34px;background:#fff;border:1px solid var(--line)}
+  .opp .o h3{font-size:19px;font-weight:700}
+  .opp .o p{color:var(--mut);margin-top:12px;font-size:15px}
+  .notice{margin-top:26px;display:flex;gap:12px;align-items:flex-start;background:#FBF7EF;border:1px solid #EDE2CC;border-inline-start:4px solid var(--gold);border-radius:10px;padding:18px 20px;color:#6A5731;font-size:14px}
+  .notice b{color:#4E3F20}
+
+  /* ---------- careers ---------- */
+  .careers{background:var(--white)}
+  .careers .box{background:var(--ivory);border:1px solid var(--line);border-radius:14px;padding:52px;text-align:center}
+  .careers h2{font-size:28px;font-weight:700}
+  .careers p{color:var(--mut);margin-top:12px}
+
+  /* ---------- contact ---------- */
+  .contact{background:var(--navy);color:#fff}
+  .contact .cols{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:36px;margin-top:36px}
+  .contact .c h4{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);font-weight:700}
+  .contact .c p{color:#C4CEDC;margin-top:10px;font-size:15px}
+  .contact .c a{color:#fff;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.3)}
+
+  /* ---------- footer ---------- */
+  footer{background:#0A1424;color:#93A0B4;padding:64px 0 28px;font-size:14px}
+  footer .cols{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:36px}
+  footer img{height:40px;background:rgba(255,255,255,.95);padding:6px 8px;border-radius:7px}
+  footer h5{color:#fff;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+  footer a{color:#93A0B4;text-decoration:none;display:block;padding:5px 0}
+  footer a:hover{color:var(--gold)}
+  footer .desc{margin-top:16px;line-height:1.75;max-width:340px}
+  footer .bot{border-top:1px solid rgba(255,255,255,.09);margin-top:44px;padding-top:22px;display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:10px}
+
+  /* ---------- phone frame (mobile preview) ---------- */
+  .phones{background:#0C1728;padding:70px 0}
+  .phones h2{color:#fff;font-size:26px;font-weight:700;text-align:center}
+  .phones .lead{color:#93A0B4;text-align:center;margin:12px auto 0}
+  .frames{display:flex;gap:34px;justify-content:center;margin-top:44px;flex-wrap:wrap}
+  .phone{width:340px;border-radius:34px;background:#0A1424;border:9px solid #1B2A44;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.45)}
+  .phone .notch{height:26px;background:#1B2A44;display:flex;align-items:center;justify-content:center}
+  .phone .notch i{width:90px;height:6px;border-radius:3px;background:#0A1424}
+  .phone .scr{background:var(--ivory)}
+  .phone .mh{background:#fff;border-bottom:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  .phone .mh img{height:30px}
+  .phone .mh .burger{display:flex;flex-direction:column;gap:4px}
+  .phone .mh .burger i{width:20px;height:2px;background:var(--navy);border-radius:2px}
+  .phone .mh .lang{font-size:12px;font-weight:700;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  .phone .mhero{background:linear-gradient(115deg,#101D32,#172B45);color:#fff;padding:26px 18px 30px}
+  .phone .mhero h1{font-size:22px;line-height:1.35;font-weight:700}
+  .phone .mhero p{color:#C4CEDC;font-size:13px;margin-top:12px}
+  .phone .mhero .b{margin-top:18px;display:grid;gap:9px}
+  .phone .mhero .b .btn{width:100%}
+  .phone .msec{padding:20px 16px}
+  .phone .msec h3{font-size:15px;font-weight:700}
+  .phone .mcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:12px}
+  .phone .mcard h4{font-size:14px;font-weight:700}
+  .phone .mcard span{font-size:12.5px;color:var(--mut);display:block;margin-top:4px}
+  .phone .mnav{background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);text-align:center;font-size:10.5px;color:var(--mut);padding:9px 0}
+  .phone .mnav b{display:block;color:var(--navy);font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <div class="wrap">
+    <div class="khaleej">
+      <span class="flag"></span>
+      <span class="ar-only">مملكة البحرين</span>
+      <span class="en-only">Kingdom of Bahrain</span>
+    </div>
+    <div class="langsw">
+      <button class="on">العربية</button><span class="sep">|</span><button>English</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="hdr">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <img src="holding-logo.png" alt="Start Up Sphere Holding">
+      <span class="bn">
+        <b class="ar-only">ستارت أب سفير القابضة</b>
+        <b class="en-only">Start Up Sphere Holding</b>
+        <span class="ar-only">شركة قابضة — مملكة البحرين</span>
+        <span class="en-only">Holding Company — Kingdom of Bahrain</span>
+      </span>
+    </a>
+    <nav class="main">
+      <a href="#" class="ar-only">الرئيسية</a><a href="#" class="ar-only">عن القابضة</a><a href="#" class="ar-only">شركات المجموعة</a><a href="#" class="ar-only">الحلول</a><a href="#" class="ar-only">الفرص</a><a href="#" class="ar-only">تواصل</a>
+      <a href="#" class="en-only">Home</a><a href="#" class="en-only">About</a><a href="#" class="en-only">Companies</a><a href="#" class="en-only">Solutions</a><a href="#" class="en-only">Opportunities</a><a href="#" class="en-only">Contact</a>
+    </nav>
+    <div class="cta">
+      <a class="btn outline ar-only" href="#">طلب خدمة</a>
+      <a class="btn gold ar-only" href="#">تقديم فرصة</a>
+      <a class="btn outline en-only" href="#">Request service</a>
+      <a class="btn gold en-only" href="#">Submit opportunity</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <div class="bg"></div><div class="grid"></div>
+  <div class="wrap">
+    <span class="eyebrow ar-only">شركة قابضة بحرينية</span>
+    <span class="eyebrow en-only">A Bahraini holding company</span>
+    <h1 class="ar-only">نربط الخبرات والفرص لبناء أعمال قابلة للنمو.</h1>
+    <h1 class="en-only">Connecting expertise and opportunity to build businesses that grow.</h1>
+    <p class="ar-only">شركة قابضة تعمل على تطوير شركات المجموعة، وتنسيق خبراتها، وربط العملاء بالخدمات والفرص التجارية والاستثمارية.</p>
+    <p class="en-only">A holding company that develops the group’s companies, coordinates their expertise, and connects clients with services and commercial and investment opportunities.</p>
+    <div class="acts">
+      <a class="btn gold ar-only" href="#">طلب خدمة</a>
+      <a class="btn ghost ar-only" href="#">تقديم فرصة</a>
+      <a class="btn gold en-only" href="#">Request a service</a>
+      <a class="btn ghost en-only" href="#">Submit an opportunity</a>
+    </div>
+    <div class="dots"><i class="on"></i><i></i><i></i></div>
+  </div>
+  <div class="slidehint"><span class="ar-only">١ / ٣</span><span class="en-only">1 / 3</span></div>
+</div>
+
+<!-- ============ ABOUT ============ -->
+<section class="about">
+  <div class="wrap split">
+    <div class="ph">
+      <div class="badge">
+        <b class="ar-only">مجموعة واحدة</b><b class="en-only">One group</b>
+        <span class="ar-only">خبرات متكاملة ضمن رؤية موحدة</span>
+        <span class="en-only">Integrated expertise under one vision</span>
+      </div>
+    </div>
+    <div>
+      <span class="sec-eyebrow ar-only">من نحن</span><span class="sec-eyebrow en-only">About us</span>
+      <h2 class="sec ar-only">نطوّر شركات المجموعة وننسّق خبراتها.</h2>
+      <h2 class="sec en-only">We develop the group’s companies and coordinate their expertise.</h2>
+      <p class="lead ar-only">شركة ستارت أب سفير القابضة ذ.م.م شركة قابضة بحرينية تعمل على تطوير شركات المجموعة، وتنسيق خبراتها، وربط العملاء بالخدمات والفرص التجارية والاستثمارية.</p>
+      <p class="lead en-only">Start Up Sphere Holding Co W.L.L is a Bahraini holding company that develops the group’s companies, coordinates their expertise, and connects clients with services and commercial and investment opportunities.</p>
+      <ul class="pts">
+        <li class="ar-only">تطوير شركات المجموعة</li><li class="ar-only">تنسيق الخبرات</li><li class="ar-only">ربط العملاء بالخدمات والفرص</li>
+        <li class="en-only">Developing the group’s companies</li><li class="en-only">Coordinating expertise</li><li class="en-only">Connecting clients with services and opportunities</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPANIES ============ -->
+<section class="companies">
+  <div class="wrap">
+    <span class="sec-eyebrow ar-only">شركات المجموعة</span><span class="sec-eyebrow en-only">Group companies</span>
+    <h2 class="sec ar-only">محفظة الشركات</h2><h2 class="sec en-only">Our portfolio</h2>
+    <p class="lead ar-only">تُعرض الشركات المنشورة فقط من قاعدة البيانات.</p>
+    <p class="lead en-only">Only companies published from the database are shown.</p>
+    <div class="chips">
+      <button class="chip on ar-only">كل الشركات</button><button class="chip ar-only">تقنية</button><button class="chip ar-only">صناعي</button><button class="chip ar-only">تجاري</button><button class="chip ar-only">خدمي</button>
+      <button class="chip on en-only">All companies</button><button class="chip en-only">Technology</button><button class="chip en-only">Industrial</button><button class="chip en-only">Commercial</button><button class="chip en-only">Services</button>
+    </div>
+    <div class="ccards">
+      <div class="ccard"><div class="lg"><span>SS</span></div><h3 class="ar-only">شركة تقنية</h3><h3 class="en-only">Technology company</h3><div class="meta"><span class="ar-only">تقنية</span><span class="en-only">Technology</span> · <span class="ar-only">البحرين</span><span class="en-only">Bahrain</span></div><span class="tag ar-only">قطاع تقني</span><span class="tag en-only">Technology</span><br><a class="lnk ar-only" href="#">معاينة الشركة →</a><a class="lnk en-only" href="#">View company →</a></div>
+      <div class="ccard"><div class="lg"><span>IN</span></div><h3 class="ar-only">شركة صناعية</h3><h3 class="en-only">Industrial company</h3><div class="meta"><span class="ar-only">صناعي</span><span class="en-only">Industrial</span> · <span class="ar-only">البحرين</span><span class="en-only">Bahrain</span></div><span class="tag ar-only">قطاع صناعي</span><span class="tag en-only">Industrial</span><br><a class="lnk ar-only" href="#">معاينة الشركة →</a><a class="lnk en-only" href="#">View company →</a></div>
+      <div class="ccard"><div class="lg"><span>CO</span></div><h3 class="ar-only">شركة تجارية</h3><h3 class="en-only">Commercial company</h3><div class="meta"><span class="ar-only">تجاري</span><span class="en-only">Commercial</span> · <span class="ar-only">البحرين</span><span class="en-only">Bahrain</span></div><span class="tag ar-only">قطاع تجاري</span><span class="tag en-only">Commercial</span><br><a class="lnk ar-only" href="#">معاينة الشركة →</a><a class="lnk en-only" href="#">View company →</a></div>
+    </div>
+    <div class="empty ar-only">لا توجد شركات منشورة حالياً.</div>
+    <div class="empty en-only">No published companies at the moment.</div>
+  </div>
+</section>
+
+<!-- ============ SERVICES ============ -->
+<section class="services">
+  <div class="wrap">
+    <span class="sec-eyebrow ar-only">منظومة الحلول</span><span class="sec-eyebrow en-only">Solutions ecosystem</span>
+    <h2 class="sec ar-only">حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو.</h2>
+    <h2 class="sec en-only">Business solutions that start from your need and extend to growth.</h2>
+    <div class="scards">
+      <div class="scard"><div class="ic">◧</div><h3 class="ar-only">تأسيس الأعمال والخدمات المرتبطة بها</h3><h3 class="en-only">Business setup and related services</h3><a class="btn outline ar-only" href="#">طلب الخدمة</a><a class="btn outline en-only" href="#">Request service</a></div>
+      <div class="scard"><div class="ic">▤</div><h3 class="ar-only">الدراسات ودراسات الجدوى</h3><h3 class="en-only">Studies and feasibility studies</h3><a class="btn outline ar-only" href="#">طلب الخدمة</a><a class="btn outline en-only" href="#">Request service</a></div>
+      <div class="scard"><div class="ic">◆</div><h3 class="ar-only">الاستشارات</h3><h3 class="en-only">Consulting</h3><a class="btn outline ar-only" href="#">طلب الخدمة</a><a class="btn outline en-only" href="#">Request service</a></div>
+      <div class="scard"><div class="ic">◈</div><h3 class="ar-only">التسويق والإعلان</h3><h3 class="en-only">Marketing and advertising</h3><a class="btn outline ar-only" href="#">طلب الخدمة</a><a class="btn outline en-only" href="#">Request service</a></div>
+      <div class="scard"><div class="ic">▦</div><h3 class="ar-only">التوريد والتوزيع</h3><h3 class="en-only">Supply and distribution</h3><a class="btn outline ar-only" href="#">طلب الخدمة</a><a class="btn outline en-only" href="#">Request service</a></div>
+      <div class="scard"><div class="ic">✳</div><h3 class="ar-only">خدمة أخرى</h3><h3 class="en-only">Other service</h3><a class="btn outline ar-only" href="#">طلب الخدمة</a><a class="btn outline en-only" href="#">Request service</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SERVICE REQUEST BAND ============ -->
+<section class="band">
+  <div class="wrap">
+    <div>
+      <span class="sec-eyebrow ar-only">طلب خدمة</span><span class="sec-eyebrow en-only">Service request</span>
+      <h2 class="ar-only">اطلب خدمات المجموعة عبر نموذج مباشر.</h2>
+      <h2 class="en-only">Request the group’s services through a direct form.</h2>
+      <p class="ar-only">يُحفظ الطلب في قاعدة البيانات ويصل مباشرة إلى فريق المجموعة.</p>
+      <p class="en-only">Your request is saved in the database and reaches the group’s team directly.</p>
+      <div class="acts" style="margin-top:26px"><a class="btn gold ar-only" href="#">ابدأ طلب الخدمة</a><a class="btn gold en-only" href="#">Start a service request</a></div>
+    </div>
+    <div class="card">
+      <div class="r"><span class="ar-only">الاسم</span><span class="en-only">Name</span><span>—</span></div>
+      <div class="r"><span class="ar-only">البريد الإلكتروني</span><span class="en-only">Email</span><span>—</span></div>
+      <div class="r"><span class="ar-only">رقم التواصل</span><span class="en-only">Contact number</span><span>—</span></div>
+      <div class="r"><span class="ar-only">نوع الخدمة</span><span class="en-only">Service type</span><span>—</span></div>
+      <div class="r"><span class="ar-only">وصف مختصر</span><span class="en-only">Brief description</span><span>—</span></div>
+      <div class="r"><span class="ar-only">الموافقة على سياسة الخصوصية</span><span class="en-only">Privacy-policy consent</span><span>✓</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OPPORTUNITIES ============ -->
+<section class="opp">
+  <div class="wrap">
+    <span class="sec-eyebrow ar-only">الفرص</span><span class="sec-eyebrow en-only">Opportunities</span>
+    <h2 class="sec ar-only">الفرص التجارية والاستثمارية</h2>
+    <h2 class="sec en-only">Business and investment opportunities</h2>
+    <div class="grid2">
+      <div class="o"><h3 class="ar-only">أرسل فرصتك إلى المجموعة</h3><h3 class="en-only">Send your opportunity to the group</h3><p class="ar-only">شاركنا تفاصيل الفرصة التجارية أو الاستثمارية لدراستها.</p><p class="en-only">Share the details of your commercial or investment opportunity for review.</p><a class="btn navy ar-only" href="#" style="margin-top:20px">أرسل فرصة</a><a class="btn navy en-only" href="#" style="margin-top:20px">Submit an opportunity</a></div>
+      <div class="o"><h3 class="ar-only">كيف تُدرس الفرص؟</h3><h3 class="en-only">How are opportunities reviewed?</h3><p class="ar-only">تُستقبل الفرص وتُسجّل في قاعدة البيانات ثم تُراجع من الفريق المختص.</p><p class="en-only">Opportunities are received, recorded in the database, and reviewed by the relevant team.</p></div>
+    </div>
+    <div class="notice"><span>⚠</span><div><b class="ar-only">تنبيه: </b><b class="en-only">Notice: </b><span class="ar-only">إرسال المعلومات لا يعني قبولها أو الالتزام بتمويلها أو الدخول في شراكة.</span><span class="en-only">Submitting information does not mean it is accepted or that there is any obligation to fund it or enter into a partnership.</span></div></div>
+  </div>
+</section>
+
+<!-- ============ CAREERS ============ -->
+<section class="careers">
+  <div class="wrap">
+    <div class="box">
+      <h2 class="ar-only">هل ترغب في الانضمام إلى فريقنا؟</h2>
+      <h2 class="en-only">Would you like to join our team?</h2>
+      <p class="ar-only">أرسل سيرتك الذاتية وسنراها في المجموعة.</p>
+      <p class="en-only">Send your CV and it will be reviewed within the group.</p>
+      <a class="btn gold ar-only" href="#" style="margin-top:24px">قدّم طلب انضمام</a>
+      <a class="btn gold en-only" href="#" style="margin-top:24px">Submit an application</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONTACT ============ -->
+<section class="contact">
+  <div class="wrap">
+    <span class="sec-eyebrow ar-only">تواصل</span><span class="sec-eyebrow en-only">Contact</span>
+    <h2 class="sec ar-only" style="color:#fff">تواصل معنا</h2><h2 class="sec en-only" style="color:#fff">Contact us</h2>
+    <div class="cols">
+      <div class="c"><h4 class="ar-only">الشركة</h4><h4 class="en-only">Company</h4><p class="ar-only">شركة ستارت أب سفير القابضة ذ.م.م</p><p class="en-only">Start Up Sphere Holding Co W.L.L</p><p class="ar-only">مملكة البحرين</p><p class="en-only">Kingdom of Bahrain</p></div>
+      <div class="c"><h4 class="ar-only">البريد الإلكتروني</h4><h4 class="en-only">Email</h4><p><a href="mailto:info@sup-edu.com">info@sup-edu.com</a></p></div>
+      <div class="c"><h4 class="ar-only">الهاتف</h4><h4 class="en-only">Phone</h4><p><a href="tel:+97317626990" dir="ltr">+973 17626990</a></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <img src="holding-logo.png" alt="Start Up Sphere Holding">
+        <p class="desc ar-only">شركة قابضة بحرينية تعمل على تطوير شركات المجموعة، وتنسيق خبراتها، وربط العملاء بالخدمات والفرص التجارية والاستثمارية.</p>
+        <p class="desc en-only">A Bahraini holding company that develops the group’s companies, coordinates their expertise, and connects clients with services and commercial and investment opportunities.</p>
+      </div>
+      <div><h5 class="ar-only">الموقع</h5><h5 class="en-only">Site</h5><a class="ar-only" href="#">الرئيسية</a><a class="ar-only" href="#">عن القابضة</a><a class="ar-only" href="#">شركات المجموعة</a><a class="en-only" href="#">Home</a><a class="en-only" href="#">About</a><a class="en-only" href="#">Companies</a></div>
+      <div><h5 class="ar-only">الحلول</h5><h5 class="en-only">Solutions</h5><a class="ar-only" href="#">منظومة الحلول</a><a class="ar-only" href="#">الفرص</a><a class="ar-only" href="#">الوظائف</a><a class="en-only" href="#">Solutions</a><a class="en-only" href="#">Opportunities</a><a class="en-only" href="#">Careers</a></div>
+      <div><h5 class="ar-only">تواصل</h5><h5 class="en-only">Contact</h5><a href="mailto:info@sup-edu.com">info@sup-edu.com</a><a href="tel:+97317626990" dir="ltr">+973 17626990</a><a class="ar-only" href="#">سياسة الخصوصية</a><a class="en-only" href="#">Privacy policy</a></div>
+    </div>
+    <div class="bot">
+      <span class="ar-only">© 2026 شركة ستارت أب سفير القابضة ذ.م.م. جميع الحقوق محفوظة.</span>
+      <span class="en-only">© 2026 Start Up Sphere Holding Co W.L.L. All rights reserved.</span>
+      <span class="ar-only">مملكة البحرين</span><span class="en-only">Kingdom of Bahrain</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
