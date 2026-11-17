@@ -61,6 +61,10 @@ overridden for that one process.
 - Monetary amounts are `Numeric`, never float. Never sum across currencies.
 - `frontend/components/ResourceTable.tsx` is the shared list: pass `columns` in
   the reference's order and an optional `filter` for narrowing controls.
+- A failed read is worded by `loadError(e, locale)` in `frontend/lib/api.ts`:
+  a `403` reads as «لا تملك صلاحية عرض هذه البيانات.» and a caller may pass the
+  `404` wording. Do not inline the generic «تعذّر تحميل البيانات.», which hides a
+  refusal behind what looks like a broken screen.
 - Bilingual fields are `*_ar` / `*_en`; UI strings come from the locale
   dictionaries, not inline literals.
 - Arabic uses the self-hosted Tajawal face (SIL OFL 1.1, `frontend/public/fonts/`),
