@@ -95,10 +95,11 @@ overridden for that one process.
 
 ## Known gaps
 
-- `assets/brand/holding-logo.png` is not in the repository. The header renders a
-  neutral mark with `data-logo="missing"` rather than an unapproved stand-in.
-  `BrandMark` already points at `/brand/holding-logo.png`; adding the file to
-  `frontend/public/brand/` completes the requirement with no code change.
-  `BrandMark` re-checks on mount, because the server-rendered `<img>` 404s before
-  hydration and `onError` never fires for that first failure.
-- The public holding website has no approved specification.
+- The brand logo is delivered: `frontend/public/brand/holding-logo.png` is
+  committed and `BrandMark` serves it. The component still re-checks on mount
+  and falls back to a neutral `data-logo="missing"` mark, because the
+  server-rendered `<img>` can 404 before hydration and `onError` never fires for
+  that first failure.
+- The public holding website has no approved specification from the designer
+  (§12 defers it), and the privacy-policy text is a draft pending legal review
+  (§12, §9). Both are the two non-code items the brief reserves for people.
