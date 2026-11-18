@@ -15,7 +15,8 @@ docs/verification/    completion-matrix.md, visual-comparison.md,
                       functional-acceptance.md, website-cms.md,
                       final-spec-compliance.md (the section-by-section verdict),
                       WORD_SPEC_100_PERCENT_MATRIX.md (requirement-by-requirement),
-                      FINAL_HANDOFF_REPORT.md (independent-review package)
+                      FINAL_HANDOFF_REPORT.md (independent-review package),
+                      INDEPENDENT_AUDIT_FIX_REPORT.md (findings closed with evidence)
 docs/screenshots/     pdf/ (rendered reference) and impl/ (live captures)
 scripts/              capture_screens.py, check_matrix.py, check_mobile.py,
                       check_visual_fixes.py
@@ -96,7 +97,20 @@ overridden for that one process.
 - Monthly-report deadline reminders (§7.5, §12) are scheduled, not simulated:
   `app/services/reminders.py` fires three days before the due date, on the due
   date, and daily once late, and skips a company that already sent its report.
-  `scripts/send_report_reminders.py` runs it from cron (idempotent per day).
+  Sending is idempotent through the durable `report_reminder_logs` table (unique
+  on company+period+day+kind): a second run, or a concurrent worker, cannot
+  double-send, and a failed transport is recorded `failed` and retried, never
+  `sent`. `scripts/send_report_reminders.py` runs it from cron and exits `0` on a
+  completed run, `2` when the run raised. "Today" resolves in `REMINDERS_TIMEZONE`
+  (default `Asia/Bahrain`), not the server's zone.
+- The AI provider (`app/ai/provider.py`) takes an injectable `httpx` transport so
+  tests exercise the real request path against a mock socket
+  (`tests/test_ai_integration.py`); a malformed body raises `AIProviderError` and
+  `ai.py` answers `502 ai_provider_failed`, never a fabricated answer.
+- Currency safety is proven, not just asserted: `tests/test_currency_no_summation.py`
+  checks the dashboard group summary, the report detail and Excel export, the
+  accounting export and the AI facts/summary keep each amount in its own currency
+  with no combined total.
 
 ## Known gaps
 

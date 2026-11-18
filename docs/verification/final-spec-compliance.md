@@ -83,7 +83,7 @@ Evidence commands are reproducible and named in the section rows below.
 
 | Suite | Result |
 |---|---|
-| Backend `pytest` | **85 passed in 67.01s** (auth/RBAC 21, reporting 13, operations 30, e2e journeys 13, site CMS 8) |
+| Backend `pytest` | **117 passed, 1 skipped in 81.74s** (auth/RBAC 21, reporting 13, operations 30, e2e journeys 13, site CMS 8, reminders 9, AI integration 11 + 1 opt-in skip, currency 6, mail 7) |
 | Frontend `tsc --noEmit` | clean (exit 0) |
 | Frontend `next build` | **35 routes** build |
 | Browser visual fixes `scripts/check_visual_fixes.py` | **62/62 assertions** |

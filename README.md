@@ -175,6 +175,7 @@ credential. See `.env.example` for the full list. Key settings:
 | `OPENAI_API_KEY` | Provider key. **Empty ⇒ the assistant reports an unconfigured status and never fabricates an answer.** |
 | `FRONTEND_BASE_URL` | Public frontend URL, used to build the secure links in account emails |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS` | Outbound mail. **`SMTP_HOST` empty ⇒ no mail is sent and the sender reports `False` rather than claiming a delivery.** |
+| `REMINDERS_TIMEZONE` | Timezone in which report-deadline reminders resolve "today" (default `Asia/Bahrain`). |
 
 `ENVIRONMENT=production` rejects the development placeholder `SECRET_KEY`.
 
@@ -191,7 +192,13 @@ scheduler. Run it once a day:
 
 The job is idempotent per day: it only fires on the offsets the brief names
 (three days before the due date, on the due date, then daily once late) and skips
-any company that has already sent its report. It also sends the workflow
+any company that has already sent its report. Idempotency is durable, not just
+date arithmetic: each send claims a row in `report_reminder_logs` keyed by
+`(company, period, day, kind)` under a unique constraint, so two overlapping cron
+runs — or two workers at once — cannot double-send. A failed transport is
+recorded `failed` (never `sent`) and retried on the next run that day. The script
+exits `0` when the run completed and `2` when the run itself raised, so cron can
+tell "nothing to do" from "the job failed". It also sends the workflow
 notification emails (routed service request, complaint to the owner, directive,
 assistant referral, converted public request) whenever those events happen — no
 job required.
@@ -206,6 +213,11 @@ docker compose up --build -d
 Nginx fronts both services on `${HTTP_PORT}` (default 8080). The backend applies
 migrations on start. Health and readiness probes are available at `/health` and
 `/ready`. Put a TLS terminator in front of Nginx for production.
+
+Deployment is a deliberate manual step. The only CI workflow is `.github/workflows/ci.yml`,
+which runs the backend and frontend test jobs on a pull request or a push to
+`main` and has no deploy step — a push or a pull request never reaches the live
+site.
 
 ## Security model
 

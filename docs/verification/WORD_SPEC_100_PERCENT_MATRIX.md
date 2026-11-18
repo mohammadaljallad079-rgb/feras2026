@@ -8,18 +8,22 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **85 passed in 67.01s** (individually: `test_auth_rbac.py`
-  21, `test_reporting_workflow.py` 13, `test_operations.py` 30,
-  `test_e2e_journeys.py` 13, `test_site_cms.py` 8).
+- backend `pytest` → **117 passed, 1 skipped in 81.74s** (the skip is the opt-in
+  live-provider check). New since the previous pass: `test_reminders.py` (9),
+  `test_ai_integration.py` (11 + 1 opt-in skip), `test_currency_no_summation.py`
+  (6), `test_mail_delivery.py` (7).
 - frontend `npx tsc --noEmit` → clean (exit 0).
 - frontend `npm run build` → **35 routes** built.
 - `scripts/check_visual_fixes.py` → **62/62 assertions passed**.
 - `scripts/check_matrix.py` → **85 route/viewport combinations, 0 failures**.
 - `scripts/check_mobile.py` → no horizontal overflow at 400px on 11 routes.
+- `alembic upgrade head` on a fresh database → clean, single head
+  (`d4e5f6a7b8c9`), and `downgrade -1`/`upgrade head` round-trips.
 
 Legend — Result: **PASS** (implemented and proven), **PASS\*** (implemented; the
-spec itself defers the item to people, so no code proof is possible),
-**N/A** (prototype-only element the brief says must not ship).
+spec itself defers the item to people, so no code proof is possible and the item
+stays **pending human approval**), **N/A** (prototype-only element the brief says
+must not ship).
 
 ## Section 1 — Overview
 
@@ -66,7 +70,7 @@ spec itself defers the item to people, so no code proof is possible),
 |---|---|---|---|---|---|---|
 | 5.1.1 | Dashboard title + current period line | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_owner_sees_a_report_only_after_it_is_sent_to_management` | PASS |
 | 5.1.2 | Six KPI cards (Table 3), each navigates | `dashboard/page.tsx` | `dashboard.py` cards | `GET /api/v1/dashboard` | `test_owner_dashboard_revenue_column_names_the_revenue_field` | PASS |
-| 5.1.3 | Group-summary table, no cross-currency addition | `dashboard/page.tsx` | `dashboard.py` | `GET /api/v1/dashboard` | same | PASS |
+| 5.1.3 | Group-summary table, no cross-currency addition | `dashboard/page.tsx` | `dashboard.py` | `GET /api/v1/dashboard` | `test_owner_dashboard_group_summary_keeps_each_currency_separate`, `test_owner_dashboard_has_no_cross_currency_total_card` | PASS |
 | 5.1.4 | "Advisor messages addressed to you" section | `dashboard/page.tsx` | `advisor.py` | `GET /api/v1/advisor/messages` | `test_advisor_dashboard_actions_are_the_three_message_categories` | PASS |
 | 5.1.5 | Companies table + Add (wizard) / Show closed / Logo / Close | `platform/companies` | `companies.py` | `GET/POST/PATCH /api/v1/companies`, `/{id}/close`, `/{id}/reactivate` | `test_owner_creates_and_activates_company`, `test_company_manager_and_activation_information_are_settable` | PASS |
 | 5.1.6 | Monthly reports table; owner sees only sent-to-management | `platform/reports` | `reporting.py` | `GET /api/v1/reports` | `test_owner_and_developer_see_only_reports_sent_to_management` | PASS |
@@ -78,7 +82,7 @@ spec itself defers the item to people, so no code proof is possible),
 | 5.1.12 | Employees & HR: separate tables per company and Holding; salary/contract visible, leave attachments hidden | `platform/hr` | `hr.py` | `GET /api/v1/employees?include_holding=true` | `test_confidential_hr_attachment_is_restricted_to_the_manager` | PASS |
 | 5.1.13 | Website management: inbox + shown-companies | `platform/website` | `website.py` | `GET /api/v1/website/submissions` | `test_website_visibility_accepts_a_json_body_and_rejects` | PASS |
 | 5.1.14 | External advisor table (view only) | `platform/advisor` | `advisor.py` | `GET /api/v1/advisor/messages` | `test_the_owner_views_accounting_hr_and_advisor_without_editing` | PASS |
-| 5.1.15 | AI assistant sections + two buttons | `platform/assistant` | `ai.py` | `GET /api/v1/ai/summary`, `POST /api/v1/ai/ask`, `POST /api/v1/ai/refer` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard` | PASS |
+| 5.1.15 | AI assistant sections + two buttons | `platform/assistant` | `ai.py` | `GET /api/v1/ai/summary`, `POST /api/v1/ai/ask`, `POST /api/v1/ai/refer` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard`, `test_ai_ask_reaches_provider_and_returns_grounded_answer` | PASS |
 | 5.1.16 | Form builder table + Add/Edit/Archive | `platform/form-builder` | `forms.py` | `GET/POST/PATCH /api/v1/form-fields` | `test_owner_creates_dynamic_form_field`, `test_form_field_versioning_preserves_history` | PASS |
 | 5.1.17 | Users & roles (owner only); no passwords visible | `platform/users`, `users/new` | `users.py` | `GET/POST /api/v1/users`, `/roles` | `test_owner_creates_and_activates_company` (invite path) | PASS |
 | 5.1.18 | Audit log read-only, no passwords/keys | `platform/audit` | `audit.py` | `GET /api/v1/audit` | `test_audit_log_is_read_only_and_scoped` | PASS |
@@ -180,7 +184,7 @@ spec itself defers the item to people, so no code proof is possible),
 | 7.4.2 | Industrial extra fields | report form | seeded fields (sector=صناعي) | `GET /api/v1/form-fields` | same | PASS |
 | 7.4.3 | Holding-specific fields | report form | seeded fields | `GET /api/v1/form-fields` | same | PASS |
 | 7.4.4 | Form-builder fields apply within their company/sector scope | `form-builder`, `reports/[id]` | `forms.py` | `GET /api/v1/form-fields` | `test_sector_and_company_scoped_fields_apply_only_within_scope` | PASS |
-| 7.5 | Reminders 3 days before, on due date, daily when late | `dashboard/page.tsx` alert | `services/reminders.py` | `scripts/send_report_reminders.py` | `test_report_reminders_fire_on_the_three_offsets_and_stop_once_sent` | PASS |
+| 7.5 | Reminders 3 days before, on due date, daily when late | `dashboard/page.tsx` alert | `services/reminders.py` | `scripts/send_report_reminders.py` | `test_reminders_fire_on_the_three_offsets_and_stop_once_sent`, `test_running_the_job_twice_on_the_same_day_sends_once`, `test_two_concurrent_workers_send_once`, `test_failed_delivery_is_not_recorded_as_sent_and_is_retried` | PASS |
 
 ## Section 8 — How screens connect; notifications; audit
 
@@ -209,9 +213,9 @@ spec itself defers the item to people, so no code proof is possible),
 | Id | Requirement | Frontend | Backend | API | Test | Result |
 |---|---|---|---|---|---|---|
 | 10.1 | Facts and sources, not decisions; never adds currencies | `platform/assistant` | `app/ai/` | `GET /api/v1/ai/summary` | `test_every_ai_source_link_points_at_a_real_screen` | PASS |
-| 10.2 | Owner scope all companies; manager scope own company only | `assistant/page.tsx` | `ai.py` | `GET /api/v1/ai/summary` | `test_ai_reports_configuration_status_without_key` | PASS |
+| 10.2 | Owner scope all companies; manager scope own company only | `assistant/page.tsx` | `ai.py` | `GET /api/v1/ai/summary` | `test_ai_reports_configuration_status_without_key`, `test_ai_facts_are_isolated_to_the_calling_users_company` | PASS |
 | 10.3 | Assigning to BD creates a task and executes nothing | `assistant/page.tsx` | `ai.py` | `POST /api/v1/ai/refer` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard` | PASS |
-| 10.4 | Provider key saved and tested on the server only, never returned | `assistant/page.tsx` | `ai.py` | `GET/PUT /api/v1/ai/settings`, `POST /ai/settings/test` | `test_ai_provider_settings_are_owner_only_and_never_leak_the_key` | PASS |
+| 10.4 | Provider key saved and tested on the server only, never returned | `assistant/page.tsx` | `ai.py` | `GET/PUT /api/v1/ai/settings`, `POST /ai/settings/test` | `test_ai_provider_settings_are_owner_only_and_never_leak_the_key`, `test_ai_answer_never_leaks_the_api_key` | PASS |
 
 ## Section 11 — Rules the real platform must enforce
 
@@ -221,7 +225,7 @@ spec itself defers the item to people, so no code proof is possible),
 | 11.2 | A manager sees only their own company | — | `assert_company_access` | company-scoped routes | `test_company_isolation_returns_404_not_403` | PASS |
 | 11.3 | Owner and BD see only reports sent to management | — | `reporting.py` | `GET /api/v1/reports` | `test_owner_and_developer_see_only_reports_sent_to_management` | PASS |
 | 11.4 | Returning a report requires a reason; no duplicate approved report | — | `schemas.ReportReturn`, `reporting.py` | `POST /reports/{id}/return` | `test_return_requires_reason` | PASS |
-| 11.5 | No mixing of currencies | — | numeric columns per company | — | `test_owner_dashboard_revenue_column_names_the_revenue_field` | PASS |
+| 11.5 | No mixing of currencies | — | numeric columns per company; `ai.py` summary scope | `GET /api/v1/dashboard`, `GET /api/v1/ai/summary`, `GET /api/v1/accounting/export.xlsx` | `test_currency_no_summation.py` (6 tests: dashboard, KPI cards, report detail/export, accounting export, AI facts, AI summary) | PASS |
 | 11.6 | A directive goes to one recipient, no copy | — | `directives.py` | `POST /api/v1/directives` | `test_directive_notifies_its_single_recipient` | PASS |
 | 11.7 | Approving an opportunity never executes/publishes automatically | — | `crm.py` | `POST /opportunities/{id}/decision` | `test_opportunity_decision_flow` | PASS |
 | 11.8 | Owner cannot see leave attachments or passwords | — | `hr.py`, `users.py` | `GET /api/v1/files/{id}/download` | `test_confidential_hr_attachment_is_restricted_to_the_manager` | PASS |
@@ -236,9 +240,9 @@ spec itself defers the item to people, so no code proof is possible),
 |---|---|---|---|---|---|---|
 | 12.1 | Real login, password recovery, user creation with secure passwords | `login`, `forgot-password`, `reset-password`, `users/new` | `auth.py`, `core/security.py` | `POST /api/v1/auth/login`, `/password-reset/*` | `test_login_and_me`, `test_password_reset_single_use`, `test_password_reset_does_not_enumerate` | PASS |
 | 12.2 | Persistent DB + real file upload (logos, attachments, statements) | upload controls | `files.py`, `services/storage.py` | `POST /api/v1/files` | `test_company_logo_must_be_an_uploaded_image_of_that_company` | PASS |
-| 12.3 | Real email + automatic reminder scheduling | — | `services/mail.py`, `services/reminders.py` | `scripts/send_report_reminders.py` | `test_account_emails_carry_a_brief_secure_link_and_no_financial_detail`, `test_report_reminders_fire_on_the_three_offsets_and_stop_once_sent` | PASS |
+| 12.3 | Real email + automatic reminder scheduling | — | `services/mail.py`, `services/reminders.py` | `scripts/send_report_reminders.py` | `test_mail_delivery.py` (7 tests: SMTP success path, unconfigured, failure logging without secrets, cron idempotency, exit codes) | PASS |
 | 12.4 | Real Excel download instead of CSV | report screen | `reporting.py` | `GET /api/v1/reports/{id}/export`, `GET /api/v1/accounting/export.xlsx` | `test_accountant_exports_a_report_to_excel` | PASS |
-| 12.5 | Real connection to an AI model, from the server only | assistant screen | `app/ai/` | `POST /api/v1/ai/ask` | `test_ai_provider_settings_are_owner_only_and_never_leak_the_key` | PASS |
+| 12.5 | Real connection to an AI model, from the server only | assistant screen | `app/ai/` | `POST /api/v1/ai/ask` | `test_ai_integration.py` (11 tests over a real request path via `httpx.MockTransport`: success, connect error, timeout, HTTP error, malformed body, key never leaked, isolation, deterministic refusal; plus 1 opt-in live test) | PASS |
 | 12.6 | Legal review of the privacy policy | `[locale]/privacy` | CMS draft flag | `GET /api/v1/public/site` | — | PASS* |
 | 12.7 | Public-site design by the designer | site | CMS provisional | `GET /api/v1/public/site` | — | PASS* |
 
@@ -252,20 +256,22 @@ spec itself defers the item to people, so no code proof is possible),
 
 | Result | Count |
 |---|---|
-| PASS (proven) | 126 |
-| PASS\* (spec defers to people) | 3 |
+| PASS (proven in code, by test or by an executed check) | 126 |
+| PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
 | **Total requirements tracked** | **130** |
 
 ## Gaps and exceptions
 
-1. **3 PASS\*** items are reserved by the brief itself (§12) for humans: owner
-   approval of the public-site design, the designer's final artwork, and legal
-   review of the privacy policy. The code handles them honestly — the site is
-   labelled provisional and the policy is marked a draft — so no code proof is
-   possible.
+1. **3 PASS\*** items are **pending human approval**: the brief itself reserves
+   them for people (§12) — owner approval of the public-site design, the
+   designer's final artwork, and legal review of the privacy policy. The code
+   handles them honestly (the site is labelled provisional, the policy is marked
+   a draft), so no code proof is possible and no automated test can close them.
 2. **1 N/A** item is the simulation bar (§3), which the brief says belongs to the
    prototype and must not ship in the real product.
 3. No other gaps. See `FINAL_HANDOFF_REPORT.md` for the production-configuration
-   list that must be completed before go-live.
+   list that must be completed before go-live, and
+   `INDEPENDENT_AUDIT_FIX_REPORT.md` for the independent-review findings closed in
+   this pass.

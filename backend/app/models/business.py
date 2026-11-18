@@ -176,3 +176,39 @@ class ReportEvent(Base):
     actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReportReminderLog(Base, TimestampMixin):
+    """Durable record of every deadline reminder the scheduler handles (§7.5).
+
+    One row per company, period, calendar day and reminder kind. The unique
+    constraint is the dedup guarantee: a second run on the same day, or a second
+    worker running concurrently, cannot insert a duplicate claim, so a reminder
+    is sent at most once per day per company even if the cron job fires twice.
+
+    ``status`` moves ``sending`` → ``sent`` on a successful delivery, or →
+    ``failed`` when the transport refuses, so a failed send is never recorded as
+    sent and can be retried. A row left in ``sending`` by a crash mid-send is
+    only re-claimed once it is older than the stale window (see reminders.py).
+    """
+
+    __tablename__ = "report_reminder_logs"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id", "period_id", "reminder_date", "kind",
+            name="uq_reminder_company_period_date_kind",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    period_id: Mapped[int] = mapped_column(ForeignKey("reporting_periods.id", ondelete="CASCADE"), index=True)
+    reminder_date: Mapped[date] = mapped_column(Date, index=True)
+    # three_days_before | due_date | late
+    kind: Mapped[str] = mapped_column(String(24))
+    # sending | sent | failed
+    status: Mapped[str] = mapped_column(String(16), default="sending", index=True)
+    recipient_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=1)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # account emails (password reset, invitation).
     frontend_base_url: str = "http://localhost:3000"
 
+    # Operating timezone for the deadline reminders. The due dates are Bahrain
+    # business dates, so the daily cron resolves "today" here rather than in the
+    # server's timezone.
+    reminders_timezone: str = "Asia/Bahrain"
+
     # Outbound mail. When SMTP_HOST is empty the platform reports the mail
     # transport as unconfigured instead of pretending a message was delivered.
     smtp_host: str = ""

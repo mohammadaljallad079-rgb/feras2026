@@ -148,6 +148,31 @@ def summary(
     period = db.get(ReportingPeriod, period_id) if period_id else db.execute(
         select(ReportingPeriod).order_by(ReportingPeriod.id.desc())
     ).scalars().first()
+    if period is None:
+        # No reporting period exists yet. Rather than raise (which would be a 500
+        # on a fresh deployment), return an explicit empty summary that fabricates
+        # nothing and names the missing prerequisite.
+        empty_ar = "لا توجد فترة تقارير مُعدّة بعد. أنشئ الفترة أولًا لعرض الملخص."
+        empty_en = "No reporting period is configured yet. Create a period to see the summary."
+        return AiSummaryOut(
+            title_ar="ملخص المالك الذكي" if allowed is None else "ملخص شركتك",
+            title_en="Owner smart summary" if allowed is None else "Your company summary",
+            period_label_ar="—",
+            period_label_en="—",
+            scope_ar=empty_ar,
+            scope_en=empty_en,
+            sections=[
+                AiSummarySection(
+                    key="situation",
+                    title_ar="ملخص الوضع",
+                    title_en="Situation summary",
+                    lines_ar=[empty_ar],
+                    lines_en=[empty_en],
+                )
+            ],
+            sources=[],
+            notes=[],
+        )
 
     report_stmt = select(MonthlyReport)
     if period is not None:

@@ -199,7 +199,7 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  85 passed  (13 end-to-end journeys over live HTTP + PostgreSQL,
+backend:  117 passed, 1 skipped  (13 end-to-end journeys over live HTTP + PostgreSQL,
                        plus 8 tests for the public-site CMS, plus 3 tests for
                        the lead hand-off, the assistant referral task and the
                        public company logo, plus 6 tests for the business
