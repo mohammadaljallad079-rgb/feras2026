@@ -5,6 +5,12 @@ concurrent workers, a failed delivery that must not be recorded as sent, the
 retry that follows, and the timezone boundary. They also re-assert the schedule
 the brief names (three days before, on the due date, daily when late, stop once
 the report is sent).
+
+The two ``*_race`` tests below are the regression guard for the concurrency
+finding: a read-then-write claim let two workers both read the same ``failed``
+(or stale ``sending``) row and both send. They synchronise two real threads on
+the claim itself so both enter it together, then assert exactly one worker is
+handed the row and exactly one message leaves.
 """
 
 from __future__ import annotations
@@ -13,6 +19,7 @@ import threading
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import text
+from sqlalchemy.orm import sessionmaker
 
 from app.models.business import (
     Company,
@@ -172,6 +179,154 @@ def test_two_concurrent_workers_send_once(engine, db, monkeypatch):
     logs = db.query(ReportReminderLog).all()
     assert len(logs) == 1
     assert logs[0].status == "sent"
+
+
+def _insert_log(db, reminder_date: date, *, status: str, age_minutes: int, attempts: int = 1) -> None:
+    """Seed a pre-existing claim row, aged by ``age_minutes`` on both clocks."""
+    db.execute(
+        text(
+            "INSERT INTO report_reminder_logs "
+            "(company_id, period_id, reminder_date, kind, status, attempts, created_at, updated_at) "
+            "SELECT c.id, p.id, :d, 'due_date', :status, :attempts, "
+            "now() - make_interval(mins => :age), now() - make_interval(mins => :age) "
+            "FROM companies c, reporting_periods p WHERE c.code='REM-1'"
+        ),
+        {"d": reminder_date, "status": status, "age": age_minutes, "attempts": attempts},
+    )
+    db.commit()
+
+
+def test_two_workers_racing_to_retry_a_failed_row_send_once(engine, db, monkeypatch):
+    """Regression: two workers retrying the *same* ``failed`` row must send once.
+
+    Both threads enter the claim together (a barrier just before it), so both see
+    the same ``failed`` row. The conditional ``UPDATE … WHERE status='failed'`` is
+    the arbiter: the loser matches nothing and sends nothing. A read-then-write
+    claim would let both read ``failed``, both move it to ``sending`` and both
+    deliver — which this test would then catch as ``sum(results) == 2``.
+    """
+    _setup(db)
+    _insert_log(db, date(2026, 11, 5), status="failed", age_minutes=5)
+
+    box = _Recorder(delay=0.3)
+    monkeypatch.setattr(mail, "send", box)
+
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    barrier = threading.Barrier(2)
+    results: list[int] = []
+    errors: list[Exception] = []
+
+    original_claim = reminders._claim
+
+    def gated_claim(*args, **kwargs):
+        # Line both workers up on the same row before either updates it.
+        barrier.wait()
+        return original_claim(*args, **kwargs)
+
+    monkeypatch.setattr(reminders, "_claim", gated_claim)
+
+    def worker() -> None:
+        session = factory()
+        try:
+            results.append(reminders.send_report_reminders(session, date(2026, 11, 5)))
+        except Exception as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, errors
+    assert sum(results) == 1, f"both workers sent the failed reminder: {results}"
+    assert len(box.messages) == 1
+
+    log = db.query(ReportReminderLog).one()
+    assert log.status == "sent"
+    assert log.attempts == 2  # the original failure + exactly one retry
+    assert log.sent_at is not None
+
+
+def test_two_workers_racing_to_reclaim_a_stale_sending_row_send_once(engine, db, monkeypatch):
+    """Regression: two workers reclaiming the *same* stale ``sending`` row must
+    send once.
+
+    The row is older than ``REMINDER_STALE_MINUTES`` (a worker that died mid-send).
+    Both threads enter the claim together; the conditional ``UPDATE … WHERE
+    status='sending' AND updated_at < now() - stale`` lets exactly one through,
+    because the winner's write moves ``updated_at`` forward and the loser's
+    re-evaluated ``WHERE`` no longer matches.
+    """
+    _setup(db)
+    _insert_log(db, date(2026, 11, 5), status="sending", age_minutes=120)
+
+    box = _Recorder(delay=0.3)
+    monkeypatch.setattr(mail, "send", box)
+
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    barrier = threading.Barrier(2)
+    results: list[int] = []
+    errors: list[Exception] = []
+
+    original_claim = reminders._claim
+
+    def gated_claim(*args, **kwargs):
+        barrier.wait()
+        return original_claim(*args, **kwargs)
+
+    monkeypatch.setattr(reminders, "_claim", gated_claim)
+
+    def worker() -> None:
+        session = factory()
+        try:
+            results.append(reminders.send_report_reminders(session, date(2026, 11, 5)))
+        except Exception as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, errors
+    assert sum(results) == 1, f"both workers reclaimed the stale reminder: {results}"
+    assert len(box.messages) == 1
+
+    log = db.query(ReportReminderLog).one()
+    assert log.status == "sent"
+    assert log.attempts == 2  # the abandoned claim + exactly one reclaim
+    assert log.sent_at is not None
+
+
+def test_every_claim_and_retry_stamps_updated_at(db, monkeypatch):
+    """``updated_at`` is refreshed on the first claim and again on each retry, so
+    the stale clock and the audit trail reflect the latest attempt."""
+    company, _period, _manager = _setup(db)
+
+    failing = _Recorder(deliver=False)
+    monkeypatch.setattr(mail, "send", failing)
+    assert reminders.send_report_reminders(db, date(2026, 11, 5)) == 0
+    log = db.query(ReportReminderLog).filter(ReportReminderLog.company_id == company.id).one()
+    db.refresh(log)
+    assert log.status == "failed"
+    failed_at = log.updated_at
+    assert failed_at is not None
+
+    succeeding = _Recorder(deliver=True)
+    monkeypatch.setattr(mail, "send", succeeding)
+    assert reminders.send_report_reminders(db, date(2026, 11, 5)) == 1
+    db.refresh(log)
+    assert log.status == "sent"
+    assert log.attempts == 2
+    # The retry advanced updated_at past the failed attempt's stamp.
+    assert log.updated_at is not None
+    assert log.updated_at >= failed_at
 
 
 def test_failed_delivery_is_not_recorded_as_sent_and_is_retried(db, monkeypatch):

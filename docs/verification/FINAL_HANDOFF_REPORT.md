@@ -26,7 +26,7 @@ none is copied from an earlier report.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend (full) | `pytest -q` | **117 passed, 1 skipped in 81.74s** |
+| Backend (full) | `pytest -q` | **120 passed, 1 skipped in 83.22s** |
 | Auth & RBAC | `pytest tests/test_auth_rbac.py` | **21 passed in 8.38s** |
 | Reporting workflow | `pytest tests/test_reporting_workflow.py` | **13 passed in 20.83s** |
 | Operations (incl. isolation, attachments, mail) | `pytest tests/test_operations.py` | **30 passed in 29.01s** |
@@ -51,7 +51,7 @@ The test suite refuses to run against any database whose name does not end in
 | Company isolation | `test_company_isolation_returns_404_not_403`, `test_cross_company_access_is_denied`, `test_overdue_directives_stay_with_their_sender_and_recipient` | PASS |
 | Reports (lifecycle, states, reminders, export) | `test_reporting_workflow.py` (13) | PASS |
 | Public site and forms | `test_site_cms.py` (8), `test_public_submission_rate_limit_and_conversion`, `check_matrix.py` | PASS |
-| Attachments and mail | `test_confidential_hr_attachment_is_restricted_to_the_manager`, `test_service_request_routing_emails_the_specialist`, `test_directive_notifies_its_single_recipient`, `test_conversion_emails_the_company_manager_and_specialist`, `test_complaint_reaches_only_the_owner_by_email`, `test_account_emails_carry_a_brief_secure_link_and_no_financial_detail`, `test_mail_delivery.py` (7), `test_reminders.py` (9) | PASS |
+| Attachments and mail | `test_confidential_hr_attachment_is_restricted_to_the_manager`, `test_service_request_routing_emails_the_specialist`, `test_directive_notifies_its_single_recipient`, `test_conversion_emails_the_company_manager_and_specialist`, `test_complaint_reaches_only_the_owner_by_email`, `test_account_emails_carry_a_brief_secure_link_and_no_financial_detail`, `test_mail_delivery.py` (7), `test_reminders.py` (12) | PASS |
 | UI and mobile | `check_visual_fixes.py` (62/62), `check_matrix.py` (85/85), `check_mobile.py` | PASS |
 
 ## 3. Security and authorisation results

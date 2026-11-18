@@ -203,6 +203,33 @@ notification emails (routed service request, complaint to the owner, directive,
 assistant referral, converted public request) whenever those events happen — no
 job required.
 
+Every claim and retry is a single atomic statement, so exactly one worker can
+hold the right to send a given reminder:
+
+- a fresh reminder is claimed with `INSERT … ON CONFLICT DO NOTHING` (the unique
+  constraint is the arbiter);
+- a `failed` reminder is retried, and a `sending` reminder whose claim is older
+  than `REMINDER_STALE_MINUTES` (a worker that died mid-send) is reclaimed, with
+  a conditional `UPDATE … WHERE status/age … RETURNING id`. Under PostgreSQL
+  READ COMMITTED the second worker blocks on the row lock, then re-evaluates the
+  `WHERE` against the committed row, matches nothing and sends nothing — so the
+  two workers cannot both deliver the same retry. Each claim and retry also
+  stamps `updated_at`, which is the clock the stale window is measured against.
+
+**Delivery guarantee, stated honestly.** The design is **at-most-once per day
+per `(company, period, kind)`**, enforced by the unique constraint and the atomic
+claim. It is deliberately **not** exactly-once end to end, because the SMTP
+transport cannot be part of the database transaction: if the mail server accepts
+the message and the process dies before the `sent` status is committed, the row
+stays `failed` (or a stale `sending`) and a later run retries it, so the
+recipient can receive that reminder **twice** in that narrow window. Closing it
+would require an idempotent transport (a provider-side message key) or a
+transactional outbox with a deduplicating consumer; plain SMTP offers neither.
+The trade-off is intentional — a duplicate reminder is harmless, a *missing*
+deadline reminder is the failure that matters, so a retry is preferred over a
+silently dropped reminder. The guarantee is therefore "at most one delivery in
+the absence of a crash between acceptance and commit", not "exactly once".
+
 ## Deployment
 
 ```bash

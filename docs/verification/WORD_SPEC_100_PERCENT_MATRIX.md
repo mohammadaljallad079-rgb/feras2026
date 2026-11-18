@@ -8,8 +8,8 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **117 passed, 1 skipped in 81.74s** (the skip is the opt-in
-  live-provider check). New since the previous pass: `test_reminders.py` (9),
+- backend `pytest` → **120 passed, 1 skipped in 83.22s** (the skip is the opt-in
+  live-provider check). New since the previous pass: `test_reminders.py` (12),
   `test_ai_integration.py` (11 + 1 opt-in skip), `test_currency_no_summation.py`
   (6), `test_mail_delivery.py` (7).
 - frontend `npx tsc --noEmit` → clean (exit 0).
@@ -184,7 +184,7 @@ must not ship).
 | 7.4.2 | Industrial extra fields | report form | seeded fields (sector=صناعي) | `GET /api/v1/form-fields` | same | PASS |
 | 7.4.3 | Holding-specific fields | report form | seeded fields | `GET /api/v1/form-fields` | same | PASS |
 | 7.4.4 | Form-builder fields apply within their company/sector scope | `form-builder`, `reports/[id]` | `forms.py` | `GET /api/v1/form-fields` | `test_sector_and_company_scoped_fields_apply_only_within_scope` | PASS |
-| 7.5 | Reminders 3 days before, on due date, daily when late | `dashboard/page.tsx` alert | `services/reminders.py` | `scripts/send_report_reminders.py` | `test_reminders_fire_on_the_three_offsets_and_stop_once_sent`, `test_running_the_job_twice_on_the_same_day_sends_once`, `test_two_concurrent_workers_send_once`, `test_failed_delivery_is_not_recorded_as_sent_and_is_retried` | PASS |
+| 7.5 | Reminders 3 days before, on due date, daily when late | `dashboard/page.tsx` alert | `services/reminders.py` | `scripts/send_report_reminders.py` | `test_reminders_fire_on_the_three_offsets_and_stop_once_sent`, `test_running_the_job_twice_on_the_same_day_sends_once`, `test_two_concurrent_workers_send_once`, `test_failed_delivery_is_not_recorded_as_sent_and_is_retried`, `test_two_workers_racing_to_retry_a_failed_row_send_once`, `test_two_workers_racing_to_reclaim_a_stale_sending_row_send_once`, `test_every_claim_and_retry_stamps_updated_at` | PASS |
 
 ## Section 8 — How screens connect; notifications; audit
 

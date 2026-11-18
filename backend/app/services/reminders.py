@@ -12,20 +12,38 @@ a second run on the same day, or a second worker running at the same time, canno
 claim the same row twice. A reminder is therefore sent at most once per company
 per day however often the job is started.
 
-Failure handling is explicit: a claim is written as ``sending`` first, then moved
-to ``sent`` only after the transport reports success, or to ``failed`` when it
-does not. A ``failed`` row is retried on the next run the same day; a row left in
-``sending`` by a process that died mid-send is only re-claimed once it is older
-than ``REMINDER_STALE_MINUTES`` (see the note on the guarantee below).
+The claim is a single atomic statement in every branch, so exactly one worker can
+ever hold the right to send a given reminder:
+
+* a fresh reminder is claimed with ``INSERT … ON CONFLICT DO NOTHING`` — the
+  unique constraint is the arbiter, and the losing worker gets no row back;
+* a ``failed`` reminder is retried, and a ``sending`` reminder whose claim is
+  older than ``REMINDER_STALE_MINUTES`` is reclaimed, with a **conditional**
+  ``UPDATE … WHERE status/age … RETURNING id``. Under PostgreSQL READ COMMITTED
+  a second worker blocks on the row lock, then re-evaluates the ``WHERE`` against
+  the committed version and matches nothing, so only one worker is handed the
+  row. A read-then-write would let both read the same ``failed`` row and both
+  send; the conditional ``UPDATE`` closes that window.
+
+Every claim and retry stamps ``updated_at`` (``func.now()``), which is also the
+clock the stale test is measured against.
 
 Guarantee and its limit
 -----------------------
-The design is **at-most-once per day**. If a worker crashes after the claim is
-committed but before the send completes, the row stays ``sending``; while it is
-fresh (within ``REMINDER_STALE_MINUTES``) a later run that day skips it, so that
-day's reminder can be lost rather than duplicated. Once the row is stale it is
-re-claimed, which prefers delivery over strict single delivery at that point.
-Both branches are covered by tests.
+The design is **at-most-once per day per (company, period, kind)**, enforced by
+the unique constraint and the atomic claim. It is deliberately **not** an
+exactly-once guarantee end to end, because the transport cannot be made part of
+the transaction: if ``mail.send`` reaches the SMTP server and the server accepts
+the message, but the process dies before the ``sent`` status is committed, the
+row stays ``failed`` (or a stale ``sending``) and a later run retries it. The
+recipient can therefore receive the reminder **twice** in that narrow window.
+Closing it would need an idempotent transport (a provider-side message key) or a
+transactional outbox with at-least-once delivery plus a deduplicating consumer,
+neither of which SMTP offers. The trade-off is chosen deliberately: a duplicate
+reminder is harmless, a *missing* deadline reminder is the failure that matters,
+so a retry is preferred over a silently dropped reminder. Both branches — the
+in-transaction duplicate suppression and the post-acceptance retry window — are
+covered by tests and stated in the README.
 
 A reminder is skipped for a company that has already submitted its report for the
 period — there is nothing left to remind about — and for a company with no
@@ -39,7 +57,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -194,8 +212,22 @@ def _claim(
     """Atomically claim the right to send one reminder.
 
     Returns the log row when this caller may send, or ``None`` when the reminder
-    was already sent (or is being sent by a live worker). The claim is committed
-    immediately so a concurrent worker sees it and backs off.
+    was already sent or is being sent by a live worker. Each branch is a single
+    statement so two workers cannot both win:
+
+    1. ``INSERT … ON CONFLICT DO NOTHING RETURNING id`` — the unique constraint
+       lets exactly one worker insert; the loser gets no row and stops.
+    2. ``UPDATE … WHERE status='failed' … RETURNING id`` — a retry. The ``WHERE``
+       makes it conditional: a concurrent worker blocks on the row lock, then
+       re-reads the committed row, finds it no longer ``failed`` and updates
+       nothing, so only one worker is handed the row.
+    3. ``UPDATE … WHERE status='sending' AND updated_at < now() - stale …
+       RETURNING id`` — reclaim a claim abandoned by a crashed worker, with the
+       same lock-and-recheck semantics.
+
+    Every claim/retry stamps ``updated_at`` so the stale clock and the audit
+    trail stay truthful. The claim is committed immediately so a concurrent
+    worker sees it and backs off.
     """
     inserted = db.execute(
         pg_insert(ReportReminderLog)
@@ -207,6 +239,7 @@ def _claim(
             status="sending",
             recipient_email=recipient_email,
             attempts=1,
+            updated_at=func.now(),
         )
         .on_conflict_do_nothing(
             index_elements=["company_id", "period_id", "reminder_date", "kind"]
@@ -217,38 +250,45 @@ def _claim(
     if inserted is not None:
         return db.get(ReportReminderLog, inserted)
 
-    # A row already exists. Decide whether it is safe to (re)send.
-    existing = db.execute(
-        select(ReportReminderLog).where(
+    # A row already exists. Try to take it over atomically; the conditional
+    # UPDATE is the arbiter, so at most one worker is returned a row. The stale
+    # boundary is evaluated on the database clock, the same clock that stamps
+    # ``updated_at``, so client/server clock skew cannot widen the window.
+    stale_before = func.now() - timedelta(minutes=REMINDER_STALE_MINUTES)
+    reclaimable = or_(
+        ReportReminderLog.status == "failed",
+        and_(
+            ReportReminderLog.status == "sending",
+            ReportReminderLog.updated_at < stale_before,
+        ),
+    )
+    claimed_id = db.execute(
+        update(ReportReminderLog)
+        .where(
             ReportReminderLog.company_id == company_id,
             ReportReminderLog.period_id == period_id,
             ReportReminderLog.reminder_date == reminder_date,
             ReportReminderLog.kind == kind,
+            reclaimable,
         )
-    ).scalars().first()
-    if existing is None:
-        # Raced with a delete/rollback; treat as not ours this cycle.
+        .values(
+            status="sending",
+            attempts=ReportReminderLog.attempts + 1,
+            last_error=None,
+            updated_at=func.now(),
+        )
+        .returning(ReportReminderLog.id)
+    ).scalar_one_or_none()
+    db.commit()
+    if claimed_id is None:
+        # Either already sent, or being sent by a live worker this cycle.
         return None
-    if existing.status == "sent":
-        return None
-    if existing.status == "failed":
-        # A prior attempt never delivered: retry it now.
-        existing.status = "sending"
-        existing.attempts += 1
-        existing.last_error = None
-        db.commit()
-        return existing
-    # status == "sending": only re-claim if the claim is stale (crashed worker).
-    reference = existing.updated_at or existing.created_at
-    if reference is not None and reference.tzinfo is None:
-        reference = reference.replace(tzinfo=timezone.utc)
-    if reference is not None and datetime.now(timezone.utc) - reference > timedelta(
-        minutes=REMINDER_STALE_MINUTES
-    ):
-        existing.attempts += 1
-        db.commit()
-        return existing
-    return None
+    row = db.get(ReportReminderLog, claimed_id)
+    # The claim was made with a Core UPDATE, which does not refresh an instance
+    # already in this session's identity map; reload so the caller sees the
+    # committed attempts/status it will act on.
+    db.refresh(row)
+    return row
 
 
 def send_report_reminders(db: Session, today: date | None = None) -> int:

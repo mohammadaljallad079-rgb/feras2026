@@ -98,11 +98,20 @@ overridden for that one process.
   `app/services/reminders.py` fires three days before the due date, on the due
   date, and daily once late, and skips a company that already sent its report.
   Sending is idempotent through the durable `report_reminder_logs` table (unique
-  on company+period+day+kind): a second run, or a concurrent worker, cannot
-  double-send, and a failed transport is recorded `failed` and retried, never
-  `sent`. `scripts/send_report_reminders.py` runs it from cron and exits `0` on a
+  on company+period+day+kind). Every claim/retry is a single atomic statement —
+  `INSERT … ON CONFLICT DO NOTHING` for a fresh reminder, and a conditional
+  `UPDATE … WHERE status='failed' OR (status='sending' AND updated_at < now() -
+  stale) RETURNING id` for a retry or a crashed worker's reclaim — so under READ
+  COMMITTED exactly one worker is handed the row and two workers cannot both
+  send. `updated_at` is stamped on every claim and retry. A failed transport is
+  recorded `failed` (never `sent`) and retried, not counted.
+  `scripts/send_report_reminders.py` runs it from cron and exits `0` on a
   completed run, `2` when the run raised. "Today" resolves in `REMINDERS_TIMEZONE`
-  (default `Asia/Bahrain`), not the server's zone.
+  (default `Asia/Bahrain`), not the server's zone. The guarantee is **at-most-once
+  per day**, not exactly-once: if SMTP accepts a message and the process dies
+  before the `sent` commit, a later run retries it and the recipient can get it
+  twice. Do not claim exactly-once without an idempotent transport or a
+  transactional outbox.
 - The AI provider (`app/ai/provider.py`) takes an injectable `httpx` transport so
   tests exercise the real request path against a mock socket
   (`tests/test_ai_integration.py`); a malformed body raises `AIProviderError` and

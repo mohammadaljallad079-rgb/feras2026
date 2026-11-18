@@ -20,11 +20,11 @@ SAFIR_BASE_URL=http://localhost:8000 pytest tests/test_e2e_journeys.py -v
 pytest -q
 ```
 
-Result at the time of writing: `117 passed, 1 skipped` — 13 end-to-end journeys
+Result at the time of writing: `120 passed, 1 skipped` — 13 end-to-end journeys
 in `tests/test_e2e_journeys.py`, 13 reporting-workflow tests in
 `tests/test_reporting_workflow.py`, 21 in `tests/test_auth_rbac.py`, 30 in
 `tests/test_operations.py`, 8 public-site CMS tests in `tests/test_site_cms.py`,
-and the independent-review suites: 9 reminder-idempotency tests, 11 AI
+and the independent-review suites: 12 reminder-idempotency tests, 11 AI
 integration tests (plus 1 opt-in live test that is skipped by default), 6
 currency no-summation tests and 7 mail/scheduling tests.
 

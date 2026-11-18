@@ -190,6 +190,14 @@ class ReportReminderLog(Base, TimestampMixin):
     ``failed`` when the transport refuses, so a failed send is never recorded as
     sent and can be retried. A row left in ``sending`` by a crash mid-send is
     only re-claimed once it is older than the stale window (see reminders.py).
+
+    Every transition that takes the row over — a retry of ``failed``, or a
+    reclaim of a stale ``sending`` — is a conditional ``UPDATE`` guarded on the
+    current status and age, so two concurrent workers cannot both win; see
+    ``reminders._claim``. ``updated_at`` is stamped on each claim and retry.
+    The guarantee is at-most-once per day, not exactly-once: a message accepted
+    by the mail server but not yet recorded ``sent`` is retried and can be
+    delivered twice (see reminders.py for why).
     """
 
     __tablename__ = "report_reminder_logs"
