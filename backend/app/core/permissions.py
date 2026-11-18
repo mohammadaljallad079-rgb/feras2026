@@ -104,10 +104,27 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         # (design reference page 8), rather than every draft. Confidential HR
         # attachments are withheld from the owner too: page 14 says leave
         # attachments read «مرفق مقيد» to the owner.
+        #
+        # §5.1 names three of the owner's screens «عرض فقط» (view only): Holding
+        # accounting, Employees & HR and the External advisor. Financial editing
+        # belongs to the accountant alone (§5.3), employees are added by the
+        # manager and the business developer (§5.2, §5.4), and the advisor is the
+        # only role that composes advisor messages. The owner therefore holds the
+        # matching *view* permissions, never `accounting:manage`, `hr:manage` or
+        # `advisor:submit`.
         "permissions": [
             p
             for p in ALL_PERMISSIONS
-            if p not in (REPORT_REVIEW, REPORT_FORWARD, HR_VIEW_CONFIDENTIAL)
+            if p
+            not in (
+                REPORT_REVIEW,
+                REPORT_FORWARD,
+                REPORT_SUBMIT,
+                HR_VIEW_CONFIDENTIAL,
+                ACCOUNTING_MANAGE,
+                HR_MANAGE,
+                ADVISOR_SUBMIT,
+            )
         ],
     },
     # Table 1 of the owner's brief (the Word file «شرح منصة ستارت أب سفير»):

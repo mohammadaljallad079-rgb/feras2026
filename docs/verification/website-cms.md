@@ -10,7 +10,7 @@ PostgreSQL `safir_e2e`, Next.js on `:12000`, Chromium via Playwright.
 
 ```
 TEST_DATABASE_URL=postgresql+psycopg://safir:safir@127.0.0.1:5432/safir_test pytest
-72 passed
+85 passed
 ```
 
 New file `backend/tests/test_site_cms.py` (8 tests) covers:

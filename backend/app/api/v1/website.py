@@ -8,10 +8,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require, require_any
+from app.api.deps import holding_company_id, require, require_any
 from app.core.db import get_db
 from app.models.business import Company
-from app.models.enums import RequestPriority, RequestStatus, ServiceType, SubmissionKind, SubmissionStatus
+from app.models.enums import (
+    OpportunityStatus,
+    RequestPriority,
+    RequestStatus,
+    ServiceType,
+    SubmissionKind,
+    SubmissionStatus,
+)
 from app.models.identity import Role, User, UserRole
 from app.models.operations import Lead, Opportunity, ServiceRequest, WebsiteSubmission, WebsiteSubmissionEvent
 from app.models.site import SiteNavLink, SiteSection, SiteService, SiteSetting, SiteSlide
@@ -205,8 +212,12 @@ def convert_submission(
     # The kind decides the outcome; the target is only a fallback for callers
     # that still pass it explicitly.
     target = payload.target or _DEFAULT_TARGET.get(sub.kind, "")
+    # §6.5/Table 7: the opportunity and job forms have no routing window, so a
+    # public submission that names no company is received by the Holding itself
+    # (the platform's own entity) rather than being refused.
+    received_company_id = sub.company_id or holding_company_id(db)
     if target == "lead":
-        if sub.company_id is None or db.get(Company, sub.company_id) is None:
+        if received_company_id is None or db.get(Company, received_company_id) is None:
             raise HTTPException(status_code=422, detail="A registered company is required to convert to a lead")
         record = Lead(
             name=sub.name,
@@ -214,16 +225,16 @@ def convert_submission(
             contact_phone=sub.phone,
             requested_service=sub.service_type or sub.kind,
             source="website",
-            company_id=sub.company_id,
+            company_id=received_company_id,
             notes=sub.message,
             status="new",
         )
     elif target == "opportunity":
-        if sub.company_id is None or db.get(Company, sub.company_id) is None:
+        if received_company_id is None or db.get(Company, received_company_id) is None:
             raise HTTPException(status_code=422, detail="A registered company is required to convert to an opportunity")
         record = Opportunity(
             title=sub.subject or f"{sub.name} — {sub.kind}",
-            company_id=sub.company_id,
+            company_id=received_company_id,
             description=sub.message,
             country=sub.country,
             attachment_file_id=sub.attachment_file_id,

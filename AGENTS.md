@@ -11,9 +11,12 @@ website screen may claim fidelity to it.
 backend/    FastAPI + SQLAlchemy + Alembic; the API package is `app`
 frontend/   Next.js App Router, Arabic RTL default, English LTR
 docs/reference/       TRACEABILITY.md — PDF page to screen to status
-docs/verification/    completion-matrix.md, visual-comparison.md, functional-acceptance.md
+docs/verification/    completion-matrix.md, visual-comparison.md,
+                      functional-acceptance.md, website-cms.md,
+                      final-spec-compliance.md (the section-by-section verdict)
 docs/screenshots/     pdf/ (rendered reference) and impl/ (live captures)
-scripts/              capture_screens.py, check_mobile.py
+scripts/              capture_screens.py, check_matrix.py, check_mobile.py,
+                      check_visual_fixes.py
 ```
 
 ## Commands

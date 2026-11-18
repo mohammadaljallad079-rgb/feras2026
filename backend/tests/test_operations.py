@@ -272,6 +272,61 @@ def test_public_submission_rate_limit_and_conversion(client, make_user, login, d
     assert client.post(f"/api/v1/website/submissions/{sid}/convert", headers=h_owner, json={"target": "lead"}).status_code == 409
 
 
+def test_website_conversion_defaults_to_the_holding_when_no_company_named(client, make_user, login, db):
+    """§6.5 / Table 7: «قدّم فرصة» and «تواصل» carry no receiving company, so the
+    conversion has nothing to route to. The opportunity and contact forms have no
+    routing window (unlike the service request), so the Holding receives them
+    rather than the action failing with a 422.
+    """
+    from app.models.enums import OpportunityStatus
+    from app.models.operations import Lead, Opportunity
+    from app.services.bootstrap import ensure_holding_company
+
+    holding = ensure_holding_company(db)
+    db.commit()
+
+    make_user("hold_owner@safir-platform.com", ["owner"])
+    h_owner = login("hold_owner@safir-platform.com")
+
+    # The public form sends no company_id.
+    opp_sub = client.post(
+        "/api/v1/public/submissions",
+        json={"kind": "opportunity", "name": "مستثمر", "email": "o@example.com", "phone": "123", "country": "البحرين", "subject": "فرصة", "consent": True},
+    )
+    assert opp_sub.status_code == 201, opp_sub.text
+    converted = client.post(f"/api/v1/website/submissions/{opp_sub.json()['id']}/convert", headers=h_owner, json={"target": "opportunity"})
+    assert converted.status_code == 200, converted.text
+    assert converted.json()["converted_type"] == "opportunity"
+
+    opp = db.get(Opportunity, converted.json()["converted_id"])
+    assert opp is not None
+    assert opp.company_id == holding.id, "the opportunity is received by the Holding"
+    assert opp.status == OpportunityStatus.DRAFT.value, "it arrives as a draft for internal review"
+
+    # The contact form converts to a lead the same way.
+    lead_sub = client.post(
+        "/api/v1/public/submissions",
+        json={"kind": "contact", "name": "زائر", "email": "c@example.com", "message": "مرحبا", "consent": True},
+    )
+    assert lead_sub.status_code == 201, lead_sub.text
+    lead_conv = client.post(f"/api/v1/website/submissions/{lead_sub.json()['id']}/convert", headers=h_owner, json={"target": "lead"})
+    assert lead_conv.status_code == 200, lead_conv.text
+    lead = db.get(Lead, lead_conv.json()["converted_id"])
+    assert lead is not None and lead.company_id == holding.id
+
+    # A job application is only recorded for human review — no record, no user.
+    # It needs a CV, so it arrives through the multipart route.
+    job_sub = client.post(
+        "/api/v1/public/submissions/with-file",
+        data={"kind": "job_application", "name": "متقدم", "email": "j@example.com", "phone": "1", "expertise": "تسويق", "consent": "true"},
+        files={"attachment": ("cv.pdf", b"%PDF-1.4 test", "application/pdf")},
+    )
+    assert job_sub.status_code == 201, job_sub.text
+    job_conv = client.post(f"/api/v1/website/submissions/{job_sub.json()['id']}/convert", headers=h_owner, json={"target": "job_application"})
+    assert job_conv.status_code == 200, job_conv.text
+    assert job_conv.json()["converted_id"] is None
+
+
 def test_website_visibility_accepts_a_json_body_and_rejects(client, make_user, login):
     """PDF p.15: the admin toggles a company's public visibility and can reject a
     submission. The screen sent a JSON body but the endpoint declared a query
@@ -408,12 +463,17 @@ def test_accounting_export_covers_exactly_the_visible_entries(client, make_user,
 
     make_user("exp_owner@safir-platform.com", ["owner"])
     h_owner = login("exp_owner@safir-platform.com")
+    # §5.1/§5.3: the owner's Holding accounting is view only, so the entries are
+    # recorded by the accountant, whose screen is the only financial editor.
+    creator = make_user("exp_creator@safir-platform.com", ["accountant"])
+    h_creator = login("exp_creator@safir-platform.com")
     first = _company(client, h_owner, "EXP-1")
     second = _company(client, h_owner, "EXP-2")
+    client.patch(f"/api/v1/users/{creator.id}", headers=h_owner, json={"company_ids": [first, second]})
     for cid, ref in ((first, "REF-A"), (second, "REF-B")):
         resp = client.post(
             "/api/v1/accounting",
-            headers=h_owner,
+            headers=h_creator,
             json={"kind": "expense", "company_id": cid, "reference": ref, "description": "x", "amount": "10.00", "currency": "SAR", "entry_date": "2026-01-01"},
         )
         assert resp.status_code == 201, resp.text
@@ -560,14 +620,18 @@ def test_owner_dashboard_revenue_column_names_the_revenue_field(client, make_use
     h = login("dash_rev_owner@safir-platform.com")
     make_user("dash_rev_acct@safir-platform.com", ["accountant"])
     h_acct = login("dash_rev_acct@safir-platform.com")
+    # §7.1: the company manager authors the subsidiary report; the owner reads.
+    mgr = make_user("dash_rev_mgr@safir-platform.com", ["company_manager"])
+    h_mgr = login("dash_rev_mgr@safir-platform.com")
     cid = _company(client, h, "REV-1")
+    client.patch(f"/api/v1/users/{mgr.id}", headers=h, json={"company_ids": [cid]})
 
     period = client.post(
         "/api/v1/periods",
         headers=h,
         json={"label_ar": "فبراير 2026", "label_en": "Feb 2026", "year": 2026, "month": 2, "opens_on": "2026-02-01", "due_on": "2026-03-05"},
     ).json()
-    report = client.post("/api/v1/reports", headers=h, json={"company_id": cid, "period_id": period["id"]}).json()
+    report = client.post("/api/v1/reports", headers=h_mgr, json={"company_id": cid, "period_id": period["id"]}).json()
 
     # A non-revenue field is created first, so an unordered "first numeric
     # value" would pick it and print it under the revenue heading.
@@ -587,7 +651,7 @@ def test_owner_dashboard_revenue_column_names_the_revenue_field(client, make_use
 
     saved = client.put(
         f"/api/v1/reports/{report['id']}/values",
-        headers=h,
+        headers=h_mgr,
         json={"values": [
             {"field_id": other.id, "value_number": "42.00"},
             {"field_id": revenue.id, "value_number": "5000.00"},
@@ -595,7 +659,7 @@ def test_owner_dashboard_revenue_column_names_the_revenue_field(client, make_use
     )
     assert saved.status_code == 200, saved.text
 
-    assert client.post(f"/api/v1/reports/{report['id']}/submit", headers=h).status_code == 200
+    assert client.post(f"/api/v1/reports/{report['id']}/submit", headers=h_mgr).status_code == 200
     assert client.post(f"/api/v1/reports/{report['id']}/approve", headers=h_acct).status_code == 200
 
     dash = client.get("/api/v1/dashboard", headers=h).json()

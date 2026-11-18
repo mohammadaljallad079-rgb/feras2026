@@ -182,6 +182,54 @@ def test_the_owner_may_manage_companies_but_not_review_or_forward_reports():
     assert "report:review" not in owner and "report:forward" not in owner
 
 
+def test_the_owner_views_accounting_hr_and_advisor_without_editing():
+    """§5.1 names three owner screens «عرض فقط» (view only): Holding accounting,
+    Employees & HR and the External advisor.
+
+    The owner must hold the matching view permissions and never the write ones:
+    §5.3 makes the accountant the only financial editor, employees are added by
+    the manager and the business developer (§5.2, §5.4), and only the advisor
+    composes advisor messages (§5.7).
+    """
+    owner = set(ROLE_TEMPLATES["owner"]["permissions"])
+    assert {"accounting:view", "hr:view", "advisor:view"} <= owner
+    assert owner.isdisjoint({"accounting:manage", "hr:manage", "advisor:submit"})
+
+
+def test_owner_write_attempts_on_view_only_screens_are_refused(client, make_user, login):
+    """The three view-only owner screens must refuse a write on the server, not
+    merely hide the control in the interface (§11)."""
+    make_user("vo_owner@safir-platform.com", ["owner"])
+    h = login("vo_owner@safir-platform.com")
+    # The owner may still manage companies, so it can set up the target.
+    cid = client.post(
+        "/api/v1/companies",
+        headers=h,
+        json={"code": "VO-1", "name_ar": "شركة VO-1", "name_en": "Co VO-1", "country": "SA", "sector": "tech", "status": "active"},
+    ).json()["id"]
+
+    entry = client.post(
+        "/api/v1/accounting",
+        headers=h,
+        json={"kind": "expense", "company_id": cid, "reference": "VO-EXP", "description": "x", "amount": "1.00", "currency": "BHD", "entry_date": "2026-01-01"},
+    )
+    assert entry.status_code == 403, entry.text
+
+    employee = client.post(
+        "/api/v1/employees",
+        headers=h,
+        json={"name_ar": "موظف", "name_en": "Staff", "job_title": "محلل", "company_id": cid},
+    )
+    assert employee.status_code == 403, employee.text
+
+    advisor = client.post(
+        "/api/v1/advisor/messages",
+        headers=h,
+        json={"recipient_id": 1, "category": "suggestion", "subject": "s", "body": "b"},
+    )
+    assert advisor.status_code == 403, advisor.text
+
+
 # --- Table 1 of the brief: which tab each of the eight roles sees -----------
 # The grid is written out in full so a future edit to a permission template or
 # to a sidebar gate that changes who sees which tab fails here, loudly.

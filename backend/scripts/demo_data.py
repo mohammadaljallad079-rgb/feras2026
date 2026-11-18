@@ -146,6 +146,34 @@ def _fields(owner: httpx.Client) -> list[dict]:
     return owner.get("/api/v1/form-fields").json()
 
 
+def _report_values(owner: httpx.Client, company_id: int, explicit: dict[int, dict] | None = None) -> list[dict]:
+    """Required §7.4 values for a company, merged with explicitly chosen ones.
+
+    Salaries and the month-end bank balance are required, so a report cannot be
+    submitted without a value for each required field in scope. Keyed by field id
+    because a field may be both required and explicitly set, and the API rejects
+    (and the database forbids) two values for one field.
+    """
+    merged: dict[int, dict] = {}
+    for f in _fields(owner):
+        if not f.get("is_required"):
+            continue
+        if f.get("company_id") not in (None, company_id):
+            continue
+        if f.get("field_type") in ("amount", "number"):
+            merged[f["id"]] = {"field_id": f["id"], "value_number": "50000.00"}
+        else:
+            merged[f["id"]] = {"field_id": f["id"], "value_text": "—"}
+    merged.update(explicit or {})
+    return list(merged.values())
+
+
+def _field_values(owner: httpx.Client, **amounts: str) -> dict[int, dict]:
+    """Explicit values keyed by field id, from ``code=amount`` keyword pairs."""
+    by_code = {f["code"]: f["id"] for f in _fields(owner)}
+    return {by_code[code]: {"field_id": by_code[code], "value_number": value} for code, value in amounts.items() if code in by_code}
+
+
 def _ensure_field(owner: httpx.Client, code: str, payload: dict) -> int | None:
     """Create the field, or reconcile an existing one to the given payload.
 
@@ -232,12 +260,7 @@ def build() -> int:
                 data={"company_id": str(alfa)},
             )
             statement_id = upload.json()["id"] if upload.status_code == 201 else None
-            values = []
-            for f in _fields(owner):
-                if f["code"] == "DEMO_REVENUE":
-                    values.append({"field_id": f["id"], "value_number": "1850000.00"})
-                elif f["code"] == "DEMO_REVENUE_ONLINE":
-                    values.append({"field_id": f["id"], "value_number": "420000.00"})
+            values = _report_values(owner, alfa, _field_values(owner, DEMO_REVENUE="1850000.00", DEMO_REVENUE_ONLINE="420000.00"))
             _step(
                 "report values",
                 clients["manager"].put(
@@ -276,11 +299,7 @@ def build() -> int:
                     f"/api/v1/reports/{draft}/values",
                     json={
                         "commentary": "مسودة قيد الإعداد للشهر الجاري.",
-                        "values": [
-                            {"field_id": f["id"], "value_number": "900000.00"}
-                            for f in _fields(owner)
-                            if f["code"] == "DEMO_REVENUE"
-                        ],
+                        "values": _report_values(owner, alfa, _field_values(owner, DEMO_REVENUE="900000.00")),
                         "bank_statement_file_id": statement_id,
                     },
                 ),
@@ -307,11 +326,7 @@ def build() -> int:
                     f"/api/v1/reports/{submitted}/values",
                     json={
                         "commentary": "التقرير مُرسل للمحاسبة للمراجعة.",
-                        "values": [
-                            {"field_id": f["id"], "value_number": "1200000.00"}
-                            for f in _fields(owner)
-                            if f["code"] == "DEMO_REVENUE"
-                        ],
+                        "values": _report_values(owner, alfa, _field_values(owner, DEMO_REVENUE="1200000.00")),
                         "bank_statement_file_id": statement_id,
                     },
                 ),
@@ -398,10 +413,12 @@ def build() -> int:
             _step("reply", clients["specialist"].post(f"/api/v1/service-requests/{created['id']}/replies", json={"body": "تم استلام الطلب.", "new_status": "in_progress"}), 201)
 
     print("employees")
+    # §5.1 makes the owner view-only on Employees & HR, so the records are added
+    # by the company manager (§5.2), who holds hr:manage for their own company.
     if not any(e["name_en"].startswith(TAG) for e in owner.get("/api/v1/employees").json()):
         created = _step(
             "employee",
-            owner.post(
+            clients["manager"].post(
                 "/api/v1/employees",
                 json={
                     "name_ar": "سارة الحربي",
@@ -420,24 +437,26 @@ def build() -> int:
         if created:
             # A confidential attachment makes the page-14 «مرفق مقيد» state
             # reachable: the owner sees the marker, the manager sees a download.
-            leave_file = owner.post(
+            leave_file = clients["manager"].post(
                 "/api/v1/files",
                 files={"file": ("demo-leave.pdf", b"%PDF-1.4 demo leave request", "application/pdf")},
                 data={"is_confidential": "true"},
             )
-            payload = {"kind": "leave", "detail": "إجازة سنوية", "effective_on": "2026-03-01"}
+            payload = {"kind": "annual_leave", "detail": "إجازة سنوية", "effective_on": "2026-03-01"}
             if leave_file.status_code == 201:
                 payload["attachment_file_id"] = leave_file.json()["id"]
-            _step("employee event", owner.post(f"/api/v1/employees/{created['id']}/events", json=payload), 201)
+            _step("employee event", clients["manager"].post(f"/api/v1/employees/{created['id']}/events", json=payload), 201)
 
     print("advisor messages")
+    # §5.7/Table 5: a recommendation goes to the Business Developer, so the
+    # advisor addresses it to that account rather than to the owner.
     if not any(m["subject"].startswith(TAG) for m in clients["advisor"].get("/api/v1/advisor/messages").json()):
-        owner_id = owner.get("/api/v1/auth/me").json()["id"]
+        bd_id = clients["bd"].get("/api/v1/auth/me").json()["id"]
         _step(
             "advisor message",
             clients["advisor"].post(
                 "/api/v1/advisor/messages",
-                json={"recipient_id": owner_id, "category": "recommendation", "subject": f"{TAG} توصية استثمارية", "body": "يُقترح تنويع المحفظة نحو القطاع الرقمي."},
+                json={"recipient_id": bd_id, "category": "recommendation", "subject": f"{TAG} توصية استثمارية", "body": "يُقترح تنويع المحفظة نحو القطاع الرقمي."},
             ),
             201,
         )
@@ -451,7 +470,7 @@ def build() -> int:
             "public submission",
             public.post(
                 "/api/v1/public/submissions",
-                json={"kind": "contact", "name": f"{TAG} زائر", "email": f"visitor-{uuid.uuid4().hex[:6]}@example.com", "message": "أرغب بالتواصل.", "company_id": alfa},
+                json={"kind": "contact", "name": f"{TAG} زائر", "email": f"visitor-{uuid.uuid4().hex[:6]}@example.com", "message": "أرغب بالتواصل.", "company_id": alfa, "consent": True},
             ),
             201,
         )

@@ -108,6 +108,12 @@ def allowed_company_ids(db: Session, user: User) -> set[int] | None:
 
     The owner role has holding-wide oversight; every other user is limited to
     the companies explicitly granted to them plus any company-scoped role.
+
+    The accountant and the business developer are holding-level roles: §7.1 makes
+    the developer the author of the Holding's own report and §5.3 makes the
+    accountant the reviewer of every report, the Holding's included. They are
+    therefore granted the Holding's record (if it exists) so the Holding report
+    flow works, without gaining access to any subsidiary they were not granted.
     """
     if "owner" in role_slugs(user):
         return None
@@ -115,7 +121,13 @@ def allowed_company_ids(db: Session, user: User) -> set[int] | None:
         select(UserCompany.company_id).where(UserCompany.user_id == user.id)
     ).scalars().all()
     scoped = {r.company_id for r in user.roles if r.company_id is not None}
-    return set(rows) | scoped
+    allowed = set(rows) | scoped
+    slugs = role_slugs(user)
+    if "accountant" in slugs or "business_developer" in slugs:
+        holding_id = holding_company_id(db)
+        if holding_id is not None:
+            allowed.add(holding_id)
+    return allowed
 
 
 def assert_company_access(db: Session, user: User, company_id: int) -> None:

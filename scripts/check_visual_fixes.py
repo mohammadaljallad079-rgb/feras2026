@@ -89,7 +89,7 @@ def check_page_11(page: Page) -> None:
     rows_before = page.evaluate("document.querySelectorAll('table tbody tr').length")
     if rows_before > 0:
         # Narrowing must actually change the result set, not just render.
-        page.select_option("#filter-status", "won")
+        page.select_option("#filter-status", "qualified")
         page.wait_for_timeout(700)
         rows_after = page.evaluate("document.querySelectorAll('table tbody tr').length")
         _record(11, "status filter changes the visible rows", rows_after <= rows_before, f"{rows_before} -> {rows_after}")
@@ -187,7 +187,7 @@ def check_page_23(page: Page) -> None:
 def check_page_24(page: Page) -> None:
     """The three accountant entry buttons deep-link to their own section."""
     hrefs = page.evaluate(
-        "() => [...document.querySelectorAll('main a')].map(a => a.getAttribute('href')).filter(h => h && h.includes('/platform/accounting'))"
+        "() => [...document.querySelectorAll('main a')].map(a => a.getAttribute('href')).filter(h => h && h.includes('/accounting?kind='))"
     )
     wanted = {"/accounting?kind=expense", "/accounting?kind=invoice", "/accounting?kind=commission"}
     _record(24, "three accounting deep links exist", wanted.issubset(set(hrefs)), f"hrefs={hrefs}")
@@ -243,9 +243,9 @@ def check_password_reset(browser) -> None:
     page = ctx.new_page()
     page.goto(f"{BASE}/platform/login")
     page.wait_for_timeout(1000)
-    _record(5, "login links to the password-reset request", bool(page.query_selector("a[href='/forgot-password']")))
+    _record(5, "login links to the password-reset request", bool(page.query_selector("a[href='/platform/forgot-password']")))
 
-    page.click("a[href='/forgot-password']")
+    page.click("a[href='/platform/forgot-password']")
     page.wait_for_url("**/forgot-password", timeout=15000)
     page.fill("#email", "advisor@safir-platform.com")
     page.click("button[type=submit]")
@@ -396,7 +396,17 @@ def check_website_admin(browser) -> None:
         page.wait_for_timeout(2000)
         _record(15, "toggling visibility is confirmed", "تم تحديث الظهور العام" in page.inner_text("body"))
 
-    reject = page.query_selector("button:has-text('رفض')")
+    # §6.5: «رفض» lives inside the «التفاصيل والمرفق» modal for a new record, so
+    # open the details of a row still marked "new" before looking for the control.
+    reject = None
+    for details in page.query_selector_all("button:has-text('التفاصيل والمرفق')"):
+        details.click()
+        page.wait_for_timeout(600)
+        reject = page.query_selector("button:has-text('رفض')")
+        if reject:
+            break
+        page.click("button:has-text('إغلاق')")
+        page.wait_for_timeout(300)
     _record(15, "the submission reject control is present", bool(reject))
     if reject:
         reject.click()

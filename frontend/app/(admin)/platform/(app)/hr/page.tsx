@@ -67,7 +67,12 @@ export default function HrPage() {
 
   useEffect(() => {
     void load();
-    api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
+    // §5.1: Employees & HR shows separate tables for each company *and for the
+    // Holding*, so the Holding's own record is requested alongside the
+    // subsidiaries. A scoped manager never receives it (company isolation), so
+    // only an unscoped reader — the owner, the accountant, the developer — sees
+    // the Holding table.
+    api.get<Company[]>("/api/v1/companies?include_holding=true").then(setCompanies).catch(() => undefined);
   }, [load]);
 
   async function openEvents(id: number) {
