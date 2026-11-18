@@ -80,8 +80,17 @@ export function SiteFooter({ locale, site }: { locale: Locale; site: SiteBootstr
       </div>
 
       <div className="border-t border-white/10">
-        <div className="site-container flex flex-wrap justify-between gap-3 py-5 text-[13px]">
+        <div className="site-container flex flex-wrap items-center justify-between gap-3 py-5 text-[13px]">
           <span>{ar ? `© ${year} ${brand}. جميع الحقوق محفوظة.` : `© ${year} ${brand}. All rights reserved.`}</span>
+          {/* §9: the visitor site and the staff platform live on separate
+              addresses; this is the discreet entry point to the login page. */}
+          <Link
+            href="/platform/login"
+            className="no-underline hover:text-brand-sand"
+            data-platform-link="login"
+          >
+            {ar ? "المنصة الداخلية" : "Staff platform"}
+          </Link>
           {country && <span>{country}</span>}
         </div>
       </div>
