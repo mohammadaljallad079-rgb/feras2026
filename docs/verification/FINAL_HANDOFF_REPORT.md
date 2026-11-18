@@ -17,7 +17,7 @@ none is copied from an earlier report.
 | Item | Status | Where |
 |---|---|---|
 | All F1 / F2 fixes present | Confirmed | `backend/app/api/v1/reporting.py`, `backend/app/api/v1/website.py`; regression tests below |
-| All Word §1–13 requirements implemented | Confirmed | `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` (112 rows) |
+| All Word §1–13 requirements implemented | Confirmed | `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` (130 rows) |
 | Latest edits and tests saved | Confirmed | working tree committed; see §4 |
 | Git state / unsaved changes | Clean before handoff | `git status` clean after commit |
 | No secrets or environment files uploaded | Confirmed | `.gitignore` excludes `.env*` (keeps `.env.example`); only `.env.example` is tracked |
@@ -88,7 +88,7 @@ The test suite refuses to run against any database whose name does not end in
 
 | File | Change |
 |---|---|
-| `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` | New: 112-row requirement matrix with path, API, test and result per row |
+| `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` | New: 130-row requirement matrix with path, API, test and result per row |
 | `docs/verification/final-spec-compliance.md` | Updated: F1/F2 confirmation, re-run evidence, new finding |
 | `docs/verification/FINAL_HANDOFF_REPORT.md` | New: this report |
 | `docs/verification/completion-matrix.md` | Updated: links the final verdict; adds the legal-review item |

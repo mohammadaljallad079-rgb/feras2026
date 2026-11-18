@@ -267,7 +267,7 @@ the missing `content-ar.md` / `content-en.md` would have supplied is seeded with
 
 The section-by-section Word-spec verdict is
 `docs/verification/final-spec-compliance.md` (PASS, §1–13); the requirement-by-
-requirement table is `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` (112
+requirement table is `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` (130
 rows, 0 FAIL); and the independent-review package is
 `docs/verification/FINAL_HANDOFF_REPORT.md`. The only items still
 open are the three the brief itself reserves for people, plus one deployment step:

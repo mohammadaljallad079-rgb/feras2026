@@ -252,11 +252,11 @@ spec itself defers the item to people, so no code proof is possible),
 
 | Result | Count |
 |---|---|
-| PASS (proven) | 108 |
+| PASS (proven) | 126 |
 | PASS\* (spec defers to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
-| **Total requirements tracked** | **112** |
+| **Total requirements tracked** | **130** |
 
 ## Gaps and exceptions
 
