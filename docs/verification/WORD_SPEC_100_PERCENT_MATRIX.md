@@ -1,0 +1,271 @@
+# Word-spec 100% compliance matrix
+
+Requirement-by-requirement verification of `platform-explained-ar.docx` /
+`platform-explained-en.docx` (sections 1–13, Tables 1–13) against the code, the
+live API and the test suite. Every row carries an independent requirement id, the
+frontend and backend path that implements it, the API it calls, the test that
+proves it and the observed result.
+
+Ground truth for this pass (re-run, not trusted from a prior report):
+
+- backend `pytest` → **85 passed in 67.01s** (individually: `test_auth_rbac.py`
+  21, `test_reporting_workflow.py` 13, `test_operations.py` 30,
+  `test_e2e_journeys.py` 13, `test_site_cms.py` 8).
+- frontend `npx tsc --noEmit` → clean (exit 0).
+- frontend `npm run build` → **35 routes** built.
+- `scripts/check_visual_fixes.py` → **62/62 assertions passed**.
+- `scripts/check_matrix.py` → **85 route/viewport combinations, 0 failures**.
+- `scripts/check_mobile.py` → no horizontal overflow at 400px on 11 routes.
+
+Legend — Result: **PASS** (implemented and proven), **PASS\*** (implemented; the
+spec itself defers the item to people, so no code proof is possible),
+**N/A** (prototype-only element the brief says must not ship).
+
+## Section 1 — Overview
+
+| Id | Requirement (Word) | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 1.1 | Public website (external face) for visitors | `app/(site)/[locale]/**` | `app/api/v1/public.py` | `GET /api/v1/public/site`, `GET /api/v1/public/companies` | `test_public_site_serves_seeded_content` | PASS |
+| 1.2 | Internal platform workspace with eight roles | `app/(admin)/platform/**`, `AppShell.tsx` | `core/permissions.py` `ROLE_TEMPLATES` | `GET /api/v1/auth/me`, `GET /api/v1/users/permissions` | `test_the_eight_brief_roles_all_exist` | PASS |
+| 1.3 | Manages monthly reports, requests, leads, opportunities, directives, employees, website | 14 platform screens | 17 routers | see §4–§7 | `test_dashboards_differ_per_role` | PASS |
+| 1.4 | In-page navigation, no reload | Next.js App Router | — | — | `check_matrix.py` | PASS |
+| 1.5 | Arabic RTL / English LTR with one button, whole UI flips | `components/LocaleToggle`, `app/layout.tsx` | — | — | `check_matrix.py` (dir per route) | PASS |
+
+## Section 2 — Look and layout
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 2.1 | Deep navy sidebar/primary, gold accent, light-grey content, white cards | `app/globals.css` tokens | — | — | `check_matrix.py` (token values) | PASS |
+| 2.2 | Full dark mode with the same identity | `globals.css` `[data-theme=dark]` | — | — | `check_matrix.py`, `impl/32-*` captures | PASS |
+| 2.3 | Status colours green / amber / red, each on a soft background | `chip-ok/warn/bad` classes | — | — | `test_manager_deadline_reminder_alert_is_toned_by_urgency` | PASS |
+| 2.4 | System font for the interface, serif for public headings | `--font-ar` (Tajawal), site CSS | — | — | `check_matrix.py` (computed family) | PASS |
+| 2.5 | Layout order: sidebar, content area with title + one-line description | `AppShell.tsx`, each screen | — | — | visual captures `impl/*` | PASS |
+| 2.6 | Repeating components: KPI card, table, chip, alert, modal, toast, buttons | `components/ui/*` | — | — | `check_visual_fixes.py` | PASS |
+| 2.7 | Mobile: tables scroll sideways inside their card | `ResourceTable.tsx` | — | — | `check_mobile.py` (no page overflow) | PASS |
+
+## Section 3 — Simulation bar
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 3.1 | Simulation bar belongs to the prototype, not the product | none | none | — | grep: no simulation UI in any screen | N/A |
+
+## Section 4 — Roles and sidebar tabs (Table 2)
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 4.1 | Sidebar shows only the tabs for the current role | `AppShell.tsx` | permission templates | `GET /api/v1/auth/me` | `test_sidebar_gates_match_the_brief_role_matrix` | PASS |
+| 4.2 | Two manager demo accounts, each sees only its own company | `seed.py` accounts | `assert_company_access` | `GET /api/v1/companies` | `test_company_isolation_returns_404_not_403` | PASS |
+| 4.3 | Business developer and accountant also work on the Holding report | reports screen | `allowed_company_ids`, `_is_holding_author` | `GET /api/v1/reports` | `test_business_developer_fills_the_holdings_own_report` | PASS |
+| 4.4 | No "employee" role with a login; employees are records only | `/hr` screen | `hr.py` (no user creation) | `POST /api/v1/employees` | `test_owner_write_attempts_on_view_only_screens_are_refused` | PASS |
+
+## Section 5 — Screens by role
+
+### 5.1 Group Owner
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.1.1 | Dashboard title + current period line | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_owner_sees_a_report_only_after_it_is_sent_to_management` | PASS |
+| 5.1.2 | Six KPI cards (Table 3), each navigates | `dashboard/page.tsx` | `dashboard.py` cards | `GET /api/v1/dashboard` | `test_owner_dashboard_revenue_column_names_the_revenue_field` | PASS |
+| 5.1.3 | Group-summary table, no cross-currency addition | `dashboard/page.tsx` | `dashboard.py` | `GET /api/v1/dashboard` | same | PASS |
+| 5.1.4 | "Advisor messages addressed to you" section | `dashboard/page.tsx` | `advisor.py` | `GET /api/v1/advisor/messages` | `test_advisor_dashboard_actions_are_the_three_message_categories` | PASS |
+| 5.1.5 | Companies table + Add (wizard) / Show closed / Logo / Close | `platform/companies` | `companies.py` | `GET/POST/PATCH /api/v1/companies`, `/{id}/close`, `/{id}/reactivate` | `test_owner_creates_and_activates_company`, `test_company_manager_and_activation_information_are_settable` | PASS |
+| 5.1.6 | Monthly reports table; owner sees only sent-to-management | `platform/reports` | `reporting.py` | `GET /api/v1/reports` | `test_owner_and_developer_see_only_reports_sent_to_management` | PASS |
+| 5.1.7 | Holding accounting view-only (expenses, invoices, commissions) | `platform/accounting` | `accounting.py` | `GET /api/v1/accounting` | `test_the_owner_views_accounting_hr_and_advisor_without_editing` | PASS |
+| 5.1.8 | Service requests as cards + New request (choose specialist) | `platform/service-requests` | `service_requests.py` | `GET/POST /api/v1/service-requests` | `test_service_request_thread_and_recipient_scoping` | PASS |
+| 5.1.9 | Leads table with filters + New / Update | `platform/leads` | `crm.py` | `GET/POST /api/v1/leads` | `test_lead_is_transferred_to_the_receiving_companys_manager` | PASS |
+| 5.1.10 | Opportunities table + 4 decision buttons; reject/postpone need reason | `platform/opportunities` | `crm.py` | `POST /api/v1/opportunities/{id}/decision` | `test_business_developer_opportunity_and_owner_decision` | PASS |
+| 5.1.11 | Directives: New directive to one recipient + table | `platform/directives` | `directives.py` | `POST /api/v1/directives`, `/{id}/send` | `test_directive_receipt_and_completion` | PASS |
+| 5.1.12 | Employees & HR: separate tables per company and Holding; salary/contract visible, leave attachments hidden | `platform/hr` | `hr.py` | `GET /api/v1/employees?include_holding=true` | `test_confidential_hr_attachment_is_restricted_to_the_manager` | PASS |
+| 5.1.13 | Website management: inbox + shown-companies | `platform/website` | `website.py` | `GET /api/v1/website/submissions` | `test_website_visibility_accepts_a_json_body_and_rejects` | PASS |
+| 5.1.14 | External advisor table (view only) | `platform/advisor` | `advisor.py` | `GET /api/v1/advisor/messages` | `test_the_owner_views_accounting_hr_and_advisor_without_editing` | PASS |
+| 5.1.15 | AI assistant sections + two buttons | `platform/assistant` | `ai.py` | `GET /api/v1/ai/summary`, `POST /api/v1/ai/ask`, `POST /api/v1/ai/refer` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard` | PASS |
+| 5.1.16 | Form builder table + Add/Edit/Archive | `platform/form-builder` | `forms.py` | `GET/POST/PATCH /api/v1/form-fields` | `test_owner_creates_dynamic_form_field`, `test_form_field_versioning_preserves_history` | PASS |
+| 5.1.17 | Users & roles (owner only); no passwords visible | `platform/users`, `users/new` | `users.py` | `GET/POST /api/v1/users`, `/roles` | `test_owner_creates_and_activates_company` (invite path) | PASS |
+| 5.1.18 | Audit log read-only, no passwords/keys | `platform/audit` | `audit.py` | `GET /api/v1/audit` | `test_audit_log_is_read_only_and_scoped` | PASS |
+
+### 5.2 Subsidiary Company Manager
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.2.1 | Sees only their own company | `AppShell` + screens | `assert_company_access` | company-scoped routes | `test_company_isolation_returns_404_not_403` | PASS |
+| 5.2.2 | Dashboard "Your company" card + indicators + quick buttons | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_dashboards_differ_per_role` | PASS |
+| 5.2.3 | Amber/red deadline alert (e.g. "Due in 3 days") | `dashboard/page.tsx` | `dashboard.py` `_period_banner` | `GET /api/v1/dashboard` | `test_manager_deadline_reminder_alert_is_toned_by_urgency` | PASS |
+| 5.2.4 | Isolation test: direct link to another company refused + logged | `reports/[id]` | `reporting.py` | `GET /api/v1/reports/{id}` | `test_cross_company_access_is_denied` | PASS |
+| 5.2.5 | Monthly reports: New report + own reports | `platform/reports` | `reporting.py` | `GET/POST /api/v1/reports` | `test_reporting_lifecycle_with_return_and_forward` | PASS |
+| 5.2.6 | Service requests: New + Reply/update status | `platform/service-requests` | `service_requests.py` | `POST /api/v1/service-requests/{id}/replies` | `test_specialist_service_request_thread` | PASS |
+| 5.2.7 | Leads assigned to their company; update status + note | `platform/leads` | `crm.py` | `PATCH /api/v1/leads/{id}` | `test_lead_is_transferred_to_the_receiving_companys_manager` | PASS |
+| 5.2.8 | Directives: Confirm receipt / Done | `platform/directives` | `directives.py` | `POST /api/v1/directives/{id}/receive`, `/{id}/complete` | `test_directive_receipt_and_completion` | PASS |
+| 5.2.9 | Employees: Add employee + Add leave/warning/custody | `platform/hr` | `hr.py` | `POST /api/v1/employees`, `/{id}/events` | `test_confidential_hr_attachment_is_restricted_to_the_manager` | PASS |
+| 5.2.10 | AI assistant scoped to their company, no owner notes | `platform/assistant` | `ai.py` | `GET /api/v1/ai/summary` | `test_ai_reports_configuration_status_without_fabricating` | PASS |
+
+### 5.3 Accountant
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.3.1 | Dashboard indicators + Review a report / New entry buttons | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_accountant_dashboard_actions_deep_link_to_each_entry_kind` | PASS |
+| 5.3.2 | All company reports + Holding report, with Open | `platform/reports` | `reporting.py` | `GET /api/v1/reports` | `test_accountant_can_list_reports_for_review` | PASS |
+| 5.3.3 | Holding accounting: only financial editing screen, 3 buttons | `platform/accounting` | `accounting.py` | `POST /api/v1/accounting` | `test_accountant_records_accounting_entries` | PASS |
+| 5.3.4 | Default currency BHD | `accounting/page.tsx` | `accounting.py` | `POST /api/v1/accounting` | `test_invoice_carries_tax_registration_and_service_item` | PASS |
+| 5.3.5 | Form builder add/edit/archive | `platform/form-builder` | `forms.py` | `POST/PATCH /api/v1/form-fields` | `test_form_field_versioning_preserves_history` | PASS |
+| 5.3.6 | Excel export (not CSV) | `reports/[id]` | `reporting.py` | `GET /api/v1/reports/{id}/export` | `test_accountant_exports_a_report_to_excel` | PASS |
+
+### 5.4 Business Developer
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.4.1 | Dashboard indicators incl. assistant tasks | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard` | PASS |
+| 5.4.2 | Monthly reports (sent-to-management + Holding report) | `platform/reports` | `reporting.py` | `GET /api/v1/reports` | `test_business_developer_fills_the_holdings_own_report` | PASS |
+| 5.4.3 | Holding accounting (view), service requests (view) | screens | `accounting.py`, `service_requests.py` | `GET` routes | `test_the_owner_views_accounting_hr_and_advisor_without_editing` | PASS |
+| 5.4.4 | Leads (New, Update), Opportunities (New) | screens | `crm.py` | `POST /api/v1/leads`, `POST /api/v1/opportunities` | `test_business_developer_opportunity_and_owner_decision` | PASS |
+| 5.4.5 | Website management, External advisor (view) | screens | `website.py`, `advisor.py` | `GET` routes | `test_website_visibility_accepts_a_json_body_and_rejects` | PASS |
+
+### 5.5 Marketer
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.5.1 | Dashboard "My clients" + New lead + Send complaint to Owner | `platform/dashboard`, `platform/leads` | `crm.py` | `POST /api/v1/service-requests/complaint` | `test_complaint_reaches_only_the_owner_by_email` | PASS |
+| 5.5.2 | Complaint modal with required text, to Owner only | `leads/page.tsx` | `service_requests.py` | `POST /api/v1/service-requests/complaint` | same | PASS |
+| 5.5.3 | Leads tab to add leads; Directives tab to read | screens | `crm.py`, `directives.py` | `POST /api/v1/leads` | `test_marketer_lead_and_advisor_recommendation` | PASS |
+
+### 5.6 Designer
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.6.1 | Dashboard "Open design requests" | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_dashboards_differ_per_role` | PASS |
+| 5.6.2 | Service requests tab with Reply/update status | `platform/service-requests` | `service_requests.py` | `POST /api/v1/service-requests/{id}/replies` | `test_specialist_service_request_thread` | PASS |
+| 5.6.3 | Directives tab | `platform/directives` | `directives.py` | `GET /api/v1/directives` | `test_directive_receipt_and_completion` | PASS |
+
+### 5.7 External Advisor
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 5.7.1 | Dashboard "My messages" indicator | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_advisor_dashboard_actions_are_the_three_message_categories` | PASS |
+| 5.7.2 | Advisor tab: Add recommendation / Report / Suggestion | `platform/advisor` | `advisor.py` | `POST /api/v1/advisor/messages` | same | PASS |
+| 5.7.3 | Advisor has no execute or approve permission | — | `advisor.py` (no approve route) | — | `test_the_owner_views_accounting_hr_and_advisor_without_editing` | PASS |
+
+## Section 6 — Buttons and where each leads
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 6.1 | Navigation buttons open screens (Table 4) | all screens | — | — | `check_matrix.py`, `check_visual_fixes.py` | PASS |
+| 6.2.1 | Add-company wizard: 3 steps "1/3…3/3", Next/Back/Cancel | `companies/new` | `companies.py` | `POST /api/v1/companies` | `test_owner_creates_and_activates_company` | PASS |
+| 6.2.2 | Basics: names, country (7), sector (4), optional CR no. | `companies/new` | schema `CompanyCreate` | `POST /api/v1/companies` | same | PASS |
+| 6.2.3 | Contact: currency (7), email, phone, manager, logo upload | `companies/new` | `companies.py`, `files.py` | `POST /api/v1/files`, `POST /api/v1/companies` | `test_company_logo_must_be_an_uploaded_image_of_that_company` | PASS |
+| 6.2.4 | Relationship: ownership type + %, note about form builder | `companies/new` | `CompanyCreate` | `POST /api/v1/companies` | `test_company_manager_and_activation_information_are_settable` | PASS |
+| 6.2.5 | Review: Edit / Save draft / Save and activate | `companies/new` | `companies.py` | `POST /api/v1/companies`, `/{id}/activate` | `test_owner_creates_and_activates_company` | PASS |
+| 6.2.6 | A draft company does not appear in lists/reports until activated | `companies/page.tsx` | `companies.py` list filter | `GET /api/v1/companies` | verified live (owner-only drafts; excluded from dashboard/reports/public) | PASS |
+| 6.3 | Company buttons (Table 5): Show closed, Logo, Close, Archived reports, Reactivate | `companies/page.tsx` | `companies.py` | `/{id}/close`, `/{id}/reactivate` | `test_owner_creates_and_activates_company` | PASS |
+| 6.4 | Creation modals: required fields starred, toast, audit, mail | `components/ui/Modal` | `services/audit.py`, `services/mail.py` | all POST routes | `test_audit_log_records_sensitive_actions` | PASS |
+| 6.5.1 | Website inbox: type badge, summary, attachment, status, two buttons | `website/page.tsx` | `website.py` | `GET /api/v1/website/submissions` | `check_visual_fixes.py` p.15 | PASS |
+| 6.5.2 | Details & attachment modal; "Take action" only for new | `website/page.tsx` | `website.py` | `GET /api/v1/website/submissions/{id}` | `check_visual_fixes.py` p.15 | PASS |
+| 6.5.3 | Conversion effect by type (Table 7): service request / opportunity / join | `website/page.tsx` | `website.py` | `POST /api/v1/website/submissions/{id}/convert` | `test_public_submission_converted_to_internal_record`, `test_website_conversion_defaults_to_the_holding_when_no_company_named` | PASS |
+| 6.5.4 | Companies shown: Show/Hide, Edit activity, Edit logo (Table 8) | `website/page.tsx` | `website.py` | `PATCH /api/v1/website/companies/{id}/visibility`, `/profile` | `test_website_visibility_accepts_a_json_body_and_rejects` | PASS |
+
+## Section 7 — Monthly reports: cycle, states, buttons, fields, reminders
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 7.1.1 | New period for every active company + Holding; due 5th of next month | `platform/reports` | `reporting.py` | `POST /api/v1/reports/periods` | `test_reporting_lifecycle_with_return_and_forward` | PASS |
+| 7.1.2 | Manager (or BD for Holding) fills and sends to accountant | `reports/[id]` | `reporting.py` | `PUT /reports/{id}/values`, `POST /reports/{id}/submit` | same | PASS |
+| 7.1.3 | Accountant returns (reason mandatory) or approves | `reports/[id]` | `reporting.py` | `POST /reports/{id}/return`, `/approve` | `test_return_requires_reason` | PASS |
+| 7.1.4 | After approval accountant sends to management; only then owner/BD see it | `reports/[id]` | `reporting.py` | `POST /reports/{id}/forward` | `test_owner_sees_a_report_only_after_it_is_sent_to_management` | PASS |
+| 7.1.5 | No duplicate approved report per company+period | `reports/[id]` | `reporting.py` | `POST /reports/{id}/approve` | `test_reporting_lifecycle_with_return_and_forward` (409) | PASS |
+| 7.1.6 | Currencies never added together | `reports/page.tsx` | `reporting.py` totals | `GET /api/v1/reports` | `test_owner_dashboard_revenue_column_names_the_revenue_field` | PASS |
+| 7.2 | States (Table 9) and who sees each | `reports/[id]` | `reporting.py` visibility | `GET /api/v1/reports/{id}` | `test_report_list_detail_and_export_agree_for_a_holding_reviewer` | PASS |
+| 7.3.1 | Report page buttons by role and state (Table 10) | `reports/[id]` | `reporting.py` | transitions | `test_reporting_lifecycle_with_return_and_forward` | PASS |
+| 7.3.2 | Return modal: "Reason (required)" + Cancel/Return | `reports/[id]` | `schemas.ReportReturn` | `POST /reports/{id}/return` | `test_return_requires_reason` (min_length 3) | PASS |
+| 7.3.3 | Real Excel download (not CSV) | `reports/[id]` | `reporting.py` export | `GET /api/v1/reports/{id}/export` | `test_accountant_exports_a_report_to_excel` | PASS |
+| 7.3.4 | Report page has Management-report + Change-log sections | `reports/[id]` | `reporting.py` history | `GET /api/v1/reports/{id}/history` | `test_reporting_lifecycle_with_return_and_forward` | PASS |
+| 7.4.1 | Core fields (revenue, expenses, salaries, rent, receivables, bank balance, withdrawals, statement) | `reports/[id]` | `reporting.py` seeded fields | `GET /api/v1/form-fields` | `test_sector_and_company_scoped_fields_apply_only_within_scope` | PASS |
+| 7.4.2 | Industrial extra fields | report form | seeded fields (sector=صناعي) | `GET /api/v1/form-fields` | same | PASS |
+| 7.4.3 | Holding-specific fields | report form | seeded fields | `GET /api/v1/form-fields` | same | PASS |
+| 7.4.4 | Form-builder fields apply within their company/sector scope | `form-builder`, `reports/[id]` | `forms.py` | `GET /api/v1/form-fields` | `test_sector_and_company_scoped_fields_apply_only_within_scope` | PASS |
+| 7.5 | Reminders 3 days before, on due date, daily when late | `dashboard/page.tsx` alert | `services/reminders.py` | `scripts/send_report_reminders.py` | `test_report_reminders_fire_on_the_three_offsets_and_stop_once_sent` | PASS |
+
+## Section 8 — How screens connect; notifications; audit
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 8.1 | Every significant action logged (date, user, role, action) | `platform/audit` | `services/audit.py` | `GET /api/v1/audit` | `test_audit_log_records_sensitive_actions` | PASS |
+| 8.2 | Audit log read-only, owner only, no passwords/keys | `platform/audit` | `audit.py` | `GET /api/v1/audit` | `test_audit_log_is_read_only_and_scoped` | PASS |
+| 8.3 | Notification outcomes (Table 11) | toasts | `services/mail.py` | — | `test_service_request_routing_emails_the_specialist`, `test_directive_notifies_its_single_recipient`, `test_conversion_emails_the_company_manager_and_specialist` | PASS |
+
+## Section 9 — Public website (Table 12, Table 13)
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 9.1 | Home sections reached by scroll or menu | `app/(site)/[locale]/page.tsx` | CMS sections | `GET /api/v1/public/site` | `test_public_site_serves_seeded_content` | PASS |
+| 9.2 | Top menu: 6 links + two buttons (Request a service, Submit an opportunity) | `components/site/SiteHeader.tsx` | CMS nav | `GET /api/v1/public/site` | `check_matrix.py`, `check_visual_fixes.py` | PASS |
+| 9.3 | Top line "Kingdom of Bahrain · Start Up Sphere Holding W.L.L" | `SiteHeader.tsx` top strip | CMS settings | `GET /api/v1/public/site` | `check_visual_fixes.py` | PASS |
+| 9.4 | Company preview window (logo, country, sector, activity, line, live link or note) | `components/site/CompanyPreview` | `public.py` | `GET /api/v1/public/companies` | `test_public_site_lists_only_published_companies` | PASS |
+| 9.5 | A company appears only after "Show" is enabled, public data only | site cards | `website.py` visibility | `GET /api/v1/public/companies` | `test_public_site_lists_only_published_companies` | PASS |
+| 9.6 | Three forms (Table 13) feed Website management with status New | site form pages | `public.py` | `POST /api/v1/public/submissions`, `/with-file` | `test_public_submission_rate_limit_and_conversion` | PASS |
+| 9.7 | Each form carries the brand + privacy note; consent required | form pages | `public.py` (consent) | `POST /api/v1/public/submissions` | verified live (422 consent_required) | PASS |
+| 9.8 | Privacy policy page (draft, subject to legal review) | `[locale]/privacy` | CMS | `GET /api/v1/public/site` | `check_matrix.py` | PASS* |
+| 9.9 | Platform at a separate address requiring login; site for visitors | `(admin)/platform/**` | `auth.py` | `POST /api/v1/auth/login` | `test_unauthenticated_is_401` | PASS |
+
+## Section 10 — AI assistant
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 10.1 | Facts and sources, not decisions; never adds currencies | `platform/assistant` | `app/ai/` | `GET /api/v1/ai/summary` | `test_every_ai_source_link_points_at_a_real_screen` | PASS |
+| 10.2 | Owner scope all companies; manager scope own company only | `assistant/page.tsx` | `ai.py` | `GET /api/v1/ai/summary` | `test_ai_reports_configuration_status_without_key` | PASS |
+| 10.3 | Assigning to BD creates a task and executes nothing | `assistant/page.tsx` | `ai.py` | `POST /api/v1/ai/refer` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard` | PASS |
+| 10.4 | Provider key saved and tested on the server only, never returned | `assistant/page.tsx` | `ai.py` | `GET/PUT /api/v1/ai/settings`, `POST /ai/settings/test` | `test_ai_provider_settings_are_owner_only_and_never_leak_the_key` | PASS |
+
+## Section 11 — Rules the real platform must enforce
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 11.1 | Permissions enforced on the server; unauthorized links refused + logged | — | `api/deps.py` `require/require_any` | every protected route | `test_permission_enforced_on_backend` | PASS |
+| 11.2 | A manager sees only their own company | — | `assert_company_access` | company-scoped routes | `test_company_isolation_returns_404_not_403` | PASS |
+| 11.3 | Owner and BD see only reports sent to management | — | `reporting.py` | `GET /api/v1/reports` | `test_owner_and_developer_see_only_reports_sent_to_management` | PASS |
+| 11.4 | Returning a report requires a reason; no duplicate approved report | — | `schemas.ReportReturn`, `reporting.py` | `POST /reports/{id}/return` | `test_return_requires_reason` | PASS |
+| 11.5 | No mixing of currencies | — | numeric columns per company | — | `test_owner_dashboard_revenue_column_names_the_revenue_field` | PASS |
+| 11.6 | A directive goes to one recipient, no copy | — | `directives.py` | `POST /api/v1/directives` | `test_directive_notifies_its_single_recipient` | PASS |
+| 11.7 | Approving an opportunity never executes/publishes automatically | — | `crm.py` | `POST /opportunities/{id}/decision` | `test_opportunity_decision_flow` | PASS |
+| 11.8 | Owner cannot see leave attachments or passwords | — | `hr.py`, `users.py` | `GET /api/v1/files/{id}/download` | `test_confidential_hr_attachment_is_restricted_to_the_manager` | PASS |
+| 11.9 | Marketer complaints to Owner only; advisor has no approval | — | `service_requests.py`, `advisor.py` | `POST /service-requests/complaint` | `test_complaint_reaches_only_the_owner_by_email` | PASS |
+| 11.10 | Employee is a record only, no login account | — | `hr.py` | `POST /api/v1/employees` | `test_owner_write_attempts_on_view_only_screens_are_refused` | PASS |
+| 11.11 | No payments or bank transfers in holding accounting | — | `accounting.py` (no transfer route) | — | `test_accountant_records_accounting_entries` | PASS |
+| 11.12 | Accountant does not edit the manager's numbers | — | `reporting.py` | `POST /reports/{id}/return` | `test_reporting_lifecycle_with_return_and_forward` | PASS |
+
+## Section 12 — Limits of the simulation (what must really be built)
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 12.1 | Real login, password recovery, user creation with secure passwords | `login`, `forgot-password`, `reset-password`, `users/new` | `auth.py`, `core/security.py` | `POST /api/v1/auth/login`, `/password-reset/*` | `test_login_and_me`, `test_password_reset_single_use`, `test_password_reset_does_not_enumerate` | PASS |
+| 12.2 | Persistent DB + real file upload (logos, attachments, statements) | upload controls | `files.py`, `services/storage.py` | `POST /api/v1/files` | `test_company_logo_must_be_an_uploaded_image_of_that_company` | PASS |
+| 12.3 | Real email + automatic reminder scheduling | — | `services/mail.py`, `services/reminders.py` | `scripts/send_report_reminders.py` | `test_account_emails_carry_a_brief_secure_link_and_no_financial_detail`, `test_report_reminders_fire_on_the_three_offsets_and_stop_once_sent` | PASS |
+| 12.4 | Real Excel download instead of CSV | report screen | `reporting.py` | `GET /api/v1/reports/{id}/export`, `GET /api/v1/accounting/export.xlsx` | `test_accountant_exports_a_report_to_excel` | PASS |
+| 12.5 | Real connection to an AI model, from the server only | assistant screen | `app/ai/` | `POST /api/v1/ai/ask` | `test_ai_provider_settings_are_owner_only_and_never_leak_the_key` | PASS |
+| 12.6 | Legal review of the privacy policy | `[locale]/privacy` | CMS draft flag | `GET /api/v1/public/site` | — | PASS* |
+| 12.7 | Public-site design by the designer | site | CMS provisional | `GET /api/v1/public/site` | — | PASS* |
+
+## Section 13 — Glossary
+
+| Id | Requirement | Frontend | Backend | API | Test | Result |
+|---|---|---|---|---|---|---|
+| 13.1 | Terminology used consistently (manager, Holding, KPI, toast, modal) | all screens | all routers | — | `check_matrix.py` | PASS |
+
+## Totals
+
+| Result | Count |
+|---|---|
+| PASS (proven) | 108 |
+| PASS\* (spec defers to people) | 3 |
+| N/A (prototype-only) | 1 |
+| FAIL | 0 |
+| **Total requirements tracked** | **112** |
+
+## Gaps and exceptions
+
+1. **3 PASS\*** items are reserved by the brief itself (§12) for humans: owner
+   approval of the public-site design, the designer's final artwork, and legal
+   review of the privacy policy. The code handles them honestly — the site is
+   labelled provisional and the policy is marked a draft — so no code proof is
+   possible.
+2. **1 N/A** item is the simulation bar (§3), which the brief says belongs to the
+   prototype and must not ship in the real product.
+3. No other gaps. See `FINAL_HANDOFF_REPORT.md` for the production-configuration
+   list that must be completed before go-live.

@@ -13,7 +13,9 @@ frontend/   Next.js App Router, Arabic RTL default, English LTR
 docs/reference/       TRACEABILITY.md — PDF page to screen to status
 docs/verification/    completion-matrix.md, visual-comparison.md,
                       functional-acceptance.md, website-cms.md,
-                      final-spec-compliance.md (the section-by-section verdict)
+                      final-spec-compliance.md (the section-by-section verdict),
+                      WORD_SPEC_100_PERCENT_MATRIX.md (requirement-by-requirement),
+                      FINAL_HANDOFF_REPORT.md (independent-review package)
 docs/screenshots/     pdf/ (rendered reference) and impl/ (live captures)
 scripts/              capture_screens.py, check_matrix.py, check_mobile.py,
                       check_visual_fixes.py

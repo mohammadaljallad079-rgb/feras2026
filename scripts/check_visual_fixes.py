@@ -415,16 +415,33 @@ def check_website_admin(browser) -> None:
 
     # The summary compared ``kind`` against "service" and "job", but the stored
     # values are "service_request" and "job_application", so those two counters
-    # always read zero however many arrived.
+    # always read zero however many arrived. The payloads must satisfy the same
+    # validation the public forms do: consent is required, the service request
+    # needs a service type, and a job application must carry a CV, so the latter
+    # goes through the multipart endpoint rather than a JSON POST.
     page.evaluate(
         """async () => {
-            for (const kind of ['service_request', 'job_application']) {
-                await fetch('/api/backend/api/v1/public/submissions', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({kind, name: 'مقدم', email: kind + '@example.com', message: 'ط'}),
-                });
-            }
+            await fetch('/api/backend/api/v1/public/submissions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    kind: 'service_request', name: 'مقدم',
+                    email: 'service_request@example.com', phone: '39000000',
+                    service_type: 'accounting', message: 'ط', consent: true,
+                }),
+            });
+            const form = new FormData();
+            form.set('kind', 'job_application');
+            form.set('name', 'مقدم');
+            form.set('email', 'job_application@example.com');
+            form.set('phone', '39000001');
+            form.set('expertise', 'محاسبة');
+            form.set('message', 'ط');
+            form.set('consent', 'true');
+            form.set('attachment', new Blob(['%PDF-1.4 demo'], {type: 'application/pdf'}), 'cv.pdf');
+            await fetch('/api/backend/api/v1/public/submissions/with-file', {
+                method: 'POST', body: form,
+            });
         }"""
     )
     page.goto(f"{BASE}/website")

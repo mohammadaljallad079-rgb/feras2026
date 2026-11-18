@@ -266,8 +266,11 @@ the missing `content-ar.md` / `content-en.md` would have supplied is seeded with
 ## 8. What remains before final sign-off
 
 The section-by-section Word-spec verdict is
-`docs/verification/final-spec-compliance.md` (PASS, §1–13). The only items still
-open are the two the brief itself reserves for people, plus one deployment step:
+`docs/verification/final-spec-compliance.md` (PASS, §1–13); the requirement-by-
+requirement table is `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` (112
+rows, 0 FAIL); and the independent-review package is
+`docs/verification/FINAL_HANDOFF_REPORT.md`. The only items still
+open are the three the brief itself reserves for people, plus one deployment step:
 
 1. Obtain owner approval for the public holding website. The reference covers the
    management platform only, so no website screen is presented as visually

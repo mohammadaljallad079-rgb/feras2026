@@ -79,17 +79,36 @@ Evidence commands are reproducible and named in the section rows below.
 | Mandatory attachments enforced | PASS | Bank statement required before submit (422 without it); confidential HR attachments gated |
 | Public forms validated and rate-limited | PASS | Per-kind required fields, country allow-list, consent required, IP rate limit; CV required for job applications |
 
-## Test and verification evidence
+## Test and verification evidence (re-run for this handoff)
 
 | Suite | Result |
 |---|---|
-| Backend `pytest` | **85 passed** (13 e2e journeys + reporting/auth/operations/CMS units) |
-| Frontend `tsc --noEmit` | clean |
-| Frontend `next build` | 35 routes build |
+| Backend `pytest` | **85 passed in 67.01s** (auth/RBAC 21, reporting 13, operations 30, e2e journeys 13, site CMS 8) |
+| Frontend `tsc --noEmit` | clean (exit 0) |
+| Frontend `next build` | **35 routes** build |
 | Browser visual fixes `scripts/check_visual_fixes.py` | **62/62 assertions** |
 | Screen matrix `scripts/check_matrix.py` | 85 route/viewport combinations, **0 failures** |
 | Mobile `scripts/check_mobile.py` | no horizontal scroll on 11 routes at 400px |
 | Public site `docs/verification/website-cms.md` | 23 render checks + 3 form journeys + 4 CMS checks |
+
+These are the numbers observed when the suites were executed for this handoff,
+not copied from an earlier report.
+
+## Defects F1 and F2 — confirmed fixed
+
+The independent review that preceded this handoff raised two defects. Both are
+fixed in the code and covered by regression tests; verified by reading the code
+and by the suite.
+
+| Id | Defect | Fix (code) | Regression test | Result |
+|---|---|---|---|---|
+| F1 | The accountant's report **list** showed reports the accountant could not **open** or export — the list applied no isolation while detail/export did (`report:view_all` holders like the accountant and the business developer saw a list larger than what they could read by id) | `reporting.py`: `_assert_report_company_access` / `_assert_report_scope` let a `report:view_all` holder reach every company's reports on the list, the detail and the export alike, so the three agree; a `report:view_own` manager stays inside their companies | `test_report_list_detail_and_export_agree_for_a_holding_reviewer`, `test_accountant_can_open_a_submitted_report_for_review`, `test_the_accountant_may_export_a_report` | PASS |
+| F2 | Converting a **website opportunity** (and a service request) failed with `422` because the public forms carry no `company_id` and the conversion demanded one | `website.py`: a submission that names no company is received by the Holding itself (`sub.company_id or holding_company_id(db)`); the frontend converts an opportunity with no extra payload | `test_website_conversion_defaults_to_the_holding_when_no_company_named`, `test_public_submission_converted_to_internal_record` | PASS |
+
+Verified live for F2: `POST /api/v1/website/submissions/{id}/convert {"target":"opportunity"}`
+returns **200** and creates a draft opportunity; the regression test asserts the
+Holding is the default receiver when the submission names no company.
+
 
 ## Findings closed during this audit
 
@@ -99,13 +118,21 @@ Evidence commands are reproducible and named in the section rows below.
    «التفاصيل والمرفق» modal. Both corrected; the script now iterates rows to find
    a `new` submission, opens its details and checks the reject control inside.
    Result: 62/62.
-2. **Draft-company visibility.** §6.2 implies drafts are hidden, while the design
+2. **`check_visual_fixes.py` website-summary payloads.** The two summary
+   assertions posted `service_request` / `job_application` with no `consent`, no
+   `service_type` and no CV, so the API correctly answered `422` and the counters
+   read zero — a harness bug, not a product defect. The payloads now satisfy the
+   same validation the public forms do (consent, service type, and a multipart CV
+   for the job form). Verified: the counters read non-zero and the assertions
+   pass. Result: 62/62.
+3. **Draft-company visibility.** §6.2 implies drafts are hidden, while the design
    PDF (p.6) shows drafts in the owner's table with an «تفعيل» button. Verified
    drafts are visible to the **owner only** (with the activate control) and are
    excluded from the dashboard count, reports and the public site. This matches
    the design intent; no defect. Finding resolved.
-3. **Documentation drift.** `functional-acceptance.md` claimed 45 assertions; the
-   script now asserts 62. Corrected.
+4. **Documentation drift.** `functional-acceptance.md` and the check script were
+   reconciled to 62/62 assertions; the documented reproduction command now matches
+   what the script prints.
 
 No application-code defect required a fix in this pass: every failure surfaced was
 either a stale test assertion or a probe using the wrong request shape.
