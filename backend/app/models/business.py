@@ -52,7 +52,16 @@ class Company(Base, TimestampMixin):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     activation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # §7.1/§7.4: the Holding keeps its own monthly report alongside the
+    # subsidiaries. The record is flagged so the subsidiaries list, the owner
+    # dashboards and the report scoping can tell it apart from a subsidiary.
+    is_holding: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     public_visible: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Public (website) profile: the activity description and an optional live
+    # site link, both editable from Website management (Table 7).
+    public_activity_ar: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_activity_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    website_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     commercial_register_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     manager: Mapped["object | None"] = relationship("User", foreign_keys=[manager_user_id], lazy="joined")

@@ -21,6 +21,10 @@ CONTACT = {
     "phone": "+973 17626990",
 }
 
+# The holding's own commercial registration, stated in the brief's header. It is
+# the data controller identifier the privacy policy must carry.
+CR_NUMBER = "165704-1"
+
 # --- Site settings (key -> (ar, en)) ---------------------------------------
 SETTINGS: dict[str, tuple[str | None, str | None]] = {
     "brand_name": (BRAND_AR, BRAND_EN),
@@ -28,6 +32,9 @@ SETTINGS: dict[str, tuple[str | None, str | None]] = {
     "country": (CONTACT["country_ar"], CONTACT["country_en"]),
     "contact_email": (CONTACT["email"], CONTACT["email"]),
     "contact_phone": (CONTACT["phone"], CONTACT["phone"]),
+    # §9: the privacy policy names the data controller, the commercial
+    # registration and the email. The register number is the one in the brief.
+    "commercial_register": (CR_NUMBER, CR_NUMBER),
     # SEO title/description: brief-approved wording only.
     "seo_title": (f"{BRAND_AR} | {BRAND_SHORT_EN}", f"{BRAND_SHORT_EN} | {BRAND_SHORT_AR}"),
     "seo_description": (
@@ -48,12 +55,14 @@ SLIDES = [
         "title_en": "Connecting expertise and opportunity to build businesses that grow.",
         "body_ar": None,
         "body_en": None,
-        "cta_primary_label_ar": "طلب خدمة",
-        "cta_primary_label_en": "Request a service",
-        "cta_primary_href": "/service-request",
-        "cta_secondary_label_ar": "تقديم فرصة",
-        "cta_secondary_label_en": "Submit an opportunity",
-        "cta_secondary_href": "/opportunities",
+        # §9 Table 12: the hero's two buttons are «استكشف فرص الاستثمار»
+        # (the opportunity form) and «اطلب حلولًا لأعمالك» (the service form).
+        "cta_primary_label_ar": "استكشف فرص الاستثمار",
+        "cta_primary_label_en": "Explore investment opportunities",
+        "cta_primary_href": "/opportunities",
+        "cta_secondary_label_ar": "اطلب حلولًا لأعمالك",
+        "cta_secondary_label_en": "Request solutions for your business",
+        "cta_secondary_href": "/service-request",
     },
     {
         "title_ar": "شركات متخصصة، تعمل ضمن رؤية مجموعة واحدة.",

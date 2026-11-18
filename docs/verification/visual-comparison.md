@@ -23,10 +23,10 @@ row says so rather than inventing a wording.
 | 9 | `/accounting` | `pdf/page-09.png` | `impl/09-accounting.png` | Three sections (expenses, invoices, commissions) and the per-section columns matched | — | Verified |
 | 10 | `/service-requests` | `pdf/page-10.png` | `impl/10-service-requests.png` | Card per request with subject, status, company, recipient, priority, deadline, reply thread and status control matched | — | Verified |
 | 11 | `/leads` | `pdf/page-11.png` | `impl/11-leads.png` | The three narrowing controls (all companies / all statuses / all sources) were absent | Added the three filters above the table plus a `filter` prop on `ResourceTable`; column order matches the reference | Fixed |
-| 12 | `/opportunities` | `pdf/page-12.png` | `impl/12-opportunities.png` | Title was the short «الفرص»; the reference heading is «الفرص التجارية والاستثمارية». The reference also notes approval creates no project | Title corrected; the screen now states that a decision records the decision and timestamp only | Fixed |
+| 12 | `/opportunities` | `pdf/page-12.png` | `impl/12-opportunities.png` | Title was the short «الفرص»; the reference heading is «الفرص التجارية والاستثمارية». The reference also notes approval creates no project. The table listed topic, country, file, source, company, value, status and decision date, but the reference columns are topic, country, file, source, status and reason — the recorded reason was not shown | Title corrected; the screen states that a decision records the decision and timestamp only; a «السبب» column now prints `decision_note` beside the status | Fixed |
 | 13 | `/directives` | `pdf/page-13.png` | `impl/13-directives.png` | Sent / received / completed / overdue indicators and the escalation record matched | — | Verified |
 | 14 | `/hr` | `pdf/page-14.png` | `impl/14-hr.png` | Salary was returned to any holder of `hr:view`; and leave attachments (which the reference says read «مرفق مقيد» to the owner) were downloadable by the owner | `hr:view_salary` added to the permission catalog and enforced in `hr.py`; the UI prints «مقيد» without the amount when it is not permitted. The owner template no longer carries `hr:view_confidential`, so a confidential attachment reads «مرفق مقيد» to the owner and downloads only for the manager who filed it; the employee-event form gained the upload control that makes the state reachable | Fixed |
-| 15 | `/website` | `pdf/page-15.png` | `impl/15-website.png` | Public inbox, conversion actions and the public-visibility table matched | — | Verified |
+| 15 | `/website` | `pdf/page-15.png` | `impl/15-website.png` | Public inbox and conversion actions matched, but the companies-shown table carried company, activity, sector, status and actions, while the reference columns are company, logo, activity, country and action — the logo and country were missing | The table now shows the uploaded logo (or «بلا شعار») and the country in place of the sector column | Fixed |
 | 16 | `/advisor` | `pdf/page-16.png` | `impl/16-advisor.png` | Company select plus the النوع / العنوان / النص / إلى columns matched | — | Verified |
 | 17 | `/assistant` | `pdf/page-17.png` | `impl/17-assistant.png` | Provider settings (masked key, connection test, model class) and grounded answers with sources and confidence matched | — | Verified |
 | 18 | `/form-builder` | `pdf/page-18.png` | `impl/18-form-builder.png` | Subfields were rendered without the reference's arrow marker | Report form renders a child field indented with a «↳» marker and sorts children under their parent | Fixed |
@@ -34,7 +34,9 @@ row says so rather than inventing a wording.
 | 20 | `/users/new` | `pdf/page-20.png` | `impl/20-user-new.png` | Invitation fields and the password-setup link matched | — | Verified |
 | 21 | `/audit` | `pdf/page-21.png` | `impl/21-audit.png` | Read-only log with timestamp, user, role, action, target and company scope matched | — | Verified |
 | 22 | `/dashboard` (manager) | `pdf/page-22.png` | `impl/22-manager-dashboard.png` | The period banner and the five action buttons were missing; only four KPI cards were shown | `DashboardOut` gained `banner_ar/en` and `actions`; the manager dashboard now shows «تقرير YYYY-MM — <company>: يستحق بعد N أيام» and the five actions from the reference | Fixed |
+| 22 | `/dashboard` (manager) | `pdf/page-22.png` | `impl/22-manager-dashboard.png` | The deadline banner was a neutral grey strip, but §2 makes a reminder an alert — amber while the deadline approaches and red once it is late | The banner now carries a `banner_tone` (`warn`/`bad`) and renders with the matching §2 alert colours, covered by `test_manager_deadline_reminder_alert_is_toned_by_urgency` | Fixed |
 | 23 | `/reports/[id]` (manager) | `pdf/page-23.png` | `impl/23-report-submission.png` | No upload control for the mandatory bank statement | The report screen now has a required bank-statement field with upload, an «مرفق» chip and a download button; the API already rejects submission without it | Fixed |
+| 23 | `/reports/[id]` (manager) | `pdf/page-23.png` | `impl/23-report-submission.png` | A report returned for correction carried `returned_reason` in the API, but the screen never showed it, although Table 8 requires the reason «يظهر السبب في تنبيه أعلى الصفحة» | The report screen prints the accountant's reason in a warning alert at the top whenever the status is «أُعيد للتعديل», so the manager sees why before editing and resubmitting | Fixed |
 | 24 | `/dashboard` (accountant) | `pdf/page-24.png` | `impl/24-accountant-dashboard.png` | The expense / invoice / commission entry buttons existed but linked to `/accounting` with no section, so all three opened the default tab | Each button now carries `?kind=`; the accounting screen reads it and pre-selects the section, covered by `test_accountant_dashboard_actions_deep_link_to_each_entry_kind` | Fixed |
 | 25 | `/reports/[id]` (accountant) | `pdf/page-25.png` | `impl/25-report-review.png` | The screen rendered its controls, but every one of them failed on the server: the accountant could not open a submitted report at all, and the Excel export answered 403 | `GET /reports/{id}` and `/history` now accept `report:view_all`, which is what the accountant holds; `report:export` was added to the permission catalog and to the accountant template. An earlier pass called this page Verified on the strength of the controls rendering, which was wrong — a control that always 403s is not working | Fixed |
 | 26 | `/dashboard` (business developer) | `pdf/page-26.png` | `impl/26-bd-dashboard.png` | Six cards matched | — | Verified |
@@ -53,9 +55,10 @@ row says so rather than inventing a wording.
   capture.
 - **Public website.** The reference covers the management platform only, so no
   public-site screen is presented as visually faithful.
-- **Logo.** `assets/brand/holding-logo.png` was never supplied. `BrandMark`
-  renders a neutral mark with `data-logo="missing"` so the gap is visible rather
-  than passing as approved branding.
+- **Logo.** `assets/brand/holding-logo.png` was supplied later; it is committed
+  at `frontend/public/brand/holding-logo.png` and `BrandMark` renders it. The
+  `data-logo="missing"` fallback remains only as a guard so the placeholder
+  cannot silently reappear; a browser assertion fails if it does.
 
 ## 3. Mobile pass (400px)
 

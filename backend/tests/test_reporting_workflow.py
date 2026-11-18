@@ -288,3 +288,94 @@ def test_accountant_exports_a_report_to_excel(client, make_user, login, db):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     assert resp.content[:2] == b"PK"  # an xlsx is a zip container
+
+
+def test_sector_and_company_scoped_fields_apply_only_within_scope(client, make_user, login, db):
+    """§7.4: «يظهر في تقارير الشركات ضمن نطاقه فقط» — a sector field belongs only
+    to that sector's reports and a company field only to that company's. The
+    required-field check must honour the scope, so a field scoped elsewhere can
+    never block a report it does not belong to.
+    """
+    make_user("sc_owner@safir-platform.com", ["owner"])
+    manager = make_user("sc_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("sc_owner@safir-platform.com")
+    h_manager = login("sc_manager@safir-platform.com")
+
+    cid = _company(client, h_owner, code="SC-1")  # sector "tech"
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+
+    # A required field scoped to the industrial sector must not apply here.
+    other = FormField(
+        code="sc_industrial_only", name_ar="إنتاج صناعي", name_en="Industrial output",
+        field_type="amount", is_required=True, sector_scope="صناعي", version=1,
+    )
+    # A required field scoped to a different company must not apply either.
+    other_cid = _company(client, h_owner, code="SC-2")
+    other_company = FormField(
+        code="sc_other_company", name_ar="حقل شركة أخرى", name_en="Other-company field",
+        field_type="amount", is_required=True, company_id=other_cid, version=1,
+    )
+    # A required field with no scope applies to every company.
+    global_field = FormField(
+        code="sc_global", name_ar="حقل عام", name_en="Global field",
+        field_type="amount", is_required=True, version=1,
+    )
+    db.add_all([other, other_company, global_field])
+    db.commit()
+
+    rid = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+    _attach_bank_statement(db, rid, _bank_statement(db, manager))
+
+    # Only the global required field is missing.
+    blocked = client.post(f"/api/v1/reports/{rid}/submit", headers=h_manager)
+    assert blocked.status_code == 422, blocked.text
+    assert blocked.json()["detail"]["field_ids"] == [global_field.id]
+
+    # Supplying the global field clears the block, proving the out-of-scope
+    # fields were never demanded.
+    client.put(
+        f"/api/v1/reports/{rid}/values",
+        headers=h_manager,
+        json={"values": [{"field_id": global_field.id, "value_number": "1"}]},
+    )
+    assert client.post(f"/api/v1/reports/{rid}/submit", headers=h_manager).status_code == 200
+
+
+def test_invoice_carries_tax_registration_and_service_item(client, make_user, login):
+    """Table 5, «إيراد / فاتورة جديدة»: the invoice records the client's tax
+    registration number (manual entry) and the service item, and both are
+    returned so the accounting table can show them."""
+    make_user("inv_owner@safir-platform.com", ["owner"])
+    acct = make_user("inv_acct@safir-platform.com", ["accountant"])
+    h_owner = login("inv_owner@safir-platform.com")
+    h_acct = login("inv_acct@safir-platform.com")
+    cid = _company(client, h_owner, code="INV-1")
+    client.patch(f"/api/v1/users/{acct.id}", headers=h_owner, json={"company_ids": [cid]})
+
+    created = client.post(
+        "/api/v1/accounting",
+        headers=h_acct,
+        json={
+            "kind": "invoice",
+            "company_id": cid,
+            "reference": "INV-2026-001",
+            "description": "استشارات",
+            "amount": "1000.00",
+            "currency": "BHD",
+            "entry_date": "2026-01-15",
+            "party": "عميل أ",
+            "tax_amount": "100.00",
+            "tax_registration_no": "165704-1",
+            "service_item": "استشارات أعمال",
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["tax_registration_no"] == "165704-1"
+    assert body["service_item"] == "استشارات أعمال"
+
+    listed = client.get("/api/v1/accounting?kind=invoice", headers=h_acct).json()
+    row = next(r for r in listed if r["id"] == body["id"])
+    assert row["tax_registration_no"] == "165704-1"
+    assert row["service_item"] == "استشارات أعمال"

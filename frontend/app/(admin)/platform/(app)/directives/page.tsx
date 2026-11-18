@@ -129,8 +129,8 @@ export default function DirectivesPage() {
             <textarea id="dir-body" className="input min-h-20" required value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="dir-follow">{locale === "ar" ? "تاريخ المتابعة" : "Follow-up date"}</label>
-            <input id="dir-follow" type="date" className="input" dir="ltr" value={form.follow_up_on} onChange={(e) => setForm({ ...form, follow_up_on: e.target.value })} />
+            <label className="label" htmlFor="dir-follow">{locale === "ar" ? "موعد المتابعة" : "Follow-up date"}<span aria-hidden="true"> *</span></label>
+            <input id="dir-follow" type="date" className="input" dir="ltr" required value={form.follow_up_on} onChange={(e) => setForm({ ...form, follow_up_on: e.target.value })} />
           </div>
           <div className="flex items-end">
             <button type="submit" className="btn-primary">{locale === "ar" ? "إنشاء" : "Create"}</button>

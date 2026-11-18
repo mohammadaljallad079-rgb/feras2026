@@ -79,6 +79,19 @@ overridden for that one process.
   reset and invitation, one secure link each and no financial detail (page 32).
   SMTP is optional — with no `SMTP_HOST`, `send()` returns `False` and the caller
   returns the link for out-of-band delivery instead of claiming a message.
+- Workflow notification emails (Tables 5/6/10, §12) live in the same module as
+  short-subject templates that carry only the detail needed to act, never an
+  amount or a report value: `service_request_routed_email`, `complaint_email`,
+  `directive_email`, `assistant_task_email`, `conversion_copy_email`. Use
+  `mail.notify([...])` for a multi-recipient event (it dedupes and returns how
+  many went out). Wired in `service_requests.py` (routed specialist, complaint to
+  the owner only), `directives.py` (single recipient), `ai.py` (assistant
+  referral to the business developer), `website.py` (`convert_submission` →
+  company manager + specialist copy).
+- Monthly-report deadline reminders (§7.5, §12) are scheduled, not simulated:
+  `app/services/reminders.py` fires three days before the due date, on the due
+  date, and daily once late, and skips a company that already sent its report.
+  `scripts/send_report_reminders.py` runs it from cron (idempotent per day).
 
 ## Known gaps
 

@@ -17,6 +17,9 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
   const ar = locale === "ar";
   const site = await getSite();
   const email = setting(site, "contact_email", locale);
+  // §9: the policy names the data controller, the commercial registration and
+  // the email, and says the text is a draft subject to legal review.
+  const cr = setting(site, "commercial_register", locale);
 
   const intro = ar
     ? "توضّح هذه السياسة كيفية تعامل شركة ستارت أب سفير القابضة ذ.م.م مع البيانات التي تُرسل عبر هذا الموقع."
@@ -46,6 +49,25 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
         <span className="site-eyebrow">{ar ? "قانوني" : "Legal"}</span>
         <h1 className="site-h2">{ar ? "سياسة الخصوصية" : "Privacy policy"}</h1>
         <p className="site-lead">{intro}</p>
+
+        <dl className="mt-6 grid gap-2 rounded-lg border border-brand-line bg-brand-mist p-5 text-[14px] sm:grid-cols-2">
+          <div>
+            <dt className="text-brand-slate">{ar ? "مسؤول معالجة البيانات" : "Data controller"}</dt>
+            <dd className="font-semibold">{ar ? "شركة ستارت أب سفير القابضة ذ.م.م" : "START UP SPHERE HOLDING CO W.L.L"}</dd>
+          </div>
+          {cr && (
+            <div>
+              <dt className="text-brand-slate">{ar ? "السجل التجاري" : "Commercial registration"}</dt>
+              <dd className="font-semibold" dir="ltr">{cr}</dd>
+            </div>
+          )}
+          {email && (
+            <div>
+              <dt className="text-brand-slate">{ar ? "البريد الإلكتروني" : "Email"}</dt>
+              <dd className="font-semibold" dir="ltr">{email}</dd>
+            </div>
+          )}
+        </dl>
 
         <p className="mt-6 rounded-lg border border-[#ede2cc] border-s-4 border-s-brand-sand bg-[#fbf7ef] p-5 text-[14px] text-[#6a5731]">
           {reviewNote}

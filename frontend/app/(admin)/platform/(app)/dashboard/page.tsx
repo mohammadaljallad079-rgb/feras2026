@@ -40,9 +40,19 @@ export default function DashboardPage() {
       <DataStates loading={loading} error={error} empty={!data}>
         {data && (
           <>
-            {/* PDF p.22: the manager's banner names the period, company and deadline. */}
+            {/* PDF p.22 / §7.5: the banner names the period, company and deadline
+                and is coloured by the §2 alert tones — amber approaching, red late. */}
             {(data.banner_ar || data.banner_en) && (
-              <p className="mb-4 rounded-control border border-line bg-pearl p-3">
+              <p
+                role="alert"
+                className={`mb-4 rounded-control border p-3 ${
+                  data.banner_tone === "bad"
+                    ? "border-bad bg-badbg text-bad"
+                    : data.banner_tone === "warn"
+                      ? "border-warn bg-warnbg text-warn"
+                      : "border-line bg-pearl"
+                }`}
+              >
                 {locale === "ar" ? data.banner_ar : data.banner_en}
               </p>
             )}

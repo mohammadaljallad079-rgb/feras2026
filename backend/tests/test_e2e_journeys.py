@@ -153,9 +153,24 @@ def test_reporting_lifecycle_with_return_and_forward(clients, scoped, company_id
     )
     assert upload.status_code == 201, upload.text
     statement_id = upload.json()["id"]
+    # §7.4: the report form carries required fields (salaries, bank balance at
+    # month end). They are real definitions, so the submit below must satisfy
+    # them rather than expect an empty form to be accepted.
+    fields = manager.get("/api/v1/form-fields").json()
+    required = [
+        f for f in fields
+        if f["is_active"] and f["is_required"] and f["parent_id"] is None
+        and (not f.get("sector_scope") or f["sector_scope"] == "technology")
+        and (f.get("company_id") in (None, company_id))
+    ]
+    assert required, "the seeded report form has no required fields; the check is broken"
+    values = [
+        {"field_id": f["id"], "value_number": "1000"} if f["field_type"] in {"number", "amount"} else {"field_id": f["id"], "value_text": "لا"}
+        for f in required
+    ]
     saved = manager.put(
         f"/api/v1/reports/{report_id}/values",
-        json={"commentary": "تقرير الشهر", "values": [], "bank_statement_file_id": statement_id},
+        json={"commentary": "تقرير الشهر", "values": values, "bank_statement_file_id": statement_id},
     )
     assert saved.status_code == 200, saved.text
     assert saved.json()["bank_statement_file_id"] == statement_id
@@ -256,7 +271,7 @@ def test_specialist_service_request_thread(clients, company_id):
 
     created = owner.post(
         "/api/v1/service-requests",
-        json={"subject": _unique("Request"), "body": "تفاصيل", "company_id": company_id, "recipient_id": me["id"], "priority": "high"},
+        json={"subject": _unique("Request"), "body": "تفاصيل", "service_type": "study", "company_id": company_id, "recipient_id": me["id"], "priority": "urgent"},
     )
     assert created.status_code == 201, created.text
     request_id = created.json()["id"]
@@ -282,15 +297,31 @@ def test_marketer_lead_and_advisor_recommendation(clients, scoped, company_id):
     assert lead.status_code == 201, lead.text
 
     me = owner.get("/api/v1/auth/me").json()
+    bd = scoped["bd"].get("/api/v1/auth/me").json()
+    # Table 5: a recommendation goes to the Business Developer, not the Owner.
     message = advisor.post(
         "/api/v1/advisor/messages",
-        json={"recipient_id": me["id"], "category": "recommendation", "subject": _unique("Rec"), "body": "توصية"},
+        json={"recipient_id": bd["id"], "category": "recommendation", "subject": _unique("Rec"), "body": "توصية"},
     )
     assert message.status_code == 201, message.text
     assert message.json()["status"] != "read"
-    read = owner.post(f"/api/v1/advisor/messages/{message.json()['id']}/read")
+    read = scoped["bd"].post(f"/api/v1/advisor/messages/{message.json()['id']}/read")
     assert read.status_code == 200
     assert read.json()["status"] == "read"
+
+    # A recommendation may not be sent to the Owner.
+    rejected = advisor.post(
+        "/api/v1/advisor/messages",
+        json={"recipient_id": me["id"], "category": "recommendation", "subject": _unique("Rec"), "body": "توصية"},
+    )
+    assert rejected.status_code == 422, rejected.text
+
+    # A report may go to the Owner.
+    report = advisor.post(
+        "/api/v1/advisor/messages",
+        json={"recipient_id": me["id"], "category": "report", "subject": _unique("Rep"), "body": "تقرير"},
+    )
+    assert report.status_code == 201, report.text
 
 
 def test_owner_creates_dynamic_form_field(clients):
@@ -399,7 +430,12 @@ def test_ai_provider_settings_are_owner_only_and_never_leak_the_key(clients):
     assert summary.status_code == 200, summary.text
     s = summary.json()
     assert s["period_label_ar"]
+    assert s["title_ar"] == "ملخص المالك الذكي"
     assert s["sections"] and all(sec["lines_ar"] for sec in s["sections"])
+    # §5.1: the summary carries the four named sections in order.
+    keys = [sec["key"] for sec in s["sections"]]
+    assert keys[:2] == ["situation", "analysis_source"]
+    assert "alerts" in keys and "next_month" in keys
     for src in s["sources"]:
         assert src["currency"]
         assert src["url"].startswith("/reports/")

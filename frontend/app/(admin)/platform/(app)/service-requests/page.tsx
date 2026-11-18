@@ -11,6 +11,7 @@ type ServiceRequest = {
   id: number;
   subject: string;
   body: string | null;
+  service_type: string | null;
   company_id: number;
   created_by_id: number;
   recipient_id: number;
@@ -32,7 +33,23 @@ type Reply = {
 
 type User = { id: number; full_name_ar: string; full_name_en: string };
 
-const STATUSES = ["new", "in_progress", "answered", "closed"];
+// Table 5, «رد / تحديث الحالة»: exactly these four states.
+const STATUSES = ["new", "in_progress", "awaiting_reply", "completed"];
+// Table 5, «نوع الخدمة *».
+const SERVICE_TYPES = [
+  { value: "accounting", ar: "محاسبة", en: "Accounting" },
+  { value: "design", ar: "تصميم", en: "Design" },
+  { value: "study", ar: "دراسة أو مساعدة", en: "Study or help" },
+  { value: "marketing", ar: "تسويق واستشارة تسويقية", en: "Marketing and consulting" },
+];
+
+// Table 5, «رد / تحديث الحالة»: the four states, labelled for the picker.
+const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
+  new: { ar: "جديد", en: "New" },
+  in_progress: { ar: "قيد التنفيذ", en: "In progress" },
+  awaiting_reply: { ar: "بانتظار رد", en: "Awaiting reply" },
+  completed: { ar: "مكتمل", en: "Completed" },
+};
 
 export default function ServiceRequestsPage() {
   const { locale, can } = useAuth();
@@ -47,7 +64,7 @@ export default function ServiceRequestsPage() {
   const [reply, setReply] = useState("");
   const [newStatus, setNewStatus] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [form, setForm] = useState({ subject: "", body: "", company_id: "", recipient_id: "", priority: "normal", deadline: "" });
+  const [form, setForm] = useState({ subject: "", body: "", service_type: "accounting", company_id: "", recipient_id: "", priority: "normal", deadline: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,11 +123,14 @@ export default function ServiceRequestsPage() {
     try {
       await api.post("/api/v1/service-requests", {
         ...form,
+        service_type: form.service_type,
         company_id: Number(form.company_id),
-        recipient_id: Number(form.recipient_id),
+        // Table 5: only the owner chooses the receiving specialist; a manager
+        // leaves it empty and the server routes by service type.
+        recipient_id: form.recipient_id ? Number(form.recipient_id) : null,
         deadline: form.deadline || null,
       });
-      setForm({ subject: "", body: "", company_id: "", recipient_id: "", priority: "normal", deadline: "" });
+      setForm({ subject: "", body: "", service_type: "accounting", company_id: "", recipient_id: "", priority: "normal", deadline: "" });
       setMessage(locale === "ar" ? "تم إنشاء الطلب." : "Request created.");
       await load();
     } catch {
@@ -149,6 +169,14 @@ export default function ServiceRequestsPage() {
             <input id="sr-subject" className="input" required value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           </div>
           <div>
+            <label className="label" htmlFor="sr-service-type">{locale === "ar" ? "نوع الخدمة" : "Service type"}<span aria-hidden="true"> *</span></label>
+            <select id="sr-service-type" className="input" required value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })}>
+              {SERVICE_TYPES.map((s) => (
+                <option key={s.value} value={s.value}>{locale === "ar" ? s.ar : s.en}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label" htmlFor="sr-company">{locale === "ar" ? "الشركة" : "Company"}</label>
             <select id="sr-company" className="input" required value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}>
               <option value="">—</option>
@@ -157,34 +185,37 @@ export default function ServiceRequestsPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="label" htmlFor="sr-recipient">{locale === "ar" ? "المستلم" : "Recipient"}</label>
-            <select id="sr-recipient" className="input" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
-              <option value="">—</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{locale === "ar" ? u.full_name_ar : u.full_name_en}</option>
-              ))}
-            </select>
-          </div>
+          {can("service:assign") && (
+            <div>
+              <label className="label" htmlFor="sr-recipient">
+                {locale === "ar" ? "المختص المستلم" : "Receiving specialist"}
+              </label>
+              <select id="sr-recipient" className="input" value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
+                <option value="">{locale === "ar" ? "توجيه تلقائي حسب نوع الخدمة" : "Route automatically by service type"}</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{locale === "ar" ? u.full_name_ar : u.full_name_en}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="label" htmlFor="sr-priority">{locale === "ar" ? "الأولوية" : "Priority"}</label>
             <select id="sr-priority" className="input" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
-              <option value="low">{locale === "ar" ? "منخفضة" : "Low"}</option>
               <option value="normal">{locale === "ar" ? "عادية" : "Normal"}</option>
-              <option value="high">{locale === "ar" ? "عالية" : "High"}</option>
               <option value="urgent">{locale === "ar" ? "عاجلة" : "Urgent"}</option>
             </select>
           </div>
-          <div>
-            <label className="label" htmlFor="sr-deadline">{locale === "ar" ? "الموعد" : "Deadline"}</label>
-            <input id="sr-deadline" type="date" className="input" dir="ltr" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
-          </div>
           <div className="sm:col-span-3">
-            <label className="label" htmlFor="sr-body">{locale === "ar" ? "التفاصيل" : "Details"}</label>
+            <label className="label" htmlFor="sr-body">{locale === "ar" ? "وصف الاحتياج" : "Description of the need"}</label>
             <textarea id="sr-body" className="input min-h-20" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
           </div>
           <div>
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إنشاء طلب" : "Create request"}</button>
+            {/* Table 5: «الموعد المطلوب» — the date the requester needs it by. */}
+            <label className="label" htmlFor="sr-deadline">{locale === "ar" ? "الموعد المطلوب" : "Required date"}</label>
+            <input id="sr-deadline" type="date" className="input" dir="ltr" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+          </div>
+          <div>
+            <button type="submit" className="btn-primary">{locale === "ar" ? "طلب خدمة جديد" : "New service request"}</button>
           </div>
         </form>
       )}
@@ -198,6 +229,11 @@ export default function ServiceRequestsPage() {
                   <h2 className="section-title">{r.subject}</h2>
                   <p className="muted">
                     {companyName(r.company_id)} · {locale === "ar" ? "المستلم" : "Recipient"}: {userName(r.recipient_id)}
+                    {r.service_type
+                      ? ` · ${locale === "ar" ? "نوع الخدمة" : "Service type"}: ${
+                          SERVICE_TYPES.find((s) => s.value === r.service_type)?.[locale === "ar" ? "ar" : "en"] ?? r.service_type
+                        }`
+                      : ""}
                   </p>
                   {r.body && <p className="mt-2">{r.body}</p>}
                 </div>
@@ -244,7 +280,7 @@ export default function ServiceRequestsPage() {
                         <option value="">{locale === "ar" ? "تحديث الحالة" : "Update status"}</option>
                         {STATUSES.map((s) => (
                           <option key={s} value={s}>
-                            {s}
+                            {STATUS_LABELS[s]?.[locale === "ar" ? "ar" : "en"] ?? s}
                           </option>
                         ))}
                       </select>

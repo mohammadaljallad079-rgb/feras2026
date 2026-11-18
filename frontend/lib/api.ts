@@ -150,7 +150,11 @@ export type Company = {
   activated_at: string | null;
   closed_at: string | null;
   activation_notes: string | null;
+  is_holding: boolean;
   public_visible: boolean;
+  public_activity_ar: string | null;
+  public_activity_en: string | null;
+  website_url: string | null;
   created_at: string;
 };
 
@@ -172,6 +176,7 @@ export type Dashboard = {
   sections: Record<string, unknown>[];
   banner_ar: string | null;
   banner_en: string | null;
+  banner_tone: string | null;
   actions: { label_ar: string; label_en: string; href: string }[];
 };
 
@@ -223,6 +228,7 @@ export type Role = {
   slug: string;
   name_ar: string;
   name_en: string;
+  description: string | null;
   is_system: boolean;
   permission_codes: string[];
 };

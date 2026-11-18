@@ -20,6 +20,9 @@ type Entry = {
   party: string | null;
   tax_amount: string | null;
   direction: string | null;
+  payment_status: string | null;
+  tax_registration_no: string | null;
+  service_item: string | null;
   document_file_id: number | null;
   created_at: string;
 };
@@ -41,6 +44,10 @@ export default function AccountingPage() {
   const initialKind = searchParams.get("kind") ?? "expense";
   const [tab, setTab] = useState(initialKind);
   const [message, setMessage] = useState<string | null>(null);
+  // Table 5, «مصروف جديد»: an expense may carry one optional attachment. The
+  // file is uploaded first so the entry can reference the stored file id.
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     kind: initialKind,
     company_id: "",
@@ -52,6 +59,9 @@ export default function AccountingPage() {
     party: "",
     tax_amount: "",
     direction: "incoming",
+    payment_status: "unpaid",
+    tax_registration_no: "",
+    service_item: "",
   });
 
   const load = useCallback(async () => {
@@ -89,15 +99,30 @@ export default function AccountingPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
+    setBusy(true);
     try {
+      // An optional expense attachment is uploaded before the entry is saved.
+      let document_file_id: number | null = null;
+      if (form.kind === "expense" && documentFile) {
+        const fd = new FormData();
+        fd.append("file", documentFile);
+        if (form.company_id) fd.append("company_id", form.company_id);
+        const stored = await api.upload<{ id: number }>("/api/v1/files", fd);
+        document_file_id = stored.id;
+      }
       await api.post("/api/v1/accounting", {
         ...form,
         company_id: Number(form.company_id),
         tax_amount: form.tax_amount || null,
         party: form.party || null,
+        tax_registration_no: form.kind === "invoice" ? form.tax_registration_no || null : null,
+        service_item: form.kind === "invoice" ? form.service_item || null : null,
         direction: form.kind === "commission" ? form.direction : null,
+        payment_status: form.kind === "invoice" ? null : form.payment_status,
+        document_file_id,
       });
-      setForm((f) => ({ ...f, reference: "", description: "", amount: "", party: "", tax_amount: "" }));
+      setForm((f) => ({ ...f, reference: "", description: "", amount: "", party: "", tax_amount: "", tax_registration_no: "", service_item: "" }));
+      setDocumentFile(null);
       setMessage(locale === "ar" ? "تم تسجيل القيد." : "Entry recorded.");
       setTab(form.kind);
       await load();
@@ -112,6 +137,8 @@ export default function AccountingPage() {
             ? "تعذّر حفظ القيد."
             : "Could not save the entry.",
       );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -130,6 +157,10 @@ export default function AccountingPage() {
     ],
     invoice: [
       { ar: "العميل", en: "Client", render: (r) => r.party ?? "—" },
+      // Table 5: the invoice carries the client's tax registration number
+      // (manual entry only) and the service item being invoiced.
+      { ar: "رقم التسجيل الضريبي", en: "Tax registration no.", render: (r) => <span dir="ltr">{r.tax_registration_no ?? "—"}</span> },
+      { ar: "بند الخدمة", en: "Service item", render: (r) => r.service_item ?? "—" },
       {
         ar: "الإجمالي قبل الضريبة",
         en: "Net before tax",
@@ -158,7 +189,9 @@ export default function AccountingPage() {
         ar: "الاتجاه",
         en: "Direction",
         render: (r) =>
-          r.direction === "incoming" ? (locale === "ar" ? "وارد" : "Incoming") : locale === "ar" ? "صادر" : "Outgoing",
+          r.direction === "incoming"
+            ? locale === "ar" ? "مستحقة للقابضة" : "Due to holding"
+            : locale === "ar" ? "مستحقة على القابضة" : "Due from holding",
       },
       { ar: "الحالة", en: "Status", render: (r) => <StatusChip value={r.status} /> },
     ],
@@ -225,26 +258,69 @@ export default function AccountingPage() {
           </div>
           <div>
             <label className="label" htmlFor="party">
-              {form.kind === "invoice" ? (locale === "ar" ? "العميل" : "Client") : locale === "ar" ? "الجهة" : "Party"}
+              {form.kind === "invoice"
+                ? locale === "ar" ? "العميل" : "Client"
+                : form.kind === "expense"
+                  ? locale === "ar" ? "الجهة المستفيدة" : "Beneficiary"
+                  : locale === "ar" ? "الطرف المقابل" : "Counterparty"}
             </label>
             <input id="party" className="input" value={form.party} onChange={(e) => setForm({ ...form, party: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="amount">{locale === "ar" ? "المبلغ" : "Amount"}</label>
+            <label className="label" htmlFor="amount">
+              {form.kind === "invoice"
+                ? locale === "ar" ? "المجموع قبل الضريبة" : "Net before tax"
+                : locale === "ar" ? "المبلغ" : "Amount"}
+            </label>
             <input id="amount" className="input" dir="ltr" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </div>
           {form.kind === "invoice" && (
             <div>
-              <label className="label" htmlFor="tax_amount">{locale === "ar" ? "الضريبة" : "Tax"}</label>
+              <label className="label" htmlFor="tax-reg">
+                {locale === "ar" ? "رقم التسجيل الضريبي (يدويًا فقط)" : "Tax registration number (manual only)"}
+              </label>
+              <input id="tax-reg" className="input" dir="ltr" value={form.tax_registration_no} onChange={(e) => setForm({ ...form, tax_registration_no: e.target.value })} />
+            </div>
+          )}
+          {form.kind === "invoice" && (
+            <div>
+              <label className="label" htmlFor="service-item">{locale === "ar" ? "بند الخدمة" : "Service item"}</label>
+              <input id="service-item" className="input" value={form.service_item} onChange={(e) => setForm({ ...form, service_item: e.target.value })} />
+            </div>
+          )}
+          {form.kind === "invoice" && (
+            <div>
+              <label className="label" htmlFor="tax_amount">{locale === "ar" ? "الضريبة (عند انطباقها)" : "Tax (when applicable)"}</label>
               <input id="tax_amount" className="input" dir="ltr" inputMode="decimal" value={form.tax_amount} onChange={(e) => setForm({ ...form, tax_amount: e.target.value })} />
             </div>
           )}
           {form.kind === "commission" && (
             <div>
-              <label className="label" htmlFor="direction">{locale === "ar" ? "الاتجاه" : "Direction"}</label>
-              <select id="direction" className="input" value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
-                <option value="incoming">{locale === "ar" ? "وارد" : "Incoming"}</option>
-                <option value="outgoing">{locale === "ar" ? "صادر" : "Outgoing"}</option>
+              <label className="label" htmlFor="direction">{locale === "ar" ? "الاتجاه" : "Direction"}<span aria-hidden="true"> *</span></label>
+              <select id="direction" className="input" required value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+                <option value="incoming">{locale === "ar" ? "مستحقة للقابضة" : "Due to holding"}</option>
+                <option value="outgoing">{locale === "ar" ? "مستحقة على القابضة" : "Due from holding"}</option>
+              </select>
+            </div>
+          )}
+          {/* Table 5: an expense is «مسدد / غير مسدد»; a commission is
+              «مستحقة / مدفوعة / مستلمة». */}
+          {form.kind === "expense" && (
+            <div>
+              <label className="label" htmlFor="pay-status">{locale === "ar" ? "حالة السداد" : "Settlement"}</label>
+              <select id="pay-status" className="input" value={form.payment_status} onChange={(e) => setForm({ ...form, payment_status: e.target.value })}>
+                <option value="paid">{locale === "ar" ? "مسدد" : "Paid"}</option>
+                <option value="unpaid">{locale === "ar" ? "غير مسدد" : "Unpaid"}</option>
+              </select>
+            </div>
+          )}
+          {form.kind === "commission" && (
+            <div>
+              <label className="label" htmlFor="comm-status">{locale === "ar" ? "الحالة" : "Status"}</label>
+              <select id="comm-status" className="input" value={form.payment_status} onChange={(e) => setForm({ ...form, payment_status: e.target.value })}>
+                <option value="due">{locale === "ar" ? "مستحقة" : "Due"}</option>
+                <option value="paid">{locale === "ar" ? "مدفوعة" : "Paid"}</option>
+                <option value="received">{locale === "ar" ? "مستلمة" : "Received"}</option>
               </select>
             </div>
           )}
@@ -256,8 +332,27 @@ export default function AccountingPage() {
             <label className="label" htmlFor="entry_date">{locale === "ar" ? "التاريخ" : "Date"}</label>
             <input id="entry_date" type="date" className="input" dir="ltr" value={form.entry_date} onChange={(e) => setForm({ ...form, entry_date: e.target.value })} />
           </div>
+          {form.kind === "expense" && (
+            <div className="sm:col-span-2">
+              <label className="label" htmlFor="expense-doc">
+                {locale === "ar" ? "مرفق اختياري" : "Optional attachment"}
+              </label>
+              <input
+                id="expense-doc"
+                type="file"
+                className="input"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+                onChange={(e) => setDocumentFile(e.target.files?.[0] ?? null)}
+              />
+              {documentFile && <p className="muted mt-1" dir="ltr">{documentFile.name}</p>}
+            </div>
+          )}
           <div className="flex items-end">
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إضافة قيد" : "Add entry"}</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {form.kind === "invoice"
+                ? locale === "ar" ? "حفظ وإصدار" : "Save and issue"
+                : locale === "ar" ? "إضافة قيد" : "Add entry"}
+            </button>
           </div>
         </form>
       )}

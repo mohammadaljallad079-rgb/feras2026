@@ -17,6 +17,11 @@ type Employee = {
   salary: string | null;
   currency: string;
   contract_type: string | null;
+  contract_summary: string | null;
+  official_documents_file_id: number | null;
+  official_documents_name: string | null;
+  employment_contract_file_id: number | null;
+  employment_contract_name: string | null;
   status: string;
   hired_on: string | null;
   created_at: string;
@@ -43,7 +48,10 @@ export default function HrPage() {
   const [events, setEvents] = useState<EmployeeEvent[]>([]);
   const [eventForm, setEventForm] = useState({ kind: "leave", detail: "", effective_on: "" });
   const [eventFile, setEventFile] = useState<File | null>(null);
-  const [form, setForm] = useState({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", hired_on: "" });
+  const [form, setForm] = useState({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", contract_summary: "", hired_on: "" });
+  // Table 5, «إضافة موظف»: the official documents and the employment contract.
+  const [officialDocs, setOfficialDocs] = useState<File | null>(null);
+  const [contractFile, setContractFile] = useState<File | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,6 +105,22 @@ export default function HrPage() {
     e.preventDefault();
     setMessage(null);
     try {
+      // Table 5, «إضافة موظف»: the two documents are uploaded first and linked
+      // to the employee record.
+      let official_documents_file_id: number | null = null;
+      let employment_contract_file_id: number | null = null;
+      if (officialDocs) {
+        const body = new FormData();
+        body.append("file", officialDocs);
+        body.append("company_id", form.company_id);
+        official_documents_file_id = (await api.upload<{ id: number }>("/api/v1/files", body)).id;
+      }
+      if (contractFile) {
+        const body = new FormData();
+        body.append("file", contractFile);
+        body.append("company_id", form.company_id);
+        employment_contract_file_id = (await api.upload<{ id: number }>("/api/v1/files", body)).id;
+      }
       await api.post("/api/v1/employees", {
         ...form,
         company_id: Number(form.company_id),
@@ -104,9 +128,14 @@ export default function HrPage() {
         contact_phone: form.contact_phone || null,
         salary: form.salary || null,
         contract_type: form.contract_type || null,
+        contract_summary: form.contract_summary || null,
         hired_on: form.hired_on || null,
+        official_documents_file_id,
+        employment_contract_file_id,
       });
-      setForm({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", hired_on: "" });
+      setForm({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", contract_summary: "", hired_on: "" });
+      setOfficialDocs(null);
+      setContractFile(null);
       setMessage(locale === "ar" ? "تمت إضافة الموظف." : "Employee added.");
       await load();
     } catch {
@@ -175,6 +204,19 @@ export default function HrPage() {
             <label className="label" htmlFor="emp-contract">{locale === "ar" ? "نوع العقد" : "Contract type"}</label>
             <input id="emp-contract" className="input" value={form.contract_type} onChange={(e) => setForm({ ...form, contract_type: e.target.value })} />
           </div>
+          {/* Table 5, «إضافة موظف»: ملخص عقد العمل، المستندات الرسمية، عقد العمل. */}
+          <div className="sm:col-span-3">
+            <label className="label" htmlFor="emp-contract-summary">{locale === "ar" ? "ملخص عقد العمل" : "Contract summary"}</label>
+            <textarea id="emp-contract-summary" className="input min-h-20" value={form.contract_summary} onChange={(e) => setForm({ ...form, contract_summary: e.target.value })} />
+          </div>
+          <div>
+            <label className="label" htmlFor="emp-official-docs">{locale === "ar" ? "المستندات الرسمية" : "Official documents"}</label>
+            <input id="emp-official-docs" type="file" className="input" onChange={(e) => setOfficialDocs(e.target.files?.[0] ?? null)} />
+          </div>
+          <div>
+            <label className="label" htmlFor="emp-contract-file">{locale === "ar" ? "عقد العمل" : "Employment contract"}</label>
+            <input id="emp-contract-file" type="file" className="input" onChange={(e) => setContractFile(e.target.files?.[0] ?? null)} />
+          </div>
           <div>
             <label className="label" htmlFor="emp-hired">{locale === "ar" ? "تاريخ التعيين" : "Hired on"}</label>
             <input id="emp-hired" type="date" className="input" dir="ltr" value={form.hired_on} onChange={(e) => setForm({ ...form, hired_on: e.target.value })} />
@@ -199,6 +241,7 @@ export default function HrPage() {
                       { ar: "التواصل", en: "Contact" },
                       { ar: "الراتب", en: "Salary" },
                       { ar: "العقد", en: "Contract" },
+                      { ar: "المستندات", en: "Documents" },
                       { ar: "الحالة", en: "Status" },
                       { ar: "السجلات", en: "Records" },
                     ].map((c) => (
@@ -219,6 +262,23 @@ export default function HrPage() {
                         {can("hr:view_salary") ? (r.salary ? `${r.salary} ${r.currency}` : "—") : <span className="chip-bad">{locale === "ar" ? "مقيد" : "Restricted"}</span>}
                       </td>
                       <td className="p-2">{r.contract_type ?? "—"}</td>
+                      {/* Table 5: the official documents and the employment contract. */}
+                      <td className="p-2">
+                        <div className="flex flex-wrap gap-2">
+                          {r.official_documents_file_id ? (
+                            <button type="button" className="btn-ghost" onClick={() => void api.download(`/api/v1/files/${r.official_documents_file_id}/download`, r.official_documents_name ?? `official-documents-${r.id}`)}>
+                              {locale === "ar" ? "المستندات" : "Documents"}
+                            </button>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                          {r.employment_contract_file_id ? (
+                            <button type="button" className="btn-ghost" onClick={() => void api.download(`/api/v1/files/${r.employment_contract_file_id}/download`, r.employment_contract_name ?? `employment-contract-${r.id}`)}>
+                              {locale === "ar" ? "العقد" : "Contract"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
                       <td className="p-2"><StatusChip value={r.status} /></td>
                       <td className="p-2">
                         <button type="button" className="btn-ghost" onClick={() => void openEvents(r.id)} aria-expanded={openId === r.id}>
@@ -259,7 +319,10 @@ export default function HrPage() {
                   {can("hr:manage") && (
                     <div className="mt-3 grid gap-2 sm:grid-cols-[auto_1fr_auto_auto]">
                       <select className="input w-auto" value={eventForm.kind} onChange={(e) => setEventForm({ ...eventForm, kind: e.target.value })}>
-                        <option value="leave">{locale === "ar" ? "إجازة" : "Leave"}</option>
+                        <option value="annual_leave">{locale === "ar" ? "إجازة سنوية" : "Annual leave"}</option>
+                        <option value="sick_leave">{locale === "ar" ? "إجازة مرضية" : "Sick leave"}</option>
+                        <option value="warning">{locale === "ar" ? "إنذار" : "Warning"}</option>
+                        <option value="custody">{locale === "ar" ? "عهدة" : "Custody"}</option>
                         <option value="movement">{locale === "ar" ? "حركة" : "Movement"}</option>
                         <option value="promotion">{locale === "ar" ? "ترقية" : "Promotion"}</option>
                       </select>

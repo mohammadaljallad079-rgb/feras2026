@@ -140,6 +140,10 @@ table,
   .btn-gold {
     @apply btn bg-gold text-goldink hover:opacity-90;
   }
+  /* Destructive confirmation (closing a company). */
+  .btn-bad {
+    @apply btn bg-bad text-white hover:opacity-90 disabled:opacity-50;
+  }
   .input {
     @apply w-full rounded-control border border-line bg-card px-3 py-2 text-base text-ink;
   }

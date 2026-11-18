@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ResourceTable, Column } from "@/components/ResourceTable";
 import { StatusChip } from "@/components/StatusChip";
@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 export default function ReportsPage() {
   const { locale, can } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [periods, setPeriods] = useState<ReportingPeriod[]>([]);
   const [companyId, setCompanyId] = useState("");
@@ -18,9 +19,17 @@ export default function ReportsPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
+    // §7.1: the reports screen works on the subsidiaries and on the Holding's
+    // own report, so the Holding record is included in the picker.
+    api.get<Company[]>("/api/v1/companies?include_holding=true").then(setCompanies).catch(() => undefined);
     api.get<ReportingPeriod[]>("/api/v1/periods").then(setPeriods).catch(() => undefined);
   }, []);
+
+  // Table 4: a closed company's «التقارير المؤرشفة» link arrives as ?company=<id>.
+  useEffect(() => {
+    const preset = searchParams.get("company");
+    if (preset) setCompanyId(preset);
+  }, [searchParams]);
 
   async function createReport() {
     if (!companyId || !periodId) return;
@@ -120,7 +129,7 @@ export default function ReportsPage() {
       <ResourceTable<MonthlyReport>
         titleAr="التقارير الشهرية"
         titleEn="Monthly reports"
-        endpoint="/api/v1/reports"
+        endpoint={`/api/v1/reports${companyId ? `?company_id=${companyId}` : ""}`}
         columns={columns}
         permission="report:view_own"
         actions={(row) => (

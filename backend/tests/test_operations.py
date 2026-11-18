@@ -122,7 +122,7 @@ def test_service_request_thread_and_recipient_scoping(client, make_user, login):
     created = client.post(
         "/api/v1/service-requests",
         headers=h_owner,
-        json={"subject": "تصميم هوية", "body": "تفاصيل", "company_id": cid, "recipient_id": designer.id, "priority": "high"},
+        json={"subject": "تصميم هوية", "body": "تفاصيل", "service_type": "design", "company_id": cid, "recipient_id": designer.id, "priority": "urgent"},
     )
     assert created.status_code == 201, created.text
     rid = created.json()["id"]
@@ -154,6 +154,101 @@ def test_lead_requires_registered_company(client, make_user, login):
     assert bad.status_code == 422
     ok = client.post("/api/v1/leads", headers=h_bd, json={"name": "عميل", "company_id": cid, "source": "referral"})
     assert ok.status_code == 201, ok.text
+
+
+def test_lead_is_transferred_to_the_receiving_companys_manager(client, make_user, login):
+    """Table 6, «حفظ وتحويل»: the lead «يُحوَّل لمدير الشركة المستلمة».
+
+    The conversion must land the lead on the receiving company's manager, which
+    is what the manager dashboard's «عملاء محولون» card counts. The lead was
+    created without an assignee, so the card always read zero.
+    """
+    make_user("lt_owner@safir-platform.com", ["owner"])
+    manager = make_user("lt_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("lt_owner@safir-platform.com")
+    cid = _company(client, h_owner, "LEADT-1")
+    client.patch(f"/api/v1/companies/{cid}", headers=h_owner, json={"manager_user_id": manager.id})
+
+    created = client.post(
+        "/api/v1/leads",
+        headers=h_owner,
+        json={"name": "عميل", "company_id": cid, "requested_service": "تسويق"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["assigned_to_id"] == manager.id
+
+    # The receiving manager's dashboard counts it under «عملاء محولون».
+    h_manager = login("lt_manager@safir-platform.com")
+    cards = {c["key"]: c["value"] for c in client.get("/api/v1/dashboard", headers=h_manager).json()["cards"]}
+    assert cards["leads"] == 1
+
+    # An explicit assignee still wins over the company default.
+    other = make_user("lt_other@safir-platform.com", ["business_developer"])
+    explicit = client.post(
+        "/api/v1/leads",
+        headers=h_owner,
+        json={"name": "عميل 2", "company_id": cid, "assigned_to_id": other.id, "source": "manual"},
+    )
+    assert explicit.status_code == 201, explicit.text
+    assert explicit.json()["assigned_to_id"] == other.id
+
+
+def test_assistant_referral_becomes_a_task_on_the_developers_dashboard(client, make_user, login):
+    """Table 6: «أُحيل الطلب إلى مطوّر الأعمال … وتظهر مهمة له في لوحته».
+
+    The referral creates a directive for the business developer, so the
+    «مهام من المساعد» card must count those tasks. It counted the developer's own
+    assistant queries instead, which the referral never creates — the card read
+    zero after a referral.
+    """
+    make_user("ref_owner@safir-platform.com", ["owner"])
+    make_user("ref_bd@safir-platform.com", ["business_developer"])
+    h_owner = login("ref_owner@safir-platform.com")
+    h_bd = login("ref_bd@safir-platform.com")
+
+    before = {c["key"]: c["value"] for c in client.get("/api/v1/dashboard", headers=h_bd).json()["cards"]}
+    assert before["assistant"] == 0
+
+    referred = client.post("/api/v1/ai/refer", headers=h_owner, json={})
+    assert referred.status_code == 200, referred.text
+
+    after = {c["key"]: c["value"] for c in client.get("/api/v1/dashboard", headers=h_bd).json()["cards"]}
+    assert after["assistant"] == 1
+
+    # The task is also a directive the developer received, so it is actionable.
+    directives = client.get("/api/v1/directives", headers=h_bd).json()
+    assert any(d["id"] == referred.json()["directive_id"] for d in directives)
+
+
+def test_lead_keeps_its_contact_method(client, make_user, login):
+    """Table 6, «عميل محتمل جديد»: «وسيلة التواصل» is stored apart from the value."""
+    make_user("cm_owner@safir-platform.com", ["owner"])
+    bd = make_user("cm_bd@safir-platform.com", ["business_developer"])
+    h_owner = login("cm_owner@safir-platform.com")
+    h_bd = login("cm_bd@safir-platform.com")
+    cid = _company(client, h_owner, "CM-1")
+    client.patch(f"/api/v1/users/{bd.id}", headers=h_owner, json={"company_ids": [cid]})
+
+    created = client.post(
+        "/api/v1/leads",
+        headers=h_bd,
+        json={"name": "عميل", "company_id": cid, "contact_method": "whatsapp", "contact_phone": "39000000"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["contact_method"] == "whatsapp"
+
+    listed = client.get("/api/v1/leads", headers=h_bd).json()
+    assert listed[0]["contact_method"] == "whatsapp"
+
+    # «تحديث»: status and note are written into the lead's own record.
+    updated = client.patch(
+        f"/api/v1/leads/{created.json()['id']}",
+        headers=h_bd,
+        json={"status": "contacted", "notes": "تم التواصل هاتفياً"},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["status"] == "contacted"
+    assert updated.json()["notes"] == "تم التواصل هاتفياً"
 
 
 def test_public_submission_rate_limit_and_conversion(client, make_user, login, db):
@@ -266,18 +361,38 @@ def test_dashboards_differ_per_role(client, make_user, login):
 
 
 def test_accountant_dashboard_actions_deep_link_to_each_entry_kind(client, make_user, login):
-    """PDF p.24: the three buttons must open the accounting screen on the right tab.
+    """PDF p.24 / §5.3: the four buttons must open the right screen.
 
-    The accounting page reads `?kind=`, so a link without it lands on the default
-    tab and the button silently does the wrong thing.
+    «مراجعة تقرير» opens the reports; the three accounting buttons open the
+    accounting screen on the right tab. The accounting page reads `?kind=`, so a
+    link without it lands on the default tab and the button silently does the
+    wrong thing.
     """
     make_user("dash_acct@safir-platform.com", ["accountant"])
     dash = client.get("/api/v1/dashboard", headers=login("dash_acct@safir-platform.com")).json()
     assert dash["role"] == "accountant"
     hrefs = {a["label_en"]: a["href"] for a in dash["actions"]}
-    assert hrefs["Expense"] == "/accounting?kind=expense"
-    assert hrefs["Invoice"] == "/accounting?kind=invoice"
-    assert hrefs["Commission"] == "/accounting?kind=commission"
+    assert hrefs["Review a report"] == "/reports"
+    assert hrefs["New expense"] == "/accounting?kind=expense"
+    assert hrefs["New income / invoice"] == "/accounting?kind=invoice"
+    assert hrefs["New commission"] == "/accounting?kind=commission"
+
+
+def test_advisor_dashboard_actions_are_the_three_message_categories(client, make_user, login):
+    """§5.7 / Table 5: the advisor has three actions, each to its own category.
+
+    A recommendation and a suggestion go to the Business Developer; a report
+    goes to the Owner or the Business Developer. The advisor has no approval or
+    execution permission, so the three buttons only open the compose form with
+    the chosen category pre-selected.
+    """
+    make_user("dash_adv@safir-platform.com", ["advisor"])
+    dash = client.get("/api/v1/dashboard", headers=login("dash_adv@safir-platform.com")).json()
+    assert dash["role"] == "advisor"
+    hrefs = {a["label_en"]: a["href"] for a in dash["actions"]}
+    assert hrefs["Add a recommendation"] == "/advisor?category=recommendation"
+    assert hrefs["Report"] == "/advisor?category=report"
+    assert hrefs["Suggestion"] == "/advisor?category=suggestion"
 
 
 def test_accounting_export_covers_exactly_the_visible_entries(client, make_user, login):
@@ -363,6 +478,43 @@ def test_company_logo_must_be_an_uploaded_image_of_that_company(client, make_use
     # A missing file id is a 404 rather than a silently accepted dangling pointer.
     missing = client.patch(f"/api/v1/companies/{first}", headers=h_owner, json={"logo_file_id": 999999})
     assert missing.status_code == 404
+
+
+def test_manager_deadline_reminder_alert_is_toned_by_urgency(client, make_user, login, db):
+    """§2 and §7.5: the deadline reminder is an alert, not plain text.
+
+    The banner names the period, the company and the days left; the §2 colour
+    rules make it amber while the deadline approaches and red once it is late,
+    so the reminder reads as the alert the brief describes.
+    """
+    from datetime import date, timedelta
+
+    from app.models.business import ReportingPeriod
+
+    make_user("rem_owner@safir-platform.com", ["owner"])
+    manager = make_user("rem_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("rem_owner@safir-platform.com")
+    h_manager = login("rem_manager@safir-platform.com")
+    cid = _company(client, h_owner, "REM-1")
+    client.patch(f"/api/v1/companies/{cid}", headers=h_owner, json={"status": "active", "manager_user_id": manager.id})
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+
+    period = ReportingPeriod(
+        label_ar="2026-10", label_en="2026-10", year=2026, month=10,
+        opens_on=date.today() - timedelta(days=10), due_on=date.today() + timedelta(days=2),
+    )
+    db.add(period)
+    db.commit()
+
+    approaching = client.get("/api/v1/dashboard", headers=h_manager).json()
+    assert approaching["banner_tone"] == "warn"
+    assert "يستحق بعد" in approaching["banner_ar"]
+
+    period.due_on = date.today() - timedelta(days=1)
+    db.commit()
+    late = client.get("/api/v1/dashboard", headers=h_manager).json()
+    assert late["banner_tone"] == "bad"
+    assert "متأخر" in late["banner_ar"]
 
 
 def test_company_manager_and_activation_information_are_settable(client, make_user, login):
@@ -489,7 +641,7 @@ def test_confidential_hr_attachment_is_restricted_to_the_manager(client, make_us
     event = client.post(
         f"/api/v1/employees/{emp.json()['id']}/events",
         headers=h_manager,
-        json={"kind": "leave", "detail": "إجازة سنوية", "attachment_file_id": file_id},
+        json={"kind": "annual_leave", "detail": "إجازة سنوية", "attachment_file_id": file_id},
     )
     assert event.status_code == 201, event.text
     assert event.json()["attachment_file_id"] == file_id
@@ -533,3 +685,182 @@ def test_every_ai_source_link_points_at_a_real_screen():
         else:
             target = "/".join(segments)
         assert target in routes, f"{template!r} has no screen: no route {target!r} in {sorted(routes)}"
+
+
+# --- Business notifications (Word Tables 5, 6, 10; §8, §12) -----------------
+class _Mailbox:
+    """Captures the messages a workflow event would send, without a transport."""
+
+    def __init__(self) -> None:
+        self.messages: list[tuple[str, str, str]] = []
+
+    def __call__(self, to_email: str, content) -> bool:
+        self.messages.append((to_email, content.subject, content.body))
+        return True
+
+    def recipients(self) -> list[str]:
+        return [m[0] for m in self.messages]
+
+
+def _capture(monkeypatch) -> _Mailbox:
+    from app.services import mail
+
+    box = _Mailbox()
+    monkeypatch.setattr(mail, "send", box)
+    return box
+
+
+def test_service_request_routing_emails_the_specialist(client, make_user, login, monkeypatch):
+    """Table 5: «الطلب يوجَّه للمختص حسب نوع الخدمة، ويصله بريد»."""
+    box = _capture(monkeypatch)
+    make_user("sr_owner@safir-platform.com", ["owner"])
+    make_user("sr_specialist@safir-platform.com", ["service_specialist"])
+    h_owner = login("sr_owner@safir-platform.com")
+    cid = _company(client, h_owner, "SR-NOTIFY")
+
+    resp = client.post(
+        "/api/v1/service-requests",
+        headers=h_owner,
+        json={"subject": "طلب تصميم", "body": "احتياج", "service_type": "design", "company_id": cid, "priority": "normal"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert "sr_specialist@safir-platform.com" in box.recipients()
+    # The notification names the request and carries no financial figure.
+    body = next(m[2] for m in box.messages if m[0] == "sr_specialist@safir-platform.com")
+    assert "طلب تصميم" in body
+    assert not re.search(r"[$€£]|\bSAR\b|\bBHD\b|\d+\.\d{2}\b", body)
+
+
+def test_complaint_reaches_only_the_owner_by_email(client, make_user, login, monkeypatch):
+    """Table 5: «ترسل للمالك وحده» — exactly one recipient, no copy."""
+    box = _capture(monkeypatch)
+    make_user("cmp_owner@safir-platform.com", ["owner"])
+    marketer = make_user("cmp_marketer@safir-platform.com", ["marketer"])
+    h_owner = login("cmp_owner@safir-platform.com")
+    h_marketer = login("cmp_marketer@safir-platform.com")
+    cid = _company(client, h_owner, "CMP-1")
+    client.patch(f"/api/v1/users/{marketer.id}", headers=h_owner, json={"company_ids": [cid]})
+
+    resp = client.post("/api/v1/service-requests/complaint", headers=h_marketer, json={"body": "شكوى", "company_id": cid})
+    assert resp.status_code == 201, resp.text
+    assert box.recipients() == ["cmp_owner@safir-platform.com"]
+
+
+def test_directive_notifies_its_single_recipient(client, make_user, login, monkeypatch):
+    """Table 5/§11: «لمستلم واحد فقط دون نسخة لغيره»."""
+    box = _capture(monkeypatch)
+    make_user("dir_owner@safir-platform.com", ["owner"])
+    recipient = make_user("dir_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("dir_owner@safir-platform.com")
+
+    resp = client.post(
+        "/api/v1/directives",
+        headers=h_owner,
+        json={"title": "توجيه", "body": "النص", "recipient_id": recipient.id, "follow_up_on": "2026-01-01"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert box.recipients() == ["dir_manager@safir-platform.com"]
+
+
+def test_assistant_referral_emails_the_business_developer(client, make_user, login, monkeypatch):
+    """Table 5/10: «أُحيل الطلب إلى مطوّر الأعمال … يصله بريد وتظهر مهمة له»."""
+    box = _capture(monkeypatch)
+    make_user("ai_owner@safir-platform.com", ["owner"])
+    make_user("ai_bd@safir-platform.com", ["business_developer"])
+    h_owner = login("ai_owner@safir-platform.com")
+
+    resp = client.post(
+        "/api/v1/ai/refer",
+        headers=h_owner,
+        json={"title": "خطة", "body": "تفاصيل"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert box.recipients() == ["ai_bd@safir-platform.com"]
+
+
+def test_conversion_emails_the_company_manager_and_specialist(client, make_user, login, monkeypatch, db):
+    """Table 6/10: «يُنشأ طلب خدمة … مع نسخة بريد لمدير الشركة والمختص»."""
+    box = _capture(monkeypatch)
+    make_user("cv_owner@safir-platform.com", ["owner"])
+    manager = make_user("cv_manager@safir-platform.com", ["company_manager"])
+    make_user("cv_specialist@safir-platform.com", ["service_specialist"])
+    h_owner = login("cv_owner@safir-platform.com")
+    cid = _company(client, h_owner, "CV-1")
+    client.patch(f"/api/v1/companies/{cid}", headers=h_owner, json={"manager_user_id": manager.id})
+
+    from app.models.enums import SubmissionKind
+    from app.models.operations import WebsiteSubmission
+
+    sub = WebsiteSubmission(
+        kind=SubmissionKind.SERVICE_REQUEST.value,
+        name="زائر",
+        email="visitor@example.com",
+        phone="123",
+        service_type="الاستشارات",
+        message="طلب",
+        company_id=cid,
+        status="new",
+    )
+    db.add(sub)
+    db.commit()
+
+    resp = client.post(
+        f"/api/v1/website/submissions/{sub.id}/convert",
+        headers=h_owner,
+        json={"target": "service_request", "company_id": cid, "service_type": "accounting"},
+    )
+    assert resp.status_code == 200, resp.text
+    recipients = set(box.recipients())
+    assert "cv_manager@safir-platform.com" in recipients
+    assert "cv_specialist@safir-platform.com" in recipients
+
+
+def test_report_reminders_fire_on_the_three_offsets_and_stop_once_sent(db, make_user):
+    """§7.5/§12: three days before, on the due date, then daily when late; the
+    reminder stops for a company that has already sent its report."""
+    from datetime import date, timedelta
+
+    from app.models.business import Company, MonthlyReport, ReportingPeriod
+    from app.models.enums import PeriodStatus
+    from app.services import mail, reminders
+
+    manager = make_user("rem_manager@safir-platform.com", ["company_manager"])
+    company = Company(
+        code="REM-1", name_ar="شركة تذكير", name_en="Reminder Co",
+        country="SA", sector="تقنية", manager_user_id=manager.id, status="active",
+    )
+    db.add(company)
+    db.flush()
+    period = ReportingPeriod(
+        label_ar="2026-10", label_en="2026-10", year=2026, month=10,
+        opens_on=date(2026, 10, 1), due_on=date(2026, 11, 5), status=PeriodStatus.OPEN.value,
+    )
+    db.add(period)
+    db.commit()
+
+    sent: list[tuple[str, str]] = []
+
+    def capture(to_email, content):
+        sent.append((to_email, content.subject))
+        return True
+
+    original = mail.send
+    mail.send = capture
+    try:
+        # 2026-11-02 is three days before the due date → one reminder.
+        assert reminders.send_report_reminders(db, date(2026, 11, 2)) == 1
+        # 2026-11-03 is two days before → no reminder.
+        assert reminders.send_report_reminders(db, date(2026, 11, 3)) == 0
+        # The due date itself → a reminder.
+        assert reminders.send_report_reminders(db, date(2026, 11, 5)) == 1
+        # Late → daily reminders continue.
+        assert reminders.send_report_reminders(db, date(2026, 11, 6)) == 1
+
+        # Once the company sends its report the reminder stops.
+        db.add(MonthlyReport(company_id=company.id, period_id=period.id, status="submitted", currency="SAR"))
+        db.commit()
+        assert reminders.send_report_reminders(db, date(2026, 11, 7)) == 0
+    finally:
+        mail.send = original
+
+    assert all(to == "rem_manager@safir-platform.com" for to, _ in sent)

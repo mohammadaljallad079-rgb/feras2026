@@ -1,57 +1,112 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-
 type Draft = Partial<Company> & { [key: string]: unknown };
 
+// §6.2: the wizard is three steps in one window. Step 3 ends with the review
+// summary and the save buttons.
 const STEPS = [
   { ar: "البيانات الأساسية", en: "Basic data" },
-  { ar: "بيانات التواصل", en: "Contact details" },
-  { ar: "الملكية والعملة", en: "Ownership and currency" },
-  { ar: "المراجعة", en: "Review" },
+  { ar: "التواصل والإدارة", en: "Contact and management" },
+  { ar: "العلاقة بالقابضة", en: "Relationship with the holding" },
 ];
+
+// §6.2: the country, currency and sector choices named in the brief.
+const COUNTRIES = [
+  { value: "البحرين", ar: "البحرين", en: "Bahrain" },
+  { value: "السعودية", ar: "السعودية", en: "Saudi Arabia" },
+  { value: "الإمارات", ar: "الإمارات", en: "United Arab Emirates" },
+  { value: "الكويت", ar: "الكويت", en: "Kuwait" },
+  { value: "قطر", ar: "قطر", en: "Qatar" },
+  { value: "عُمان", ar: "عُمان", en: "Oman" },
+  { value: "الأردن", ar: "الأردن", en: "Jordan" },
+];
+const CURRENCIES = ["BHD", "SAR", "AED", "KWD", "QAR", "OMR", "JOD"];
+const SECTORS = [
+  { value: "تقنية", ar: "تقنية", en: "Technology" },
+  { value: "صناعي", ar: "صناعي", en: "Industrial" },
+  { value: "تجاري", ar: "تجاري", en: "Commercial" },
+  { value: "خدمي", ar: "خدمي", en: "Services" },
+];
+// §6.2: the relationship is either full ownership by the holding, or management
+// only with no ownership (0%).
+const RELATIONSHIPS = [
+  { value: "ownership", ar: "ملكية للقابضة", en: "Owned by the holding" },
+  { value: "management", ar: "إدارة فقط دون ملكية", en: "Management only, no ownership" },
+];
+
+type Person = { id: number; full_name_ar: string; full_name_en: string };
 
 export default function NewCompanyPage() {
   const { locale } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft>({ currency: "SAR", ownership_percent: "100", status: "draft" });
+  const [draft, setDraft] = useState<Draft>({
+    currency: "BHD",
+    ownership_percent: "100",
+    relationship: "ownership",
+  });
+  const [managers, setManagers] = useState<Person[]>([]);
   const [savedId, setSavedId] = useState<number | null>(null);
+  // §6.2 step 2: the company logo is an uploaded image. It is sent after the
+  // company row exists, because the file must be tied to a company id.
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    // §6.2: the company manager is chosen from registered users holding the
+    // company-manager role.
+    api.get<Person[]>("/api/v1/users/directory?role=company_manager").then(setManagers).catch(() => undefined);
+  }, []);
 
   function set<K extends string>(key: K, value: unknown) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
-  async function saveDraft(): Promise<number | null> {
+  function payload(status: "draft" | "active") {
+    const ownership = draft.relationship === "management" ? "0" : draft.ownership_percent ?? "100";
+    return {
+      code: draft.code,
+      name_ar: draft.name_ar,
+      name_en: draft.name_en,
+      country: draft.country,
+      sector: draft.sector,
+      contact_email: draft.contact_email || null,
+      contact_phone: draft.contact_phone || null,
+      manager_user_id: draft.manager_user_id ? Number(draft.manager_user_id) : null,
+      ownership_percent: ownership,
+      currency: draft.currency ?? "BHD",
+      status,
+      commercial_register_no: draft.commercial_register_no || null,
+    };
+  }
+
+  async function persist(status: "draft" | "active"): Promise<number | null> {
     setBusy(true);
     setError(null);
     try {
-      const payload = {
-        code: draft.code,
-        name_ar: draft.name_ar,
-        name_en: draft.name_en,
-        country: draft.country,
-        sector: draft.sector,
-        contact_email: draft.contact_email ?? null,
-        contact_phone: draft.contact_phone ?? null,
-        ownership_percent: draft.ownership_percent ?? "100",
-        currency: draft.currency ?? "SAR",
-        status: "draft",
-        commercial_register_no: draft.commercial_register_no || null,
-      };
+      const body = payload(status);
       const saved = savedId
-        ? await api.patch<Company>(`/api/v1/companies/${savedId}`, payload)
-        : await api.post<Company>("/api/v1/companies", payload);
+        ? await api.patch<Company>(`/api/v1/companies/${savedId}`, body)
+        : await api.post<Company>("/api/v1/companies", body);
       setSavedId(saved.id);
+      // §6.2: the logo upload needs the company id, so it is attached once the
+      // row exists — on the first save and again when the file changes.
+      if (logoFile) {
+        const form = new FormData();
+        form.append("file", logoFile);
+        form.append("company_id", String(saved.id));
+        const stored = await api.upload<{ id: number }>("/api/v1/files", form);
+        await api.patch(`/api/v1/companies/${saved.id}`, { logo_file_id: stored.id });
+      }
       return saved.id;
     } catch (e) {
-      const err = e as { status: number; detail: unknown };
+      const err = e as { status: number };
       setError(
         err.status === 403
           ? locale === "ar"
@@ -67,125 +122,187 @@ export default function NewCompanyPage() {
     }
   }
 
-  async function finish() {
-    const id = await saveDraft();
+  // §6.2: «حفظ مسودة» keeps the company a draft; a draft does not appear in the
+  // lists or the reports until it is activated. «حفظ وتفعيل» creates it active.
+  async function saveDraft() {
+    const id = await persist("draft");
     if (id) router.push(`/platform/companies/${id}`);
   }
 
+  async function saveAndActivate() {
+    const id = await persist("active");
+    if (id) router.push(`/platform/companies/${id}`);
+  }
+
+  const reviewRows: [string, string, unknown][] = [
+    ["code", locale === "ar" ? "رمز الشركة" : "Company code", draft.code],
+    ["name_ar", locale === "ar" ? "الاسم بالعربية" : "Arabic name", draft.name_ar],
+    ["name_en", locale === "ar" ? "الاسم بالإنجليزية" : "English name", draft.name_en],
+    ["country", locale === "ar" ? "الدولة" : "Country", draft.country],
+    ["sector", locale === "ar" ? "القطاع" : "Sector", draft.sector],
+    ["commercial_register_no", locale === "ar" ? "رقم السجل التجاري" : "Commercial register number", draft.commercial_register_no],
+    ["currency", locale === "ar" ? "العملة المحلية" : "Local currency", draft.currency],
+    ["contact_email", locale === "ar" ? "بريد الشركة" : "Company email", draft.contact_email],
+    ["contact_phone", locale === "ar" ? "رقم التواصل" : "Contact number", draft.contact_phone],
+    [
+      "manager_user_id",
+      locale === "ar" ? "مدير الشركة" : "Company manager",
+      managers.find((m) => m.id === Number(draft.manager_user_id))?.[locale === "ar" ? "full_name_ar" : "full_name_en"],
+    ],
+    [
+      "relationship",
+      locale === "ar" ? "العلاقة بالقابضة" : "Relationship with the holding",
+      RELATIONSHIPS.find((r) => r.value === draft.relationship)?.[locale === "ar" ? "ar" : "en"],
+    ],
+    ["ownership_percent", locale === "ar" ? "نسبة الملكية %" : "Ownership percentage %", draft.relationship === "management" ? "0" : draft.ownership_percent],
+  ];
+
   return (
     <section className="mx-auto max-w-3xl">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="page-title">{locale === "ar" ? "إضافة شركة تابعة" : "Add subsidiary company"}</h1>
-        <span className="chip-neutral tabular-nums" dir="ltr">
-          {step + 1}/{STEPS.length}
-        </span>
-      </header>
-      <ol className="mb-6 flex flex-wrap gap-3">
-        {STEPS.map((s, i) => (
-          <li
-            key={s.en}
-            className={`chip ${i === step ? "chip-ok" : "chip-neutral"}`}
-            aria-current={i === step ? "step" : undefined}
-          >
-            {i + 1}. {locale === "ar" ? s.ar : s.en}
-          </li>
-        ))}
-      </ol>
-
-      {error && (
-        <p role="alert" className="mb-4 rounded-control border border-bad bg-badbg p-3 text-bad">
-          {error}
-        </p>
-      )}
-
-      <div className="card space-y-4">
-        {step === 0 && (
-          <>
-            <div>
-              <label className="label" htmlFor="code">{locale === "ar" ? "رمز الشركة" : "Company code"}</label>
-              <input id="code" className="input" dir="ltr" value={String(draft.code ?? "")} onChange={(e) => set("code", e.target.value)} />
-            </div>
-            <div>
-              <label className="label" htmlFor="name_ar">{locale === "ar" ? "اسم الشركة بالعربية *" : "Company name in Arabic *"}</label>
-              <input id="name_ar" className="input" dir="rtl" required value={String(draft.name_ar ?? "")} onChange={(e) => set("name_ar", e.target.value)} />
-            </div>
-            <div>
-              <label className="label" htmlFor="name_en">{locale === "ar" ? "اسم الشركة بالإنجليزية *" : "Company name in English *"}</label>
-              <input id="name_en" className="input" dir="ltr" required value={String(draft.name_en ?? "")} onChange={(e) => set("name_en", e.target.value)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label" htmlFor="country">{locale === "ar" ? "الدولة" : "Country"}</label>
-                <input id="country" className="input" value={String(draft.country ?? "")} onChange={(e) => set("country", e.target.value)} />
-              </div>
-              <div>
-                <label className="label" htmlFor="sector">{locale === "ar" ? "القطاع" : "Sector"}</label>
-                <input id="sector" className="input" value={String(draft.sector ?? "")} onChange={(e) => set("sector", e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="crn">
-                {locale === "ar" ? "رقم السجل التجاري (اختياري)" : "Commercial register number (optional)"}
-              </label>
-              <input id="crn" className="input" dir="ltr" value={String(draft.commercial_register_no ?? "")} onChange={(e) => set("commercial_register_no", e.target.value)} />
-            </div>
-          </>
-        )}
-
-        {step === 1 && (
-          <>
-            <div>
-              <label className="label" htmlFor="contact_email">{locale === "ar" ? "البريد الإلكتروني" : "Contact email"}</label>
-              <input id="contact_email" type="email" className="input" dir="ltr" value={String(draft.contact_email ?? "")} onChange={(e) => set("contact_email", e.target.value)} />
-            </div>
-            <div>
-              <label className="label" htmlFor="contact_phone">{locale === "ar" ? "الهاتف" : "Contact phone"}</label>
-              <input id="contact_phone" className="input" dir="ltr" value={String(draft.contact_phone ?? "")} onChange={(e) => set("contact_phone", e.target.value)} />
-            </div>
-          </>
-        )}
-
-        {step === 2 && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="ownership">{locale === "ar" ? "نسبة الملكية" : "Ownership percentage"}</label>
-              <input id="ownership" className="input" dir="ltr" value={String(draft.ownership_percent ?? "")} onChange={(e) => set("ownership_percent", e.target.value)} />
-            </div>
-            <div>
-              <label className="label" htmlFor="currency">{locale === "ar" ? "العملة" : "Currency"}</label>
-              <input id="currency" className="input" dir="ltr" value={String(draft.currency ?? "")} onChange={(e) => set("currency", e.target.value)} />
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <dl className="grid gap-3 sm:grid-cols-2">
-            {(
-              [
-                ["code", locale === "ar" ? "رمز الشركة" : "Company code"],
-                ["name_ar", locale === "ar" ? "الاسم بالعربية" : "Arabic name"],
-                ["name_en", locale === "ar" ? "الاسم بالإنجليزية" : "English name"],
-                ["country", locale === "ar" ? "الدولة" : "Country"],
-                ["sector", locale === "ar" ? "القطاع" : "Sector"],
-                ["commercial_register_no", locale === "ar" ? "رقم السجل التجاري" : "Commercial register number"],
-                ["contact_email", locale === "ar" ? "البريد الإلكتروني" : "Contact email"],
-                ["ownership_percent", locale === "ar" ? "نسبة الملكية" : "Ownership percentage"],
-                ["currency", locale === "ar" ? "العملة" : "Currency"],
-              ] as const
-            ).map(([k, label]) => (
-              <div key={k}>
-                <dt className="muted">{label}</dt>
-                <dd dir="ltr">{String(draft[k] ?? "—")}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
-          <button type="button" className="btn-ghost" onClick={() => void saveDraft()} disabled={busy}>
-            {locale === "ar" ? "حفظ كمسودة" : "Save draft"}
+      <div className="card">
+        <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h1 className="page-title">
+            {locale === "ar" ? `إضافة شركة تابعة · ${step + 1}/${STEPS.length}` : `Add subsidiary company · ${step + 1}/${STEPS.length}`}
+          </h1>
+          <button type="button" className="btn-ghost" onClick={() => router.push("/platform/companies")}>
+            {locale === "ar" ? "إلغاء" : "Cancel"}
           </button>
-          <div className="flex gap-2">
+        </header>
+        <ol className="mb-6 flex flex-wrap gap-3">
+          {STEPS.map((s, i) => (
+            <li key={s.en} className={`chip ${i === step ? "chip-ok" : "chip-neutral"}`} aria-current={i === step ? "step" : undefined}>
+              {i + 1}. {locale === "ar" ? s.ar : s.en}
+            </li>
+          ))}
+        </ol>
+
+        {error && (
+          <p role="alert" className="mb-4 rounded-control border border-bad bg-badbg p-3 text-bad">
+            {error}
+          </p>
+        )}
+
+        <div className="space-y-4">
+          {step === 0 && (
+            <>
+              <div>
+                <label className="label" htmlFor="code">{locale === "ar" ? "رمز الشركة" : "Company code"}</label>
+                <input id="code" className="input" dir="ltr" value={String(draft.code ?? "")} onChange={(e) => set("code", e.target.value)} />
+              </div>
+              <div>
+                <label className="label" htmlFor="name_ar">{locale === "ar" ? "الاسم بالعربية" : "Company name in Arabic"}<span aria-hidden="true"> *</span></label>
+                <input id="name_ar" className="input" dir="rtl" required value={String(draft.name_ar ?? "")} onChange={(e) => set("name_ar", e.target.value)} />
+              </div>
+              <div>
+                <label className="label" htmlFor="name_en">{locale === "ar" ? "الاسم بالإنجليزية" : "Company name in English"}<span aria-hidden="true"> *</span></label>
+                <input id="name_en" className="input" dir="ltr" required value={String(draft.name_en ?? "")} onChange={(e) => set("name_en", e.target.value)} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="country">{locale === "ar" ? "الدولة" : "Country"}</label>
+                  <select id="country" className="input" value={String(draft.country ?? "")} onChange={(e) => set("country", e.target.value)}>
+                    <option value="">—</option>
+                    {COUNTRIES.map((c) => (<option key={c.value} value={c.value}>{locale === "ar" ? c.ar : c.en}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="sector">{locale === "ar" ? "القطاع" : "Sector"}</label>
+                  <select id="sector" className="input" value={String(draft.sector ?? "")} onChange={(e) => set("sector", e.target.value)}>
+                    <option value="">—</option>
+                    {SECTORS.map((s) => (<option key={s.value} value={s.value}>{locale === "ar" ? s.ar : s.en}</option>))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="label" htmlFor="crn">{locale === "ar" ? "رقم السجل التجاري (اختياري)" : "Commercial register number (optional)"}</label>
+                <input id="crn" className="input" dir="ltr" value={String(draft.commercial_register_no ?? "")} onChange={(e) => set("commercial_register_no", e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {step === 1 && (
+            <>
+              <div>
+                <label className="label" htmlFor="currency">{locale === "ar" ? "العملة المحلية" : "Local currency"}</label>
+                <select id="currency" className="input" value={String(draft.currency ?? "BHD")} onChange={(e) => set("currency", e.target.value)}>
+                  {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="contact_email">{locale === "ar" ? "بريد الشركة" : "Company email"}</label>
+                <input id="contact_email" type="email" className="input" dir="ltr" value={String(draft.contact_email ?? "")} onChange={(e) => set("contact_email", e.target.value)} />
+              </div>
+              <div>
+                <label className="label" htmlFor="contact_phone">{locale === "ar" ? "رقم التواصل" : "Contact number"}</label>
+                <input id="contact_phone" className="input" dir="ltr" value={String(draft.contact_phone ?? "")} onChange={(e) => set("contact_phone", e.target.value)} />
+              </div>
+              <div>
+                <label className="label" htmlFor="manager">{locale === "ar" ? "مدير الشركة" : "Company manager"}</label>
+                <select id="manager" className="input" value={String(draft.manager_user_id ?? "")} onChange={(e) => set("manager_user_id", e.target.value)}>
+                  <option value="">{locale === "ar" ? "— بلا مدير —" : "— No manager —"}</option>
+                  {managers.map((m) => (<option key={m.id} value={m.id}>{locale === "ar" ? m.full_name_ar : m.full_name_en}</option>))}
+                </select>
+              </div>
+              {/* §6.2 step 2: «شعار الشركة (رفع صورة)». */}
+              <div>
+                <label className="label" htmlFor="logo">{locale === "ar" ? "شعار الشركة (رفع صورة)" : "Company logo (upload an image)"}</label>
+                <input
+                  id="logo"
+                  type="file"
+                  accept="image/*"
+                  className="input"
+                  onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+                />
+                {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
+              </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div>
+                <label className="label" htmlFor="relationship">{locale === "ar" ? "نوع العلاقة" : "Relationship type"}</label>
+                <select id="relationship" className="input" value={String(draft.relationship ?? "ownership")} onChange={(e) => set("relationship", e.target.value)}>
+                  {RELATIONSHIPS.map((r) => (<option key={r.value} value={r.value}>{locale === "ar" ? r.ar : r.en}</option>))}
+                </select>
+              </div>
+              {draft.relationship !== "management" && (
+                <div>
+                  <label className="label" htmlFor="ownership">{locale === "ar" ? "نسبة الملكية %" : "Ownership percentage %"}</label>
+                  <input id="ownership" className="input" dir="ltr" value={String(draft.ownership_percent ?? "")} onChange={(e) => set("ownership_percent", e.target.value)} />
+                </div>
+              )}
+              <p className="muted rounded-control bg-pearl p-3">
+                {locale === "ar"
+                  ? "تُنشأ استمارة التقارير الشهرية من منشئ النماذج. لا توجد أرصدة افتتاحية هنا."
+                  : "The monthly report form is created in the form builder. There are no opening balances here."}
+              </p>
+
+              <div className="border-t border-line pt-4">
+                <h2 className="section-title mb-3">{locale === "ar" ? "مراجعة بيانات الشركة" : "Review the company data"}</h2>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  {reviewRows.map(([k, label, value]) => (
+                    <div key={k}>
+                      <dt className="muted">{label}</dt>
+                      <dd>{value ? String(value) : "—"}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
+          {/* §6.2: «تعديل» appears on the review step and returns to step 1. */}
+          {step === STEPS.length - 1 ? (
+            <button type="button" className="btn-ghost" onClick={() => setStep(0)}>
+              {locale === "ar" ? "تعديل" : "Edit"}
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
               {locale === "ar" ? "السابق" : "Back"}
             </button>
@@ -194,9 +311,14 @@ export default function NewCompanyPage() {
                 {locale === "ar" ? "التالي" : "Next"}
               </button>
             ) : (
-              <button type="button" className="btn-primary" onClick={() => void finish()} disabled={busy}>
-                {locale === "ar" ? "إنشاء الشركة" : "Create company"}
-              </button>
+              <>
+                <button type="button" className="btn-ghost" onClick={() => void saveDraft()} disabled={busy}>
+                  {locale === "ar" ? "حفظ مسودة" : "Save draft"}
+                </button>
+                <button type="button" className="btn-primary" onClick={() => void saveAndActivate()} disabled={busy}>
+                  {locale === "ar" ? "حفظ وتفعيل" : "Save and activate"}
+                </button>
+              </>
             )}
           </div>
         </div>

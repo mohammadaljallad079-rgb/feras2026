@@ -24,6 +24,8 @@ class Role(Base, TimestampMixin):
     slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     name_ar: Mapped[str] = mapped_column(String(128))
     name_en: Mapped[str] = mapped_column(String(128))
+    # Table 5: the custom-role dialog records a description beside the name.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
 
     permissions: Mapped[list["RolePermission"]] = relationship(

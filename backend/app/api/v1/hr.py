@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import allowed_company_ids, assert_company_access, permissions_of, require
 from app.core.db import get_db
 from app.core.permissions import HR_VIEW_SALARY
-from app.models.enums import EmployeeStatus
+from app.models.enums import EmployeeEventKind, EmployeeStatus
 from app.models.identity import User
 from app.models.operations import Employee, EmployeeEvent, StoredFile
 from app.schemas import (
@@ -124,10 +124,17 @@ def add_event(
     if emp is None:
         raise HTTPException(status_code=404, detail="Employee not found")
     assert_company_access(db, actor, emp.company_id)
+    if payload.kind not in {k.value for k in EmployeeEventKind}:
+        raise HTTPException(status_code=422, detail="Unknown record kind")
     if payload.attachment_file_id is not None:
         f = db.get(StoredFile, payload.attachment_file_id)
         if f is None:
             raise HTTPException(status_code=422, detail="Attachment not found")
+        # Table 5: annual and sick leave attachments are withheld from the owner
+        # («مرفق مقيد»), so they are always stored as confidential — the owner
+        # holds no hr:view_confidential grant and the download endpoint refuses.
+        if payload.kind in EmployeeEventKind.leave_kinds():
+            f.is_confidential = True
     event = EmployeeEvent(employee_id=employee_id, **payload.model_dump())
     db.add(event)
     audit.record(db, action="employee.event.create", actor=actor, target_type="employee", target_id=emp.id, company_id=emp.company_id)

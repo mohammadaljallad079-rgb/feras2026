@@ -43,25 +43,38 @@ class AccountingStatus(StrEnum):
 
 
 class RequestPriority(StrEnum):
-    LOW = "low"
+    # Table 5, «طلب خدمة جديد»: the priority choice is «عادية» or «عاجلة».
     NORMAL = "normal"
-    HIGH = "high"
     URGENT = "urgent"
 
 
+class ServiceType(StrEnum):
+    """Table 5, «نوع الخدمة *»: the four service types a request can carry.
+
+    The request is routed to the specialist by this type (§6.4)."""
+
+    ACCOUNTING = "accounting"
+    DESIGN = "design"
+    STUDY = "study"
+    MARKETING = "marketing"
+
+
 class RequestStatus(StrEnum):
+    # Table 5, «رد / تحديث الحالة»: exactly these four states.
     NEW = "new"
     IN_PROGRESS = "in_progress"
-    ANSWERED = "answered"
-    CLOSED = "closed"
+    AWAITING_REPLY = "awaiting_reply"
+    COMPLETED = "completed"
 
 
 class LeadStatus(StrEnum):
+    # The owner's brief (Table 5) names exactly these six lead statuses.
     NEW = "new"
     CONTACTED = "contacted"
+    FOLLOWING_UP = "following_up"
     QUALIFIED = "qualified"
-    WON = "won"
-    LOST = "lost"
+    NOT_SUITABLE = "not_suitable"
+    CLOSED = "closed"
 
 
 class OpportunityStatus(StrEnum):
@@ -84,6 +97,22 @@ class EmployeeStatus(StrEnum):
     ACTIVE = "active"
     ON_LEAVE = "on_leave"
     TERMINATED = "terminated"
+
+
+class EmployeeEventKind(StrEnum):
+    """Table 5: «إضافة إجازة / إنذار / عهدة» — the four record kinds."""
+
+    ANNUAL_LEAVE = "annual_leave"
+    SICK_LEAVE = "sick_leave"
+    WARNING = "warning"
+    CUSTODY = "custody"
+    MOVEMENT = "movement"
+    PROMOTION = "promotion"
+
+    @classmethod
+    def leave_kinds(cls) -> set[str]:
+        """Annual and sick leave carry the attachments the owner may not see."""
+        return {cls.ANNUAL_LEAVE.value, cls.SICK_LEAVE.value}
 
 
 class FieldType(StrEnum):

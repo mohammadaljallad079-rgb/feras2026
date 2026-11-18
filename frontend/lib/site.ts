@@ -80,6 +80,9 @@ export type PublicCompany = {
   sector: string;
   country: string;
   logo_url: string | null;
+  activity_ar: string | null;
+  activity_en: string | null;
+  website_url: string | null;
 };
 
 export type SiteBootstrap = {
@@ -143,6 +146,18 @@ export async function getCompanies(sector?: string): Promise<PublicCompany[]> {
 /** Absolute site origin, used for canonical URLs and structured data. */
 export function siteOrigin(): string {
   return (process.env.SITE_ORIGIN || "https://sup-edu.com").replace(/\/$/, "");
+}
+
+/**
+ * §9: the company logo the API exposes is a backend path. The browser reaches
+ * the backend through the Next.js rewrite (`/api/backend/*`), so map the path
+ * for an `<img src>`; a null logo stays null and the caller shows the initials.
+ */
+export function logoUrl(backendPath: string | null): string | null {
+  if (!backendPath) return null;
+  return backendPath.startsWith("/api/v1/")
+    ? `/api/backend${backendPath}`
+    : backendPath;
 }
 
 export function sectionByKey(site: SiteBootstrap, key: string): SiteSection | undefined {

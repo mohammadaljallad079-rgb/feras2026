@@ -173,8 +173,28 @@ credential. See `.env.example` for the full list. Key settings:
 | `CORS_ORIGINS` | Comma-separated allowed origins |
 | `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL` | AI provider abstraction (default `openai`) |
 | `OPENAI_API_KEY` | Provider key. **Empty ⇒ the assistant reports an unconfigured status and never fabricates an answer.** |
+| `FRONTEND_BASE_URL` | Public frontend URL, used to build the secure links in account emails |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS` | Outbound mail. **`SMTP_HOST` empty ⇒ no mail is sent and the sender reports `False` rather than claiming a delivery.** |
 
 `ENVIRONMENT=production` rejects the development placeholder `SECRET_KEY`.
+
+### Scheduled report reminders (§7.5, §12)
+
+The monthly-report deadline reminders are sent by a cron job rather than by the
+application process, so the schedule survives a restart and needs no in-process
+scheduler. Run it once a day:
+
+```bash
+# crontab -e — 07:00 daily
+0 7 * * *  cd /srv/safir/backend && DATABASE_URL=... .venv/bin/python scripts/send_report_reminders.py
+```
+
+The job is idempotent per day: it only fires on the offsets the brief names
+(three days before the due date, on the due date, then daily once late) and skips
+any company that has already sent its report. It also sends the workflow
+notification emails (routed service request, complaint to the owner, directive,
+assistant referral, converted public request) whenever those events happen — no
+job required.
 
 ## Deployment
 

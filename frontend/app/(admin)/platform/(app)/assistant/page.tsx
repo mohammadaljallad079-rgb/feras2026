@@ -6,12 +6,15 @@ import { useAuth } from "@/lib/auth";
 
 type AiStatus = { provider: string; model: string; configured: boolean; message_ar: string };
 type AiSummary = {
+  title_ar: string;
+  title_en: string;
   period_label_ar: string;
   period_label_en: string;
   scope_ar: string;
   scope_en: string;
   sections: { key: string; title_ar: string; title_en: string; lines_ar: string[]; lines_en: string[] }[];
   sources: { label_ar: string; label_en: string; kind: string; url: string; status: string; currency: string }[];
+  notes: { text_ar: string; text_en: string; url: string }[];
 };
 type AiSettings = {
   provider: string;
@@ -37,6 +40,9 @@ export default function AssistantPage() {
   const [answer, setAnswer] = useState<AiAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [referring, setReferring] = useState(false);
+  const [referMessage, setReferMessage] = useState<string | null>(null);
+  const [keyInfo, setKeyInfo] = useState(false);
 
   const canConfigure = can("ai:configure");
 
@@ -77,6 +83,19 @@ export default function AssistantPage() {
   async function testConnection() {
     setSettingsMessage(null);
     setTestResult(await api.post<TestResult>("/api/v1/ai/settings/test", {}).catch(() => null));
+  }
+
+  async function refer() {
+    setReferring(true);
+    setReferMessage(null);
+    try {
+      await api.post("/api/v1/ai/refer", {});
+      setReferMessage(locale === "ar" ? "أُحيل الطلب إلى مطوّر الأعمال وظهرت مهمة في لوحته." : "Referred to the business developer; a task now appears on their dashboard.");
+    } catch {
+      setReferMessage(locale === "ar" ? "تعذّرت الإحالة." : "The referral failed.");
+    } finally {
+      setReferring(false);
+    }
   }
 
   async function ask(e: React.FormEvent) {
@@ -131,7 +150,7 @@ export default function AssistantPage() {
       {/* PDF page 17: executive summary with period, scope and source records. */}
       {summary && (
         <article className="card mb-4">
-          <h2 className="section-title mb-1">{locale === "ar" ? "ملخص المالك الذكي" : "Owner smart summary"}</h2>
+          <h2 className="section-title mb-1">{locale === "ar" ? summary.title_ar : summary.title_en}</h2>
           <p className="muted mb-3">
             {locale === "ar"
               ? `النطاق: ${summary.scope_ar}`
@@ -149,6 +168,20 @@ export default function AssistantPage() {
               </div>
             ))}
           </div>
+          {/* §5.1/§7.5: an alert carries «فتح السجل» to open the record itself. */}
+          {summary.notes.length > 0 && (
+            <>
+              <h3 className="section-title mb-2 mt-4">{locale === "ar" ? "ملاحظات" : "Notes"}</h3>
+              <ul className="space-y-1">
+                {summary.notes.map((n, i) => (
+                  <li key={i} className="flex flex-wrap items-center gap-2">
+                    <span className="text-warn">{locale === "ar" ? n.text_ar : n.text_en}</span>
+                    <a className="btn-ghost" href={n.url}>{locale === "ar" ? "فتح السجل" : "Open record"}</a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {summary.sources.length > 0 && (
             <>
               <h3 className="section-title mb-2 mt-4">{locale === "ar" ? "السجلات المصدرية" : "Source records"}</h3>
@@ -162,7 +195,40 @@ export default function AssistantPage() {
               </ul>
             </>
           )}
+          {/* Table 5: «هل تريد خطة عمل لهذه النقاط؟» — yes refers to the business
+              developer, who gets a task; the assistant executes nothing itself. */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="muted">{locale === "ar" ? "هل تريد خطة عمل لهذه النقاط؟" : "Do you want an action plan for these points?"}</span>
+            <button type="button" className="btn-gold" disabled={referring} onClick={() => void refer()}>
+              {locale === "ar" ? "نعم، أحلها لمطوّر الأعمال" : "Yes, refer it to the business developer"}
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setKeyInfo((v) => !v)}>
+              {locale === "ar" ? "إعداد المفتاح أو اختباره" : "Set up or test the key"}
+            </button>
+          </div>
+          {referMessage && <p role="status" className="mt-2 text-ok">{referMessage}</p>}
         </article>
+      )}
+
+      {/* Table 6: «إعداد المفتاح أو اختباره» opens an information-only modal.
+          It explains that the key is saved and tested on the real server and no
+          key is pasted in the simulation. The only button is «فهمت». */}
+      {keyInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="card w-full max-w-md space-y-4">
+            <h2 className="section-title">{locale === "ar" ? "إعداد المفتاح أو اختباره" : "Set up or test the key"}</h2>
+            <p className="muted">
+              {locale === "ar"
+                ? "يُحفظ مفتاح المزوّد ويُختبر في الخادم الحقيقي فقط، ولا يُلصق أي مفتاح في المحاكاة."
+                : "The provider key is stored and tested on the real server only; no key is pasted in the simulation."}
+            </p>
+            <div className="flex justify-end">
+              <button type="button" className="btn-primary" onClick={() => setKeyInfo(false)}>
+                {locale === "ar" ? "فهمت" : "Understood"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <form onSubmit={ask} className="card mb-4">

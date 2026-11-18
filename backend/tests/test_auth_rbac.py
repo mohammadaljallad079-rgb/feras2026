@@ -130,7 +130,12 @@ def test_frontend_permission_gates_are_names_the_backend_can_grant():
     for path in list(frontend.rglob("*.tsx")) + list(frontend.rglob("*.ts")):
         if ".next" in path.parts or "node_modules" in path.parts:
             continue
-        gates.update(re.findall(r'can\(\s*"([^"]+)"', path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        gates.update(re.findall(r'can\(\s*"([^"]+)"', text))
+        # Sidebar entries gate on a list of permissions (any-of), e.g.
+        # ``permissions: ["report:view_own", "report:view_all"]``.
+        for group in re.findall(r"permissions:\s*\[([^\]]*)\]", text):
+            gates.update(re.findall(r'"([^"]+)"', group))
     assert gates, "no can() gates found; the scan is broken"
     assert gates <= set(ALL_PERMISSIONS), f"not in the catalog: {sorted(gates - set(ALL_PERMISSIONS))}"
 
@@ -175,6 +180,63 @@ def test_the_owner_may_manage_companies_but_not_review_or_forward_reports():
     owner = set(ROLE_TEMPLATES["owner"]["permissions"])
     assert "company:manage" in owner
     assert "report:review" not in owner and "report:forward" not in owner
+
+
+# --- Table 1 of the brief: which tab each of the eight roles sees -----------
+# The grid is written out in full so a future edit to a permission template or
+# to a sidebar gate that changes who sees which tab fails here, loudly.
+TAB_MATRIX: dict[str, dict[str, bool]] = {
+    "owner":             {"companies": True,  "reports": True,  "accounting": True,  "service-requests": True,  "leads": True,  "opportunities": True,  "directives": True,  "hr": True,  "website": True,  "advisor": True,  "assistant": True,  "form-builder": True,  "users": True,  "audit": True},
+    "company_manager":   {"companies": False, "reports": True,  "accounting": False, "service-requests": True,  "leads": True,  "opportunities": False, "directives": True,  "hr": True,  "website": False, "advisor": False, "assistant": True,  "form-builder": False, "users": False, "audit": False},
+    "accountant":        {"companies": False, "reports": True,  "accounting": True,  "service-requests": True,  "leads": False, "opportunities": False, "directives": True,  "hr": False, "website": False, "advisor": False, "assistant": False, "form-builder": True,  "users": False, "audit": False},
+    "business_developer":{"companies": False, "reports": True,  "accounting": True,  "service-requests": True,  "leads": True,  "opportunities": True,  "directives": True,  "hr": True,  "website": True,  "advisor": True,  "assistant": False, "form-builder": False, "users": False, "audit": False},
+    "marketer":          {"companies": False, "reports": False, "accounting": False, "service-requests": False, "leads": True,  "opportunities": False, "directives": True,  "hr": False, "website": False, "advisor": False, "assistant": False, "form-builder": False, "users": False, "audit": False},
+    "designer":          {"companies": False, "reports": False, "accounting": False, "service-requests": True,  "leads": False, "opportunities": False, "directives": True,  "hr": False, "website": False, "advisor": False, "assistant": False, "form-builder": False, "users": False, "audit": False},
+    "advisor":           {"companies": False, "reports": False, "accounting": False, "service-requests": False, "leads": False, "opportunities": False, "directives": False, "hr": False, "website": False, "advisor": True,  "assistant": False, "form-builder": False, "users": False, "audit": False},
+}
+
+
+def _sidebar_gates() -> dict[str, list[str]]:
+    """The sidebar's tab -> permission(s) map, parsed from AppShell.tsx.
+
+    Reading the real source keeps the test honest: it checks the shipped gates,
+    not a copy that could drift from them.
+    """
+    repo = Path(__file__).resolve().parents[2]
+    text = (repo / "frontend" / "components" / "AppShell.tsx").read_text(encoding="utf-8")
+    gates: dict[str, list[str]] = {}
+    for href, group in re.findall(
+        r'href:\s*"([^"]+)"[^}]*permissions:\s*\[([^\]]*)\]', text
+    ):
+        gates[href.replace("/platform/", "")] = re.findall(r'"([^"]+)"', group)
+    return gates
+
+
+def test_sidebar_gates_match_the_brief_role_matrix():
+    gates = _sidebar_gates()
+    assert set(TAB_MATRIX["owner"]) <= set(gates), (
+        f"the sidebar is missing tabs: {sorted(set(TAB_MATRIX['owner']) - set(gates))}"
+    )
+    for role, expected in TAB_MATRIX.items():
+        held = set(ROLE_TEMPLATES[role]["permissions"])
+        for tab, should_see in expected.items():
+            tab_gate = gates[tab]
+            sees = (not tab_gate) or bool(set(tab_gate) & held)
+            assert sees is should_see, (
+                f"{role} {'should' if should_see else 'must not'} see the {tab} tab "
+                f"(gate={tab_gate}, held={sorted(set(tab_gate) & held)})"
+            )
+
+
+def test_the_eight_brief_roles_all_exist():
+    """Table 1 names eight personas; the catalog must define each one."""
+    expected = {
+        "owner", "company_manager", "accountant", "business_developer",
+        "marketer", "designer", "advisor",
+    }
+    assert expected <= set(ROLE_TEMPLATES)
+    # There is deliberately no employee login role: employees are records only.
+    assert "employee" not in ROLE_TEMPLATES
 
 
 def test_account_emails_carry_a_brief_secure_link_and_no_financial_detail():

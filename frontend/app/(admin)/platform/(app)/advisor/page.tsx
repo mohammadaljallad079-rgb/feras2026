@@ -1,12 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
 import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Person = { id: number; full_name_ar: string; full_name_en: string };
+
+// §5.7 / Table 5: the three categories, labelled for the «النوع» column.
+const CATEGORY_LABELS: Record<string, { ar: string; en: string }> = {
+  recommendation: { ar: "توصية", en: "Recommendation" },
+  report: { ar: "تقرير", en: "Report" },
+  suggestion: { ar: "اقتراح", en: "Suggestion" },
+};
 
 type AdvisorMessage = {
   id: number;
@@ -23,13 +31,24 @@ type AdvisorMessage = {
 
 export default function AdvisorPage() {
   const { locale, can } = useAuth();
+  const searchParams = useSearchParams();
+  // §5.7: the advisor dashboard's three buttons deep-link here with the chosen
+  // category, so the form opens ready for that action.
+  const initialCategory = (() => {
+    const c = searchParams.get("category");
+    return c === "report" || c === "suggestion" ? c : "recommendation";
+  })();
   const [rows, setRows] = useState<AdvisorMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  // A separate, unnarrowed list for rendering the «إلى» column: the picker list
+  // is narrowed per category, so a report addressed to the Owner would otherwise
+  // fall back to «#id» once the form switches to «recommendation».
+  const [directory, setDirectory] = useState<Person[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [form, setForm] = useState({ recipient_id: "", category: "recommendation", subject: "", body: "", company_id: "" });
+  const [form, setForm] = useState({ recipient_id: "", category: initialCategory, subject: "", body: "", company_id: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,9 +63,23 @@ export default function AdvisorPage() {
 
   useEffect(() => {
     void load();
-    api.get<Person[]>("/api/v1/users/directory").then(setPeople).catch(() => undefined);
     api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
+    api.get<Person[]>("/api/v1/users/directory").then(setDirectory).catch(() => undefined);
   }, [load]);
+
+  // Table 5: a recommendation and a suggestion go to the Business Developer; a
+  // report goes to the Owner or the Business Developer. The picker offers only
+  // those recipients, and the server refuses anyone else.
+  const recipientRoles = form.category === "report" ? "owner,business_developer" : "business_developer";
+  useEffect(() => {
+    api
+      .get<Person[]>(`/api/v1/users/directory?role=${recipientRoles}`)
+      .then((list) => {
+        setPeople(list);
+        setForm((f) => (list.some((u) => String(u.id) === f.recipient_id) ? f : { ...f, recipient_id: "" }));
+      })
+      .catch(() => undefined);
+  }, [recipientRoles]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,13 +126,29 @@ export default function AdvisorPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="label" htmlFor="adv-category">{locale === "ar" ? "التصنيف" : "Category"}</label>
-            <select id="adv-category" className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              <option value="recommendation">{locale === "ar" ? "توصية" : "Recommendation"}</option>
-              <option value="report">{locale === "ar" ? "تقرير" : "Report"}</option>
-              <option value="suggestion">{locale === "ar" ? "اقتراح" : "Suggestion"}</option>
-            </select>
+          {/* §5.7: the advisor has three actions — a recommendation (to the
+              Business Developer), a report (to the Owner or Business Developer)
+              and a suggestion (to the Business Developer). The chosen button
+              sets the category and narrows the recipient picker below. */}
+          <div className="sm:col-span-2">
+            <span className="label">{locale === "ar" ? "الإجراء" : "Action"}</span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label={locale === "ar" ? "الإجراء" : "Action"}>
+              {[
+                { value: "recommendation", ar: "إضافة توصية", en: "Add a recommendation" },
+                { value: "report", ar: "تقرير", en: "Report" },
+                { value: "suggestion", ar: "اقتراح", en: "Suggestion" },
+              ].map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  aria-pressed={form.category === c.value}
+                  className={form.category === c.value ? "btn-primary" : "btn-ghost"}
+                  onClick={() => setForm((f) => ({ ...f, category: c.value, recipient_id: "" }))}
+                >
+                  {locale === "ar" ? c.ar : c.en}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <label className="label" htmlFor="adv-subject">{locale === "ar" ? "الموضوع" : "Subject"}</label>
@@ -140,12 +189,12 @@ export default function AdvisorPage() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0">
-                  <td className="p-3">{r.category}</td>
+                  <td className="p-3">{(CATEGORY_LABELS[r.category] ?? { ar: r.category, en: r.category })[locale]}</td>
                   <td className="p-3">{r.subject}</td>
                   <td className="p-3">{r.body}</td>
                   <td className="p-3">
                     {(() => {
-                      const u = people.find((x) => x.id === r.recipient_id);
+                      const u = directory.find((x) => x.id === r.recipient_id) ?? people.find((x) => x.id === r.recipient_id);
                       return u ? (locale === "ar" ? u.full_name_ar : u.full_name_en) : `#${r.recipient_id}`;
                     })()}
                   </td>

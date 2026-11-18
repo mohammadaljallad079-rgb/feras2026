@@ -5,7 +5,23 @@ import { DataStates } from "@/components/DataStates";
 import { api, loadError, Company, FormField } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-const FIELD_TYPES = ["text", "number", "amount", "date", "boolean", "select"];
+// Table 5 names two field types — «رقم / مبلغ» and «سؤال وجواب» — plus the
+// date/flag kinds the report form already understands. Every value here must be
+// a member of the backend FieldType enum, or the save is rejected with a 422.
+const FIELD_TYPES: { value: string; ar: string; en: string }[] = [
+  { value: "amount", ar: "رقم / مبلغ", en: "Number / amount" },
+  { value: "number", ar: "رقم صحيح", en: "Whole number" },
+  { value: "text", ar: "سؤال وجواب", en: "Question and answer" },
+  { value: "textarea", ar: "نص طويل", en: "Long text" },
+  { value: "date", ar: "تاريخ", en: "Date" },
+  { value: "boolean", ar: "نعم / لا", en: "Yes / no" },
+];
+
+// Table 5: the scope is either a single company or a whole sector.
+const SCOPES = [
+  { value: "company", ar: "شركة واحدة", en: "One company" },
+  { value: "sector", ar: "قطاع كامل", en: "Whole sector" },
+];
 
 export default function FormBuilderPage() {
   const { locale, can } = useAuth();
@@ -14,7 +30,13 @@ export default function FormBuilderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [form, setForm] = useState({ code: "", name_ar: "", name_en: "", field_type: "text", is_required: false, sector_scope: "", company_id: "" });
+  const [scope, setScope] = useState("company");
+  const [form, setForm] = useState({ code: "", name_ar: "", name_en: "", field_type: "amount", is_required: false, sector_scope: "", company_id: "", parent_id: "" });
+  // §5.1 / Table 5: «تعديل» opens a modal to edit the field definition. Editing
+  // bumps the version and never rewrites past reports.
+  const [editFor, setEditFor] = useState<FormField | null>(null);
+  const [editScope, setEditScope] = useState("company");
+  const [editForm, setEditForm] = useState({ name_ar: "", name_en: "", field_type: "amount", is_required: false, sector_scope: "", company_id: "", parent_id: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,10 +60,11 @@ export default function FormBuilderPage() {
     try {
       await api.post("/api/v1/form-fields", {
         ...form,
-        sector_scope: form.sector_scope || null,
-        company_id: form.company_id ? Number(form.company_id) : null,
+        parent_id: form.parent_id ? Number(form.parent_id) : null,
+        sector_scope: scope === "sector" ? form.sector_scope || null : null,
+        company_id: scope === "company" && form.company_id ? Number(form.company_id) : null,
       });
-      setForm({ code: "", name_ar: "", name_en: "", field_type: "text", is_required: false, sector_scope: "", company_id: "" });
+      setForm({ code: "", name_ar: "", name_en: "", field_type: "amount", is_required: false, sector_scope: "", company_id: "", parent_id: "" });
       setMessage(locale === "ar" ? "تمت إضافة الحقل. نسخة التعريف 1." : "Field added. Definition version 1.");
       await load();
     } catch {
@@ -49,25 +72,47 @@ export default function FormBuilderPage() {
     }
   }
 
-  async function toggleRequired(field: FormField) {
-    setMessage(null);
-    try {
-      const updated = await api.patch<FormField>(`/api/v1/form-fields/${field.id}`, { is_required: !field.is_required });
-      setMessage(locale === "ar" ? `تم التحديث. نسخة التعريف ${updated.version}.` : `Updated. Definition version ${updated.version}.`);
-      await load();
-    } catch {
-      setMessage(locale === "ar" ? "فشل التحديث." : "The update failed.");
-    }
-  }
-
   async function deactivate(field: FormField) {
     setMessage(null);
     try {
       await api.post(`/api/v1/form-fields/${field.id}/deactivate`);
-      setMessage(locale === "ar" ? "تم إيقاف الحقل. التقارير السابقة لم تتأثر." : "Field deactivated. Historical reports are unaffected.");
+      setMessage(locale === "ar" ? "تم أرشفة الحقل. التقارير السابقة لم تتأثر." : "Field archived. Historical reports are unaffected.");
       await load();
     } catch {
       setMessage(locale === "ar" ? "فشل الإجراء." : "The action failed.");
+    }
+  }
+
+  function openEdit(field: FormField) {
+    setEditFor(field);
+    setEditScope(field.sector_scope ? "sector" : "company");
+    setEditForm({
+      name_ar: field.name_ar,
+      name_en: field.name_en,
+      field_type: field.field_type,
+      is_required: field.is_required,
+      sector_scope: field.sector_scope ?? "",
+      company_id: field.company_id ? String(field.company_id) : "",
+      parent_id: field.parent_id ? String(field.parent_id) : "",
+    });
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editFor) return;
+    setMessage(null);
+    try {
+      const updated = await api.patch<FormField>(`/api/v1/form-fields/${editFor.id}`, {
+        ...editForm,
+        parent_id: editForm.parent_id ? Number(editForm.parent_id) : null,
+        sector_scope: editScope === "sector" ? editForm.sector_scope || null : null,
+        company_id: editScope === "company" && editForm.company_id ? Number(editForm.company_id) : null,
+      });
+      setMessage(locale === "ar" ? `تم التعديل. نسخة التعريف ${updated.version}.` : `Field updated. Definition version ${updated.version}.`);
+      setEditFor(null);
+      await load();
+    } catch {
+      setMessage(locale === "ar" ? "تعذّر حفظ التعديل." : "Could not save the change.");
     }
   }
 
@@ -100,18 +145,36 @@ export default function FormBuilderPage() {
           <div>
             <label className="label" htmlFor="ff-type">{locale === "ar" ? "نوع البيانات" : "Data type"}</label>
             <select id="ff-type" className="input" value={form.field_type} onChange={(e) => setForm({ ...form, field_type: e.target.value })}>
-              {FIELD_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+              {FIELD_TYPES.map((t) => (<option key={t.value} value={t.value}>{locale === "ar" ? t.ar : t.en}</option>))}
             </select>
           </div>
           <div>
-            <label className="label" htmlFor="ff-sector">{locale === "ar" ? "نطاق القطاع" : "Sector scope"}</label>
-            <input id="ff-sector" className="input" value={form.sector_scope} onChange={(e) => setForm({ ...form, sector_scope: e.target.value })} />
+            <label className="label" htmlFor="ff-scope">{locale === "ar" ? "النطاق" : "Scope"}</label>
+            <select id="ff-scope" className="input" value={scope} onChange={(e) => setScope(e.target.value)}>
+              {SCOPES.map((s) => (<option key={s.value} value={s.value}>{locale === "ar" ? s.ar : s.en}</option>))}
+            </select>
           </div>
+          {scope === "company" ? (
+            <div>
+              <label className="label" htmlFor="ff-company">{locale === "ar" ? "الشركة المستهدفة" : "Target company"}</label>
+              <select id="ff-company" className="input" value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}>
+                <option value="">{locale === "ar" ? "كل الشركات" : "All companies"}</option>
+                {companies.map((c) => (<option key={c.id} value={c.id}>{locale === "ar" ? c.name_ar : c.name_en}</option>))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="label" htmlFor="ff-sector">{locale === "ar" ? "القطاع المستهدف" : "Target sector"}</label>
+              <input id="ff-sector" className="input" value={form.sector_scope} onChange={(e) => setForm({ ...form, sector_scope: e.target.value })} />
+            </div>
+          )}
           <div>
-            <label className="label" htmlFor="ff-company">{locale === "ar" ? "نطاق الشركة" : "Company scope"}</label>
-            <select id="ff-company" className="input" value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}>
-              <option value="">{locale === "ar" ? "كل الشركات" : "All companies"}</option>
-              {companies.map((c) => (<option key={c.id} value={c.id}>{locale === "ar" ? c.name_ar : c.name_en}</option>))}
+            <label className="label" htmlFor="ff-parent">{locale === "ar" ? "الحقل الرئيسي (اختياري)" : "Main field (optional)"}</label>
+            <select id="ff-parent" className="input" value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })}>
+              <option value="">{locale === "ar" ? "— بلا حقل رئيسي —" : "— No main field —"}</option>
+              {fields.filter((f) => f.is_active && !f.parent_id).map((f) => (
+                <option key={f.id} value={f.id}>{locale === "ar" ? f.name_ar : f.name_en}</option>
+              ))}
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -134,6 +197,7 @@ export default function FormBuilderPage() {
                 <th className="p-3 text-start">{locale === "ar" ? "النوع" : "Type"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "مطلوب" : "Required"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "النطاق" : "Scope"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "الحقل الرئيسي" : "Main field"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "النسخة" : "Version"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الحالة" : "Status"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "إجراءات" : "Actions"}</th>
@@ -151,18 +215,23 @@ export default function FormBuilderPage() {
                       ? companies.find((c) => c.id === f.company_id)?.[locale === "ar" ? "name_ar" : "name_en"]
                       : f.sector_scope ?? (locale === "ar" ? "عام" : "Global")}
                   </td>
+                  <td className="p-3">
+                    {f.parent_id
+                      ? (() => { const p = fields.find((x) => x.id === f.parent_id); return p ? (locale === "ar" ? p.name_ar : p.name_en) : `#${f.parent_id}`; })()
+                      : "—"}
+                  </td>
                   <td className="p-3 tabular-nums" dir="ltr">{f.version}</td>
                   <td className="p-3">
-                    <span className={f.is_active ? "chip-ok" : "chip-neutral"}>{f.is_active ? (locale === "ar" ? "مفعّل" : "Active") : locale === "ar" ? "موقوف" : "Inactive"}</span>
+                    <span className={f.is_active ? "chip-ok" : "chip-neutral"}>{f.is_active ? (locale === "ar" ? "مفعّل" : "Active") : locale === "ar" ? "مؤرشف" : "Archived"}</span>
                   </td>
                   <td className="p-3">
                     {can("form:manage") && f.is_active && (
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" className="btn-ghost" onClick={() => void toggleRequired(f)}>
-                          {f.is_required ? (locale === "ar" ? "إلغاء الإلزام" : "Make optional") : locale === "ar" ? "جعله مطلوباً" : "Make required"}
+                        <button type="button" className="btn-ghost" onClick={() => openEdit(f)}>
+                          {locale === "ar" ? "تعديل" : "Edit"}
                         </button>
-                        <button type="button" className="btn-ghost" onClick={() => void deactivate(f)}>
-                          {locale === "ar" ? "إيقاف" : "Deactivate"}
+                        <button type="button" className="btn-bad" onClick={() => void deactivate(f)}>
+                          {locale === "ar" ? "أرشفة" : "Archive"}
                         </button>
                       </div>
                     )}
@@ -173,6 +242,74 @@ export default function FormBuilderPage() {
           </table>
         </div>
       </DataStates>
+
+      {/* §5.1 / Table 5: «تعديل» — edit the field definition. A saved change
+          bumps the version; past reports keep the version they were saved with. */}
+      {editFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <form onSubmit={saveEdit} className="card w-full max-w-2xl space-y-4">
+            <h2 className="section-title">{locale === "ar" ? "تعديل الحقل" : "Edit field"}</h2>
+            <p className="muted">
+              {locale === "ar"
+                ? `الرمز ${editFor.code} — التعديل لا يغيّر التقارير السابقة.`
+                : `Code ${editFor.code} — editing does not change past reports.`}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label" htmlFor="ef-ar">{locale === "ar" ? "الاسم بالعربية" : "Arabic name"}</label>
+                <input id="ef-ar" className="input" dir="rtl" required value={editForm.name_ar} onChange={(e) => setEditForm({ ...editForm, name_ar: e.target.value })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="ef-en">{locale === "ar" ? "الاسم بالإنجليزية" : "English name"}</label>
+                <input id="ef-en" className="input" dir="ltr" required value={editForm.name_en} onChange={(e) => setEditForm({ ...editForm, name_en: e.target.value })} />
+              </div>
+              <div>
+                <label className="label" htmlFor="ef-type">{locale === "ar" ? "نوع الحقل" : "Field type"}</label>
+                <select id="ef-type" className="input" value={editForm.field_type} onChange={(e) => setEditForm({ ...editForm, field_type: e.target.value })}>
+                  {FIELD_TYPES.map((t) => (<option key={t.value} value={t.value}>{locale === "ar" ? t.ar : t.en}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="ef-scope">{locale === "ar" ? "النطاق" : "Scope"}</label>
+                <select id="ef-scope" className="input" value={editScope} onChange={(e) => setEditScope(e.target.value)}>
+                  {SCOPES.map((s) => (<option key={s.value} value={s.value}>{locale === "ar" ? s.ar : s.en}</option>))}
+                </select>
+              </div>
+              {editScope === "company" ? (
+                <div>
+                  <label className="label" htmlFor="ef-company">{locale === "ar" ? "الشركة المستهدفة" : "Target company"}</label>
+                  <select id="ef-company" className="input" value={editForm.company_id} onChange={(e) => setEditForm({ ...editForm, company_id: e.target.value })}>
+                    <option value="">{locale === "ar" ? "كل الشركات" : "All companies"}</option>
+                    {companies.map((c) => (<option key={c.id} value={c.id}>{locale === "ar" ? c.name_ar : c.name_en}</option>))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="label" htmlFor="ef-sector">{locale === "ar" ? "القطاع المستهدف" : "Target sector"}</label>
+                  <input id="ef-sector" className="input" value={editForm.sector_scope} onChange={(e) => setEditForm({ ...editForm, sector_scope: e.target.value })} />
+                </div>
+              )}
+              <div>
+                <label className="label" htmlFor="ef-parent">{locale === "ar" ? "الحقل الرئيسي (اختياري)" : "Main field (optional)"}</label>
+                <select id="ef-parent" className="input" value={editForm.parent_id} onChange={(e) => setEditForm({ ...editForm, parent_id: e.target.value })}>
+                  <option value="">{locale === "ar" ? "— بلا حقل رئيسي —" : "— No main field —"}</option>
+                  {fields.filter((f) => f.is_active && !f.parent_id && f.id !== editFor.id).map((f) => (
+                    <option key={f.id} value={f.id}>{locale === "ar" ? f.name_ar : f.name_en}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input id="ef-required" type="checkbox" checked={editForm.is_required} onChange={(e) => setEditForm({ ...editForm, is_required: e.target.checked })} />
+                <label htmlFor="ef-required">{locale === "ar" ? "حقل مطلوب" : "Required field"}</label>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="btn-primary">{locale === "ar" ? "حفظ" : "Save"}</button>
+              <button type="button" className="btn-ghost" onClick={() => setEditFor(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }

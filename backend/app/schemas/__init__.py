@@ -48,6 +48,7 @@ class RoleOut(ORMModel):
     slug: str
     name_ar: str
     name_en: str
+    description: str | None = None
     is_system: bool
     permission_codes: list[str] = []
 
@@ -56,12 +57,14 @@ class RoleCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=64)
     name_ar: str
     name_en: str
+    description: str | None = None
     permissions: list[str]
 
 
 class RoleUpdate(BaseModel):
     name_ar: str | None = None
     name_en: str | None = None
+    description: str | None = None
     permissions: list[str] | None = None
 
 
@@ -117,7 +120,6 @@ class UserInviteResult(BaseModel):
 
 # --- Companies --------------------------------------------------------------
 class CompanyBase(BaseModel):
-    code: str
     name_ar: str
     name_en: str
     country: str
@@ -129,9 +131,15 @@ class CompanyBase(BaseModel):
     currency: str = "SAR"
     public_visible: bool = False
     commercial_register_no: str | None = None
+    public_activity_ar: str | None = None
+    public_activity_en: str | None = None
+    website_url: str | None = None
 
 
 class CompanyCreate(CompanyBase):
+    # §6.2: the wizard does not ask for a code; the platform assigns one when it
+    # is omitted, and accepts an explicit code when a caller supplies it.
+    code: str | None = None
     status: str = "draft"
 
 
@@ -149,6 +157,9 @@ class CompanyUpdate(BaseModel):
     activation_notes: str | None = None
     commercial_register_no: str | None = None
     logo_file_id: int | None = None
+    public_activity_ar: str | None = None
+    public_activity_en: str | None = None
+    website_url: str | None = None
 
 
 class CompanyOut(ORMModel):
@@ -172,7 +183,12 @@ class CompanyOut(ORMModel):
     activated_at: datetime | None
     closed_at: datetime | None
     activation_notes: str | None = None
+    # §7.1/§7.4: distinguishes the Holding's own report record from a subsidiary.
+    is_holding: bool = False
     public_visible: bool
+    public_activity_ar: str | None = None
+    public_activity_en: str | None = None
+    website_url: str | None = None
     created_at: datetime
 
 
@@ -198,7 +214,9 @@ class PeriodOut(ORMModel):
 
 
 class FormFieldCreate(BaseModel):
-    code: str
+    # Table 5: the builder asks for the names, type, scope and flags — not a
+    # code. When a caller omits it, the platform derives one.
+    code: str | None = None
     name_ar: str
     name_en: str
     field_type: str = "text"
@@ -303,6 +321,11 @@ class AccountingCreate(BaseModel):
     party: str | None = None
     tax_amount: Decimal | None = None
     direction: str | None = None
+    payment_status: str | None = None
+    # Table 5, «إيراد / فاتورة جديدة»: the client's tax registration number
+    # (manual entry) and the service item.
+    tax_registration_no: str | None = None
+    service_item: str | None = None
     document_file_id: int | None = None
 
 
@@ -312,6 +335,12 @@ class AccountingUpdate(BaseModel):
     currency: str | None = None
     entry_date: date | None = None
     status: str | None = None
+    party: str | None = None
+    tax_amount: Decimal | None = None
+    direction: str | None = None
+    payment_status: str | None = None
+    tax_registration_no: str | None = None
+    service_item: str | None = None
     document_file_id: int | None = None
 
 
@@ -328,6 +357,9 @@ class AccountingOut(ORMModel):
     party: str | None = None
     tax_amount: Decimal | None = None
     direction: str | None = None
+    payment_status: str | None = None
+    tax_registration_no: str | None = None
+    service_item: str | None = None
     document_file_id: int | None
     created_at: datetime
 
@@ -336,8 +368,12 @@ class AccountingOut(ORMModel):
 class ServiceRequestCreate(BaseModel):
     subject: str
     body: str | None = None
+    # Table 5 marks «نوع الخدمة» required: it is the routing key.
+    service_type: str
     company_id: int
-    recipient_id: int
+    # The owner picks the receiving specialist explicitly; a manager does not,
+    # and the request is then routed to a specialist by service type (§6.4).
+    recipient_id: int | None = None
     priority: str = "normal"
     deadline: date | None = None
 
@@ -347,6 +383,14 @@ class ServiceRequestUpdate(BaseModel):
     priority: str | None = None
     deadline: date | None = None
     recipient_id: int | None = None
+
+
+class ComplaintCreate(BaseModel):
+    """Table 5: the marketer's complaint to the owner — free text, mandatory."""
+
+    body: str = Field(min_length=1)
+    subject: str | None = None
+    company_id: int | None = None
 
 
 class ReplyCreate(BaseModel):
@@ -367,6 +411,7 @@ class ServiceRequestOut(ORMModel):
     id: int
     subject: str
     body: str | None
+    service_type: str | None = None
     company_id: int
     created_by_id: int
     recipient_id: int
@@ -383,6 +428,7 @@ class LeadCreate(BaseModel):
     contact_phone: str | None = None
     requested_service: str | None = None
     source: str | None = None
+    contact_method: str | None = None
     company_id: int
     follow_up_at: date | None = None
     notes: str | None = None
@@ -404,6 +450,7 @@ class LeadOut(ORMModel):
     contact_phone: str | None
     requested_service: str | None
     source: str | None
+    contact_method: str | None
     company_id: int
     follow_up_at: date | None
     status: str
@@ -417,6 +464,11 @@ class OpportunityCreate(BaseModel):
     title: str
     company_id: int
     description: str | None = None
+    # Table 5: «الدولة *» and «ملف الدراسة» (optional) on the new-opportunity
+    # modal. Table 3 lists the country, the file and the source per row.
+    country: str | None = None
+    attachment_file_id: int | None = None
+    source: str | None = None
     estimated_value: Decimal | None = None
     currency: str = "SAR"
 
@@ -431,6 +483,10 @@ class OpportunityOut(ORMModel):
     title: str
     company_id: int
     description: str | None
+    country: str | None = None
+    attachment_file_id: int | None = None
+    attachment_name: str | None = None
+    source: str | None = None
     estimated_value: Decimal | None
     currency: str
     status: str
@@ -478,6 +534,11 @@ class EmployeeCreate(BaseModel):
     salary: Decimal | None = None
     currency: str = "SAR"
     contract_type: str | None = None
+    # Table 5, «إضافة موظف»: a contract summary plus two uploaded documents —
+    # the official documents and the employment contract.
+    contract_summary: str | None = None
+    official_documents_file_id: int | None = None
+    employment_contract_file_id: int | None = None
     hired_on: date | None = None
 
 
@@ -487,6 +548,9 @@ class EmployeeUpdate(BaseModel):
     contact_phone: str | None = None
     salary: Decimal | None = None
     contract_type: str | None = None
+    contract_summary: str | None = None
+    official_documents_file_id: int | None = None
+    employment_contract_file_id: int | None = None
     status: str | None = None
 
 
@@ -501,6 +565,11 @@ class EmployeeOut(ORMModel):
     salary: Decimal | None
     currency: str
     contract_type: str | None
+    contract_summary: str | None = None
+    official_documents_file_id: int | None = None
+    official_documents_name: str | None = None
+    employment_contract_file_id: int | None = None
+    employment_contract_name: str | None = None
     status: str
     hired_on: date | None
     created_at: datetime
@@ -562,10 +631,22 @@ class SubmissionOut(ORMModel):
     converted_id: int | None
     reviewed_at: datetime | None
     created_at: datetime
+    # §6.5: the details modal names the attachment. The file content is not
+    # inlined; only its original name is exposed here.
+    attachment_name: str | None = None
 
 
 class SubmissionConvert(BaseModel):
+    """Table 7 / §6.5: the "take action" outcome depends on the submission kind.
+
+    A service request is routed from the modal and therefore carries the
+    receiving company and the service type; an opportunity and a job
+    application are converted without further input.
+    """
+
     target: str
+    company_id: int | None = None
+    service_type: str | None = None
 
 
 class SubmissionUpdate(BaseModel):
@@ -744,6 +825,17 @@ class PublicCompanyOut(BaseModel):
     sector: str
     country: str
     logo_url: str | None = None
+    activity_ar: str | None = None
+    activity_en: str | None = None
+    website_url: str | None = None
+
+
+class CompanyProfileUpdate(BaseModel):
+    """Table 7: the public activity text and the optional live-site link."""
+
+    public_activity_ar: str | None = None
+    public_activity_en: str | None = None
+    website_url: str | None = Field(default=None, max_length=255)
 
 
 class SiteBootstrap(BaseModel):
@@ -798,6 +890,13 @@ class AiAskRequest(BaseModel):
     period_id: int | None = None
 
 
+class AiReferRequest(BaseModel):
+    """Table 5: the owner refers the assistant's plan to the business developer."""
+
+    title: str | None = None
+    body: str | None = None
+
+
 class AiSource(BaseModel):
     kind: str
     ref: str
@@ -832,13 +931,25 @@ class AiSummarySource(BaseModel):
     currency: str
 
 
+class AiSummaryNote(BaseModel):
+    """§5.1: an alert line that carries a record to open («فتح السجل»)."""
+
+    text_ar: str
+    text_en: str
+    url: str
+
+
 class AiSummaryOut(BaseModel):
+    # §5.1: «ملخص المالك الذكي» for the owner, «ملخص شركتك» for a manager.
+    title_ar: str = "ملخص المالك الذكي"
+    title_en: str = "Owner smart summary"
     period_label_ar: str
     period_label_en: str
     scope_ar: str
     scope_en: str
     sections: list[AiSummarySection]
     sources: list[AiSummarySource]
+    notes: list[AiSummaryNote] = []
 
 
 class AiProviderSettingsIn(BaseModel):
@@ -898,4 +1009,5 @@ class DashboardOut(BaseModel):
     # its deadline, and offers the actions that start the monthly work.
     banner_ar: str | None = None
     banner_en: str | None = None
+    banner_tone: str | None = None
     actions: list[DashboardAction] = []

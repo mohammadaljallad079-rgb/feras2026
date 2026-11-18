@@ -14,7 +14,7 @@ from app.models.enums import DirectiveStatus
 from app.models.identity import User
 from app.models.operations import ExecutiveDirective
 from app.schemas import DirectiveCreate, DirectiveOut
-from app.services import audit
+from app.services import audit, mail
 
 router = APIRouter(prefix="/directives", tags=["directives"])
 
@@ -62,6 +62,14 @@ def create_directive(
     audit.record(db, action="directive.create", actor=actor, target_type="directive", target_id=d.id, company_id=d.company_id)
     db.commit()
     db.refresh(d)
+    # Table 5: «توجيه جديد … لمستلم واحد فقط دون نسخة لغيره». The single
+    # recipient is notified; no copy reaches anyone else.
+    recipient = db.get(User, d.recipient_id)
+    if recipient is not None:
+        mail.notify(
+            [recipient.email],
+            mail.directive_email(recipient.locale or "ar", title=d.title, body=d.body or ""),
+        )
     return _decorate(d)
 
 

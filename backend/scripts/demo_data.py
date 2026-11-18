@@ -44,23 +44,29 @@ COMPANIES = [
         "code": "DEMO-ALFA",
         "name_ar": "شركة ألفا للتقنية",
         "name_en": "Alfa Technology",
-        "country": "SA",
-        "sector": "technology",
+        "country": "البحرين",
+        # The four sector values the brief names (§6.2, §9).
+        "sector": "تقنية",
         "currency": "SAR",
         "ownership_percent": "85.00",
         "contact_email": "alfa@example.com",
         "contact_phone": "+966500000001",
+        "public_activity_ar": "حلول برمجية وتقنية معلومات.",
+        "public_activity_en": "Software and information-technology solutions.",
+        "website_url": "https://alfa.example.com",
     },
     {
         "code": "DEMO-BETA",
         "name_ar": "شركة بيتا للمقاولات",
         "name_en": "Beta Contracting",
-        "country": "AE",
-        "sector": "construction",
+        "country": "الإمارات",
+        "sector": "صناعي",
         "currency": "AED",
         "ownership_percent": "60.00",
         "contact_email": "beta@example.com",
         "contact_phone": "+971500000002",
+        "public_activity_ar": "أعمال إنشائية وصناعية.",
+        "public_activity_en": "Industrial and construction works.",
     },
 ]
 
@@ -384,7 +390,7 @@ def build() -> int:
             "service request",
             owner.post(
                 "/api/v1/service-requests",
-                json={"subject": f"{TAG} طلب صيانة", "body": "صيانة دورية للمقر.", "company_id": alfa, "recipient_id": specialist_id, "priority": "high", "deadline": "2026-03-01"},
+                json={"subject": f"{TAG} طلب صيانة", "body": "صيانة دورية للمقر.", "service_type": "study", "company_id": alfa, "recipient_id": specialist_id, "priority": "urgent", "deadline": "2026-03-01"},
             ),
             201,
         )

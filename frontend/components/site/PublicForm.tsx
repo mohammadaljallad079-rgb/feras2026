@@ -20,8 +20,10 @@ const T: Record<string, { ar: string; en: string }> = {
     ar: "أوافق على معالجة بياناتي وفق سياسة الخصوصية.",
     en: "I agree to the processing of my data under the privacy policy.",
   },
-  submit: { ar: "إرسال", en: "Submit" },
+  submit: { ar: "إرسال الطلب", en: "Send request" },
   sending: { ar: "جارٍ الإرسال…", en: "Sending…" },
+  cancel: { ar: "إلغاء (العودة للرئيسية)", en: "Cancel (back to home)" },
+  viewPolicy: { ar: "عرض السياسة", en: "View policy" },
   ok: {
     ar: "تم استلام طلبك وتسجيله. رقم المرجع:",
     en: "Your request was received and recorded. Reference number:",
@@ -128,6 +130,19 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
 
   return (
     <form className="site-card grid gap-4" onSubmit={onSubmit} noValidate>
+      {/* Table 13: every form page carries the «Start Up Sphere Gateway» brand
+          and a note that the data is used to process the request under the
+          privacy policy. */}
+      <div className="border-b border-brand-line pb-3">
+        <p className="text-[13px] font-bold uppercase tracking-widest text-brand-sand">
+          {ar ? "بوابة ستارت أب سفير" : "Start Up Sphere Gateway"}
+        </p>
+        <p className="mt-1 text-[13px] text-brand-slate">
+          {ar
+            ? "تُستخدم بياناتك لمعالجة طلبك وفق سياسة الخصوصية."
+            : "Your data is used to process your request under the privacy policy."}
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="site-label" htmlFor="f-name">{t("name")} <span className="site-req">*</span></label>
@@ -188,8 +203,16 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
       )}
 
       <div>
-        <label className="site-label" htmlFor="f-message">{t("message")}</label>
-        <textarea id="f-message" name="message" className="site-field min-h-[120px]" rows={5} />
+        <label className="site-label" htmlFor="f-message">
+          {t("message")} {needsCountry && <span className="site-req">*</span>}
+        </label>
+        <textarea
+          id="f-message"
+          name="message"
+          className="site-field min-h-[120px]"
+          rows={5}
+          required={needsCountry}
+        />
       </div>
 
       {file && (
@@ -223,9 +246,23 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         </p>
       )}
 
-      <button type="submit" className="site-btn site-btn-primary w-fit" disabled={busy}>
-        {busy ? t("sending") : t("submit")}
-      </button>
+      {/* Table 13: the service-request form carries «إرسال الطلب», «إلغاء (العودة
+          للرئيسية)» and a «عرض السياسة» link. The other forms just send. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" className="site-btn site-btn-primary w-fit" disabled={busy}>
+          {busy ? t("sending") : needsService ? t("submit") : ar ? "إرسال" : "Submit"}
+        </button>
+        {needsService && (
+          <>
+            <a href={`/${locale}`} className="site-btn site-btn-outline w-fit">
+              {t("cancel")}
+            </a>
+            <a href={consentHref} className="text-[14px] text-brand-deep underline">
+              {t("viewPolicy")}
+            </a>
+          </>
+        )}
+      </div>
     </form>
   );
 }

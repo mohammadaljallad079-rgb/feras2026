@@ -57,6 +57,7 @@ def _role_out(role: Role) -> RoleOut:
         slug=role.slug,
         name_ar=role.name_ar,
         name_en=role.name_en,
+        description=role.description,
         is_system=role.is_system,
         permission_codes=sorted(role.permission_codes),
     )
@@ -108,7 +109,13 @@ def create_role(
     unknown = set(payload.permissions) - set(ALL_PERMISSIONS)
     if unknown:
         raise HTTPException(status_code=422, detail={"error": "unknown_permissions", "values": sorted(unknown)})
-    role = Role(slug=payload.slug, name_ar=payload.name_ar, name_en=payload.name_en, is_system=False)
+    role = Role(
+        slug=payload.slug,
+        name_ar=payload.name_ar,
+        name_en=payload.name_en,
+        description=payload.description,
+        is_system=False,
+    )
     db.add(role)
     db.flush()
     for perm in set(payload.permissions):
@@ -133,6 +140,8 @@ def update_role(
         role.name_ar = payload.name_ar
     if payload.name_en is not None:
         role.name_en = payload.name_en
+    if payload.description is not None:
+        role.description = payload.description
     if payload.permissions is not None:
         if role.is_system:
             raise HTTPException(status_code=400, detail="System roles cannot be re-scoped")
@@ -152,6 +161,7 @@ def update_role(
 
 @router.get("/users/directory", response_model=list[UserDirectoryOut])
 def user_directory(
+    role: str | None = None,
     _: User = Depends(
         require_any(
             "user:view", "directive:view", "lead:view", "service:view", "advisor:view"
@@ -161,13 +171,20 @@ def user_directory(
 ) -> list[UserDirectoryOut]:
     """Active colleagues for recipient/assignee pickers.
 
-    Declared before ``/users/{user_id}`` so the literal path wins the match.
+    ``?role=business_developer,owner`` narrows the list to the roles a screen is
+    allowed to address — the advisor, for instance, may only send a
+    recommendation or a suggestion to the Business Developer, and a report to the
+    Owner or the Business Developer (Table 5). Declared before
+    ``/users/{user_id}`` so the literal path wins the match.
     """
     users = (
         db.execute(select(User).where(User.is_active.is_(True)).order_by(User.id))
         .scalars()
         .all()
     )
+    if role:
+        wanted = {r.strip() for r in role.split(",") if r.strip()}
+        users = [u for u in users if wanted & {ur.role.slug for ur in u.roles if ur.role}]
     return [
         UserDirectoryOut(id=u.id, full_name_ar=u.full_name_ar, full_name_en=u.full_name_en)
         for u in users
