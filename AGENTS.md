@@ -56,6 +56,18 @@ refuses any database whose name does not end in `_test`, so the e2e database is
 migrated and seeded separately and the server is started with `DATABASE_URL`
 overridden for that one process.
 
+### Rebuilding the databases after the container restarts
+
+Postgres runs in Docker and nothing starts it again on its own, so a restarted
+workspace answers `Cannot assign requested address` / `Is the server running`.
+`sudo dockerd &` first (the socket is root-owned), then either
+`sudo docker compose up -d db` after copying `.env.example` to `.env`, or a
+standalone `sudo docker run -d --name safir-db -e POSTGRES_USER=safir
+-e POSTGRES_PASSWORD=safir -e POSTGRES_DB=safir -p 5432:5432 postgres:16-alpine`.
+Create `safir_test` by hand — `conftest.py` does not create it. For the journey
+suite, `alembic upgrade head` and `scripts/seed.py` must run against `safir_e2e`
+before `uvicorn` is pointed at it, or every journey fails on missing accounts.
+
 ### Browser checks read the built bundle, not the sources
 
 `scripts/check_visual_fixes.py`, `check_matrix.py` and `check_mobile.py` drive
