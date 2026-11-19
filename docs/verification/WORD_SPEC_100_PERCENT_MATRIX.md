@@ -320,6 +320,7 @@ application, and the application was corrected rather than the test.
 | 14 | Table 13 field names | the opportunity country read «الدولة», the CV form's expertise «مجال الخبرة», the attachment «ملف الدراسة (اختياري)», and one phone label served all three forms | «دولة المشروع»، «مجال الاهتمام أو الخبرة»، «ملف الدراسة أو المرفقات»، and «رقم التواصل» on the service form vs «الهاتف» on the other two (`components/site/PublicForm.tsx`) |
 | 15 | Table 5 R12 «المبلغ (BHD) *» | the expense amount label read «المبلغ» and named the currency only in a separate field | the label now reads `المبلغ (BHD)`, following the form's currency (`app/(admin)/platform/(app)/accounting/page.tsx`) |
 | 16 | Table 5 R15 «سؤال وإجابة» | the field-type option read «سؤال وجواب» | label corrected (`app/(admin)/platform/(app)/form-builder/page.tsx`) |
+| 17 | Table 6 «المستلم (واحد) *» | the directive modal labelled the field «المستلم» alone, so the single-recipient rule was not visible | the label now reads «المستلم (واحد)» (`app/(admin)/platform/(app)/directives/page.tsx`) |
 
 ## Gaps and exceptions
 

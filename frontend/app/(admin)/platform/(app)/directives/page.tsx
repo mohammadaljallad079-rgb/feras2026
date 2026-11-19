@@ -130,7 +130,7 @@ export default function DirectivesPage() {
               <input id="dir-title" className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             </div>
             <div>
-              <label className="label" htmlFor="dir-recipient">{locale === "ar" ? "المستلم" : "Recipient"}<span aria-hidden="true"> *</span></label>
+              <label className="label" htmlFor="dir-recipient">{locale === "ar" ? "المستلم (واحد)" : "Recipient (one)"}<span aria-hidden="true"> *</span></label>
               <select id="dir-recipient" className="input" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
                 <option value="">—</option>
                 {people.map((u) => (

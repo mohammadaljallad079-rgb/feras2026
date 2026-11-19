@@ -235,6 +235,19 @@ def check_page_24(page: Page) -> None:
     _record(24, "the form builder offers «سؤال وإجابة»", "سؤال وإجابة" in builder)
 
 
+def check_directive_recipient(browser) -> None:
+    """Table 6 names the directive recipient «المستلم (واحد)»: one recipient, no
+    copy to anyone else, so the label must say so."""
+    ctx, page = _sign_in(browser, "owner")
+    page.goto(f"{BASE}/platform/directives")
+    page.wait_for_timeout(2000)
+    page.click("text=توجيه جديد")
+    page.wait_for_timeout(1200)
+    recipient_label = (page.inner_text("label[for=dir-recipient]") or "").strip()
+    _record(24, "the directive recipient label says one recipient", "المستلم (واحد)" in recipient_label, recipient_label)
+    ctx.close()
+
+
 def check_forbidden_message(browser) -> None:
     """A screen the role may not read must say so, not report a generic failure.
 
@@ -652,6 +665,9 @@ def main() -> int:
 
         print("page 13 — overdue directive scoping")
         check_page_13(browser)
+
+        print("page 6 — directive recipient label")
+        check_directive_recipient(browser)
 
         print("page 11 — recipient picker reachability")
         check_recipient_picker(browser)
