@@ -185,12 +185,19 @@ def check_page_23(page: Page) -> None:
 
 
 def check_page_24(page: Page) -> None:
-    """The three accountant entry buttons deep-link to their own section."""
-    hrefs = page.evaluate(
-        "() => [...document.querySelectorAll('main a')].map(a => a.getAttribute('href')).filter(h => h && h.includes('/accounting?kind='))"
+    """§5.3: the dashboard carries one quick button; the three entry buttons
+    («مصروف جديد»، «إيراد/فاتورة جديدة»، «عمولة جديدة») live on accounting."""
+    dashboard = page.inner_text("main")
+    _record(
+        24,
+        "the accountant dashboard carries the combined entry button",
+        "مصروف / فاتورة / عمولة جديدة" in dashboard,
     )
-    wanted = {"/accounting?kind=expense", "/accounting?kind=invoice", "/accounting?kind=commission"}
-    _record(24, "three accounting deep links exist", wanted.issubset(set(hrefs)), f"hrefs={hrefs}")
+    page.goto(f"{BASE}/platform/accounting")
+    page.wait_for_timeout(1500)
+    accounting = page.inner_text("main")
+    for label in ["مصروف جديد", "إيراد/فاتورة جديدة", "عمولة جديدة"]:
+        _record(24, f"accounting offers «{label}»", label in accounting)
     # Each link must actually select its own tab. The tab captions are the
     # plural forms shown in the reference («المصاريف», «الفواتير», «العمولات»).
     for kind, label in [("expense", "المصاريف"), ("invoice", "الفواتير"), ("commission", "العمولات")]:
