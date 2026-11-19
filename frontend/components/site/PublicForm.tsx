@@ -10,12 +10,12 @@ const T: Record<string, { ar: string; en: string }> = {
   email: { ar: "البريد الإلكتروني", en: "Email" },
   phone: { ar: "رقم التواصل", en: "Contact number" },
   service_type: { ar: "نوع الخدمة", en: "Service type" },
-  country: { ar: "الدولة", en: "Country" },
+  country: { ar: "دولة المشروع", en: "Project country" },
   subject: { ar: "موضوع الفرصة", en: "Opportunity subject" },
-  expertise: { ar: "مجال الخبرة", en: "Area of expertise" },
+  expertise: { ar: "مجال الاهتمام أو الخبرة", en: "Area of interest or expertise" },
   message: { ar: "وصف مختصر", en: "Brief description" },
   cv: { ar: "السيرة الذاتية", en: "CV" },
-  study: { ar: "ملف الدراسة (اختياري)", en: "Study file (optional)" },
+  study: { ar: "ملف الدراسة أو المرفقات", en: "Study file or attachments" },
   consent: {
     ar: "أوافق على معالجة بياناتي وفق سياسة الخصوصية.",
     en: "I agree to the processing of my data under the privacy policy.",
@@ -57,6 +57,11 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
   const needsCountry = kind === "opportunity";
   const needsSubject = kind === "opportunity";
   const needsExpertise = kind === "job_application";
+  // Table 13 names the field «رقم التواصل» on the service form and «الهاتف» on
+  // the other two.
+  const phoneLabel = needsService
+    ? { ar: "رقم التواصل", en: "Contact number" }
+    : { ar: "الهاتف", en: "Phone" };
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -156,7 +161,7 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
 
       {needsPhone && (
         <div>
-          <label className="site-label" htmlFor="f-phone">{t("phone")} <span className="site-req">*</span></label>
+          <label className="site-label" htmlFor="f-phone">{phoneLabel[locale]} <span className="site-req">*</span></label>
           <input id="f-phone" name="phone" className="site-field" required dir="ltr" autoComplete="tel" />
         </div>
       )}
