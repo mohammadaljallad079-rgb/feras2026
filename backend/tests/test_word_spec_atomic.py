@@ -768,6 +768,27 @@ def test_s5_5_marketer_complaint_needs_text_and_reaches_the_owner_alone(client: 
     assert not client.get("/api/v1/service-requests", headers=login("bd@s.com")).json()
 
 
+def test_s11_complaint_stays_with_the_owner_inside_the_same_company(client: TestClient, make_user, login, db):
+    """§11 R9 «المسوّق يرسل الشكوى للمالك وحده» — company scope must not widen it.
+
+    The complaint row carries a company id, so a manager or developer scoped to
+    that same company could read it before the complaint flag existed.
+    """
+    c = _company(db, "COLB")
+    make_user("mk2@s.com", ["marketer"], companies=[c.id])
+    make_user("o2@s.com", ["owner"])
+    make_user("bd2@s.com", ["business_developer"], companies=[c.id])
+    make_user("mg2@s.com", ["company_manager"], companies=[c.id])
+    created = client.post("/api/v1/service-requests/complaint", headers=login("mk2@s.com"),
+                          json={"body": "ش"})
+    assert created.status_code == 201
+    assert client.get("/api/v1/service-requests", headers=login("o2@s.com")).json()
+    for who in ("bd2@s.com", "mg2@s.com"):
+        assert not client.get("/api/v1/service-requests", headers=login(who)).json(), who
+        assert client.get(f"/api/v1/service-requests/{created.json()['id']}",
+                          headers=login(who)).status_code == 404, who
+
+
 def test_s5_6_designer_sees_design_requests_and_can_reply(client: TestClient, make_user, login, db):
     """§5.6 «مؤشر «طلبات تصميم مفتوحة»، تبويب «طلبات الخدمات» مع «رد / تحديث الحالة»»."""
     c = _company(db, "COLA")

@@ -376,7 +376,7 @@ def build() -> int:
             "opportunity",
             clients["bd"].post(
                 "/api/v1/opportunities",
-                json={"title": f"{TAG} توسّع إقليمي", "company_id": alfa, "description": "دراسة سوق", "estimated_value": "750000.00", "currency": "SAR"},
+                json={"title": f"{TAG} توسّع إقليمي", "company_id": alfa, "country": "SA", "description": "دراسة سوق", "estimated_value": "750000.00", "currency": "SAR"},
             ),
             201,
         )
@@ -475,8 +475,26 @@ def build() -> int:
             201,
         )
 
+    # The public site reads sections, services and slides from the CMS. Without
+    # them the site renders its headings over empty lists, so the seed runs here
+    # too: demo data is meant to make every screen show something.
+    print("public site content")
+    _seed_site()
+
     print("\nDemo data is in place. Records are tagged DEMO.")
     return 0
+
+
+def _seed_site() -> int:
+    """Run the CMS content seed in-process so demo screens are never empty."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent / "seed_site.py"
+    spec = importlib.util.spec_from_file_location("_seed_site_mod", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.main()
 
 
 def purge() -> int:

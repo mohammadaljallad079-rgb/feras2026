@@ -8,13 +8,13 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **309 passed, 1 skipped** in-process, plus **13 passed**
+- backend `pytest` → **310 passed, 1 skipped** in-process, plus **13 passed**
   for `test_e2e_journeys.py` against the live API — **322 passed, 1 skipped**
   in total (the skip is the opt-in live-provider check). The 13 journey tests
   need a running server and a seeded `safir_e2e`, so they fail with
   `ConnectError` when none is up; that is an environment precondition, not a
   suite failure.
-- `test_word_spec_atomic.py` — 201 atomic checks, one per brief clause, numbered
+- `test_word_spec_atomic.py` — 202 atomic checks, one per brief clause, numbered
   by section (§1–§12, Tables 1–13).
 - frontend `npx tsc --noEmit` → clean (exit 0).
 - frontend `npm run build` → **25 static pages** generated, build clean.
@@ -22,9 +22,14 @@ Ground truth for this pass (re-run, not trusted from a prior report):
   report in the seeded data; the bank-statement control is deliberately hidden
   on a locked report, so a forwarded-only database reports one false failure).
 - `scripts/check_matrix.py` → **85 route/viewport combinations, 0 failures**.
+- `scripts/check_all_buttons.py` → **215 controls pressed across 21 screens and
+  six roles: 214 ok, 1 disabled by design, 0 failing**. Each control is clicked
+  in a real browser on a freshly loaded screen, and a failure means an uncaught
+  JavaScript exception, a Next.js error overlay or a 5xx response — so §6
+  «الأزرار ووجهة كل منها» is proven by pressing, not by reading the code.
 - `scripts/check_mobile.py` → no horizontal overflow at 400px on 11 routes.
 - `alembic upgrade head` on a fresh database → clean, single head
-  (`d4e5f6a7b8c9`), and `downgrade -1`/`upgrade head` round-trips.
+  (`b7c1f4d92e35`), and `downgrade -1`/`upgrade head` round-trips.
 
 Legend — Result: **PASS** (implemented and proven), **PASS\*** (implemented; the
 spec itself defers the item to people, so no code proof is possible and the item
@@ -297,7 +302,7 @@ must not ship).
 | Result | Count |
 |---|---|
 | PASS (proven in code, by test or by an executed check) | 126 |
-| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 201 |
+| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 202 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
@@ -327,6 +332,7 @@ application, and the application was corrected rather than the test.
 | 15 | Table 5 R12 «المبلغ (BHD) *» | the expense amount label read «المبلغ» and named the currency only in a separate field | the label now reads `المبلغ (BHD)`, following the form's currency (`app/(admin)/platform/(app)/accounting/page.tsx`) |
 | 16 | Table 5 R15 «سؤال وإجابة» | the field-type option read «سؤال وجواب» | label corrected (`app/(admin)/platform/(app)/form-builder/page.tsx`) |
 | 17 | Table 6 «المستلم (واحد) *» | the directive modal labelled the field «المستلم» alone, so the single-recipient rule was not visible | the label now reads «المستلم (واحد)» (`app/(admin)/platform/(app)/directives/page.tsx`) |
+| 18 | §11 R9 / Table 5 «ترسل للمالك وحده» | the complaint reached the owner's inbox but was also readable by every role scoped to the same company — a manager or developer could list it and open it by id, because the row carries a `company_id` and company scope alone granted access | `service_requests.is_complaint` added; the list and the detail view keep a complaint to its recipient (`app/api/v1/service_requests.py`, `app/models/operations.py`, migration `b7c1f4d92e35`); `test_s11_complaint_stays_with_the_owner_inside_the_same_company` fails without the fix |
 
 ## Gaps and exceptions
 

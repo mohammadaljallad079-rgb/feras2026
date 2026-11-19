@@ -420,6 +420,7 @@ class ServiceRequestOut(ORMModel):
     deadline: date | None
     status: str
     created_at: datetime
+    is_complaint: bool = False
 
 
 # --- Leads ------------------------------------------------------------------

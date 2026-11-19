@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -96,6 +97,11 @@ class ServiceRequest(Base, TimestampMixin):
     priority: Mapped[str] = mapped_column(String(16), default=RequestPriority.NORMAL.value)
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default=RequestStatus.NEW.value, index=True)
+    # §11 «المسوّق يرسل الشكوى للمالك وحده»: a complaint is addressed to the owner
+    # and must not surface to anyone else, so it is flagged rather than left to
+    # company scope — a manager or developer scoped to the same company would
+    # otherwise see it.
+    is_complaint: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), index=True)
 
 
 class ServiceRequestReply(Base):

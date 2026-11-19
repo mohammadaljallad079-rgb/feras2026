@@ -45,6 +45,11 @@ def list_requests(
             stmt = stmt.where(own)
         else:
             stmt = stmt.where(or_(own, ServiceRequest.company_id.in_(allowed or {-1})))
+    # §11 «المسوّق يرسل الشكوى للمالك وحده»: a complaint reaches its owner
+    # recipient only — company scope must not widen that.
+    stmt = stmt.where(
+        or_(ServiceRequest.is_complaint.is_(False), ServiceRequest.recipient_id == user.id)
+    )
     rows = db.execute(stmt.order_by(ServiceRequest.id.desc())).scalars().all()
     return [ServiceRequestOut.model_validate(r) for r in rows]
 
@@ -54,6 +59,8 @@ def _visible(db: Session, user: User, request_id: int) -> ServiceRequest:
     if req is None:
         raise HTTPException(status_code=404, detail="Request not found")
     perms = _perms(user)
+    if req.is_complaint and req.recipient_id != user.id:
+        raise HTTPException(status_code=404, detail="Request not found")
     # Being the recipient or the creator is itself the grant: recipients see only
     # their assigned requests, and they must be able to act on them regardless of
     # a company-scope grant. Anyone else needs service:assign *and* company access.
@@ -154,6 +161,7 @@ def send_complaint(
         recipient_id=owner.id,
         priority=RequestPriority.NORMAL.value,
         status=RequestStatus.NEW.value,
+        is_complaint=True,
     )
     db.add(req)
     db.flush()
