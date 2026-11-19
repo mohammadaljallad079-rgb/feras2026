@@ -478,7 +478,13 @@ def check_company_logo(browser) -> None:
     )
     page.goto(f"{BASE}/companies/{company_id}")
     page.wait_for_timeout(2000)
-    _record(6, "the company detail screen offers a logo control", bool(page.query_selector("input[type=file]")))
+    # Table 4: «الشعار — نافذة تغيير شعار الشركة»; the file control lives inside
+    # that modal, so open it before looking for the input.
+    logo_trigger = page.query_selector("button:has-text('الشعار')")
+    _record(6, "the company detail screen offers a logo control", bool(logo_trigger))
+    if logo_trigger:
+        logo_trigger.click()
+        page.wait_for_timeout(800)
 
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -487,6 +493,8 @@ def check_company_logo(browser) -> None:
         fh.write(png)
         path = fh.name
     page.set_input_files("input[type=file]", path)
+    page.wait_for_timeout(1500)
+    page.click("button:has-text('حفظ')")
     page.wait_for_timeout(3000)
     _record(6, "uploading a logo is confirmed", "تم رفع الشعار" in page.inner_text("body"))
     _record(

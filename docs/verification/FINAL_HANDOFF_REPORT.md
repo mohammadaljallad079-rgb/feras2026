@@ -26,13 +26,14 @@ none is copied from an earlier report.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend (full) | `pytest -q` | **120 passed, 1 skipped in 83.22s** |
+| Backend (full) | `pytest -q` | **322 passed, 1 skipped in 303.93s** |
 | Auth & RBAC | `pytest tests/test_auth_rbac.py` | **21 passed in 8.38s** |
 | Reporting workflow | `pytest tests/test_reporting_workflow.py` | **13 passed in 20.83s** |
 | Operations (incl. isolation, attachments, mail) | `pytest tests/test_operations.py` | **30 passed in 29.01s** |
 | End-to-end journeys (live HTTP) | `pytest tests/test_e2e_journeys.py` | **13 passed in 4.52s** |
 | Public-site CMS | `pytest tests/test_site_cms.py` | **8 passed in 4.73s** |
 | TypeScript check | `npx tsc --noEmit` | **clean (exit 0)** |
+| Word-spec atomic suite | `pytest tests/test_word_spec_atomic.py` | **201 passed in 194.80s** |
 | Production build | `npm run build` | **35 routes built** |
 | Browser visual fixes | `scripts/check_visual_fixes.py` | **62/62 assertions passed** |
 | Route/viewport matrix | `scripts/check_matrix.py` | **85 combinations, 0 failures** |
