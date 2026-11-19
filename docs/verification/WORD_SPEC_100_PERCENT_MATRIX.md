@@ -8,13 +8,19 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **319 passed, 1 skipped in 301.58s** (the skip is the opt-in
-  live-provider check). New since the previous pass: `test_word_spec_atomic.py` —
-  199 atomic checks, one per brief clause, numbered by section (§1–§12, Tables
-  1–13).
+- backend `pytest` → **309 passed, 1 skipped** in-process, plus **13 passed**
+  for `test_e2e_journeys.py` against the live API — **322 passed, 1 skipped**
+  in total (the skip is the opt-in live-provider check). The 13 journey tests
+  need a running server and a seeded `safir_e2e`, so they fail with
+  `ConnectError` when none is up; that is an environment precondition, not a
+  suite failure.
+- `test_word_spec_atomic.py` — 201 atomic checks, one per brief clause, numbered
+  by section (§1–§12, Tables 1–13).
 - frontend `npx tsc --noEmit` → clean (exit 0).
-- frontend `npm run build` → **35 routes** built.
-- `scripts/check_visual_fixes.py` → **62/62 assertions passed**.
+- frontend `npm run build` → **25 static pages** generated, build clean.
+- `scripts/check_visual_fixes.py` → **68/68 assertions passed** (needs a draft
+  report in the seeded data; the bank-statement control is deliberately hidden
+  on a locked report, so a forwarded-only database reports one false failure).
 - `scripts/check_matrix.py` → **85 route/viewport combinations, 0 failures**.
 - `scripts/check_mobile.py` → no horizontal overflow at 400px on 11 routes.
 - `alembic upgrade head` on a fresh database → clean, single head
