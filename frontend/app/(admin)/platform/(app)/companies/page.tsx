@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
+import { CompanyWizard } from "@/components/CompanyWizard";
 
 export default function CompaniesPage() {
   const { locale, can } = useAuth();
@@ -18,6 +19,8 @@ export default function CompaniesPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // §6.2: «إضافة شركة (معالج من ثلاث خطوات)» opens over this screen.
+  const [wizardOpen, setWizardOpen] = useState(false);
   // §6.3: the logo modal and the close-confirmation modal.
   const [logoFor, setLogoFor] = useState<Company | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -106,9 +109,9 @@ export default function CompaniesPage() {
               : (locale === "ar" ? "عرض الشركات المغلقة فقط" : "Show closed companies only")}
           </button>
           {can("company:manage") && (
-            <Link className="btn-primary" href="/platform/companies/new">
+            <button type="button" className="btn-primary" onClick={() => setWizardOpen(true)}>
               {locale === "ar" ? "إضافة شركة" : "Add company"}
-            </Link>
+            </button>
           )}
         </div>
       </header>
@@ -187,7 +190,7 @@ export default function CompaniesPage() {
                       {c.status === "active" && can("company:manage") && (
                         <button
                           type="button"
-                          className="btn-ghost"
+                          className="btn-bad"
                           disabled={busyId === c.id}
                           onClick={() => setCloseFor(c)}
                         >
@@ -220,6 +223,17 @@ export default function CompaniesPage() {
           </table>
         </div>
       </DataStates>
+
+      {wizardOpen && (
+        <CompanyWizard
+          onClose={() => setWizardOpen(false)}
+          onSaved={() => {
+            setWizardOpen(false);
+            setMessage(locale === "ar" ? "أُضيفت الشركة." : "The company was added.");
+            void load();
+          }}
+        />
+      )}
 
       {message && <p role="status" className="mt-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
 

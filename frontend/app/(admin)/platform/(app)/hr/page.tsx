@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { StatusChip } from "@/components/StatusChip";
 import { DataStates } from "@/components/DataStates";
+import { Modal } from "@/components/Modal";
+import { Toast } from "@/components/Toast";
 import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -44,10 +46,13 @@ export default function HrPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [events, setEvents] = useState<EmployeeEvent[]>([]);
   const [eventForm, setEventForm] = useState({ kind: "leave", detail: "", effective_on: "" });
   const [eventFile, setEventFile] = useState<File | null>(null);
+  // Table 6 R11 «إضافة إجازة / إنذار / عهدة»: نوع السجل، التاريخ، التفاصيل، المرفق.
+  const [eventOpen, setEventOpen] = useState(false);
   const [form, setForm] = useState({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", contract_summary: "", hired_on: "" });
   // Table 5, «إضافة موظف»: the official documents and the employment contract.
   const [officialDocs, setOfficialDocs] = useState<File | null>(null);
@@ -103,6 +108,8 @@ export default function HrPage() {
     });
     setEventForm({ kind: "leave", detail: "", effective_on: "" });
     setEventFile(null);
+    setEventOpen(false);
+    setMessage(locale === "ar" ? "تمت إضافة السجل." : "Record added.");
     setEvents(await api.get<EmployeeEvent[]>(`/api/v1/employees/${id}/events`).catch(() => []));
   }
 
@@ -141,6 +148,7 @@ export default function HrPage() {
       setForm({ name_ar: "", name_en: "", job_title: "", company_id: "", contact_email: "", contact_phone: "", salary: "", currency: "SAR", contract_type: "", contract_summary: "", hired_on: "" });
       setOfficialDocs(null);
       setContractFile(null);
+      setFormOpen(false);
       setMessage(locale === "ar" ? "تمت إضافة الموظف." : "Employee added.");
       await load();
     } catch {
@@ -157,23 +165,29 @@ export default function HrPage() {
 
   return (
     <section>
-      <header className="mb-4">
-        <h1 className="page-title">{locale === "ar" ? "الموظفون والموارد البشرية" : "Employees and HR"}</h1>
-        <p className="muted">
-          {locale === "ar"
-            ? "تُعرض ملفات الموظفين لكل شركة. مرفقات الإجازات تظهر «مرفق مقيد» لمن لا يملك صلاحية الوصول."
-            : "Employee files are shown per company. Leave attachments read «مرفق مقيد» for anyone without the permission."}
-        </p>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="page-title">{locale === "ar" ? "الموظفون والموارد البشرية" : "Employees and HR"}</h1>
+          <p className="muted">
+            {locale === "ar"
+              ? "تُعرض ملفات الموظفين لكل شركة. مرفقات الإجازات تظهر «مرفق مقيد» لمن لا يملك صلاحية الوصول."
+              : "Employee files are shown per company. Leave attachments read «مرفق مقيد» for anyone without the permission."}
+          </p>
+        </div>
+        {can("hr:manage") && (
+          <button type="button" className="btn-primary" onClick={() => setFormOpen(true)}>
+            {locale === "ar" ? "إضافة موظف" : "Add employee"}
+          </button>
+        )}
       </header>
 
-      {message && (
-        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
-          {message}
-        </p>
-      )}
-
-      {can("hr:manage") && (
-        <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
+      {formOpen && can("hr:manage") && (
+        <Modal
+          title={locale === "ar" ? "إضافة موظف" : "Add employee"}
+          onClose={() => setFormOpen(false)}
+          wide
+        >
+        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="label" htmlFor="emp-name-ar">{locale === "ar" ? "الاسم بالعربية" : "Arabic name"}</label>
             <input id="emp-name-ar" className="input" dir="rtl" required value={form.name_ar} onChange={(e) => setForm({ ...form, name_ar: e.target.value })} />
@@ -183,7 +197,7 @@ export default function HrPage() {
             <input id="emp-name-en" className="input" dir="ltr" required value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="emp-job">{locale === "ar" ? "المسمى الوظيفي" : "Job title"}</label>
+            <label className="label" htmlFor="emp-job">{locale === "ar" ? "المنصب" : "Position"}</label>
             <input id="emp-job" className="input" required value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
           </div>
           <div>
@@ -198,7 +212,7 @@ export default function HrPage() {
             <input id="emp-email" type="email" className="input" dir="ltr" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="emp-phone">{locale === "ar" ? "الهاتف" : "Phone"}</label>
+            <label className="label" htmlFor="emp-phone">{locale === "ar" ? "رقم التواصل" : "Contact number"}</label>
             <input id="emp-phone" className="input" dir="ltr" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
           </div>
           <div>
@@ -226,10 +240,14 @@ export default function HrPage() {
             <label className="label" htmlFor="emp-hired">{locale === "ar" ? "تاريخ التعيين" : "Hired on"}</label>
             <input id="emp-hired" type="date" className="input" dir="ltr" value={form.hired_on} onChange={(e) => setForm({ ...form, hired_on: e.target.value })} />
           </div>
-          <div className="flex items-end">
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إضافة موظف" : "Add employee"}</button>
+          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+            <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+            <button type="submit" className="btn-primary">{locale === "ar" ? "حفظ" : "Save"}</button>
           </div>
         </form>
+        </Modal>
       )}
 
       <DataStates loading={loading} error={error} empty={grouped.length === 0}>
@@ -322,34 +340,56 @@ export default function HrPage() {
                     ))}
                   </ul>
                   {can("hr:manage") && (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[auto_1fr_auto_auto]">
-                      <select className="input w-auto" value={eventForm.kind} onChange={(e) => setEventForm({ ...eventForm, kind: e.target.value })}>
-                        <option value="annual_leave">{locale === "ar" ? "إجازة سنوية" : "Annual leave"}</option>
-                        <option value="sick_leave">{locale === "ar" ? "إجازة مرضية" : "Sick leave"}</option>
-                        <option value="warning">{locale === "ar" ? "إنذار" : "Warning"}</option>
-                        <option value="custody">{locale === "ar" ? "عهدة" : "Custody"}</option>
-                        <option value="movement">{locale === "ar" ? "حركة" : "Movement"}</option>
-                        <option value="promotion">{locale === "ar" ? "ترقية" : "Promotion"}</option>
-                      </select>
-                      <input className="input" placeholder={locale === "ar" ? "التفاصيل" : "Detail"} value={eventForm.detail} onChange={(e) => setEventForm({ ...eventForm, detail: e.target.value })} />
-                      <input type="date" className="input w-auto" dir="ltr" value={eventForm.effective_on} onChange={(e) => setEventForm({ ...eventForm, effective_on: e.target.value })} />
-                      <input
-                        type="file"
-                        className="input w-auto"
-                        aria-label={locale === "ar" ? "مرفق السجل" : "Record attachment"}
-                        onChange={(e) => setEventFile(e.target.files?.[0] ?? null)}
-                      />
-                      <button type="button" className="btn-primary" onClick={() => void addEvent(openId)}>
-                        {locale === "ar" ? "إضافة سجل" : "Add record"}
-                      </button>
-                    </div>
+                    <button type="button" className="btn-primary mt-3" onClick={() => setEventOpen(true)}>
+                      {locale === "ar" ? "إضافة إجازة / إنذار / عهدة" : "Add leave / warning / custody"}
+                    </button>
                   )}
                 </div>
               )}
             </article>
           ))}
         </div>
+      {eventOpen && can("hr:manage") && openId !== null && (
+        <Modal
+          title={locale === "ar" ? "إضافة إجازة / إنذار / عهدة" : "Add leave / warning / custody"}
+          onClose={() => setEventOpen(false)}
+        >
+          <div className="grid gap-3">
+            <div>
+              <label className="label" htmlFor="ev-kind">{locale === "ar" ? "نوع السجل" : "Record type"}</label>
+              <select id="ev-kind" className="input" value={eventForm.kind} onChange={(e) => setEventForm({ ...eventForm, kind: e.target.value })}>
+                <option value="annual_leave">{locale === "ar" ? "إجازة سنوية" : "Annual leave"}</option>
+                <option value="sick_leave">{locale === "ar" ? "إجازة مرضية" : "Sick leave"}</option>
+                <option value="warning">{locale === "ar" ? "إنذار" : "Warning"}</option>
+                <option value="custody">{locale === "ar" ? "عهدة" : "Custody"}</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="ev-date">{locale === "ar" ? "التاريخ" : "Date"}</label>
+              <input id="ev-date" type="date" className="input" dir="ltr" value={eventForm.effective_on} onChange={(e) => setEventForm({ ...eventForm, effective_on: e.target.value })} />
+            </div>
+            <div>
+              <label className="label" htmlFor="ev-detail">{locale === "ar" ? "التفاصيل" : "Details"}</label>
+              <textarea id="ev-detail" className="input min-h-20" value={eventForm.detail} onChange={(e) => setEventForm({ ...eventForm, detail: e.target.value })} />
+            </div>
+            <div>
+              <label className="label" htmlFor="ev-file">{locale === "ar" ? "المرفق" : "Attachment"}</label>
+              <input id="ev-file" type="file" className="input" onChange={(e) => setEventFile(e.target.files?.[0] ?? null)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setEventOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="button" className="btn-primary" onClick={() => void addEvent(openId)}>
+                {locale === "ar" ? "حفظ" : "Save"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       </DataStates>
+      <Toast message={message} />
     </section>
   );
 }

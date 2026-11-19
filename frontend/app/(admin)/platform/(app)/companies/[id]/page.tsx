@@ -6,6 +6,8 @@ import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
+import { Toast } from "@/components/Toast";
+import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
 
 export default function CompanyDetailPage() {
@@ -17,6 +19,9 @@ export default function CompanyDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [edit, setEdit] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  // Table 4: «الشعار — نافذة تغيير شعار الشركة: اختيار ملف صورة، إلغاء/حفظ».
+  const [logoOpen, setLogoOpen] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [form, setForm] = useState<Partial<Company>>({});
   const [people, setPeople] = useState<{ id: number; full_name_ar: string; full_name_en: string }[]>([]);
 
@@ -119,18 +124,16 @@ export default function CompanyDetailPage() {
             <AuthImage path={company.logo_url} alt="" className="h-9 w-9 rounded object-contain" />
           )}
           {company && can("company:manage") && company.status !== "closed" && (
-            <label className="btn-ghost cursor-pointer">
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                setLogoFile(null);
+                setLogoOpen(true);
+              }}
+            >
               {locale === "ar" ? "الشعار" : "Logo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void uploadLogo(file);
-                }}
-              />
-            </label>
+            </button>
           )}
           {can("company:manage") && (
             <button type="button" className="btn-ghost" onClick={() => setEdit((v) => !v)}>
@@ -158,7 +161,7 @@ export default function CompanyDetailPage() {
           </a>
         </div>
       </header>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+
 
       <DataStates loading={loading} error={error} empty={!company}>
         {company && (
@@ -281,6 +284,44 @@ export default function CompanyDetailPage() {
           </div>
         </div>
       )}
+      {logoOpen && (
+        <Modal
+          title={locale === "ar" ? "تغيير شعار الشركة" : "Change the company logo"}
+          onClose={() => setLogoOpen(false)}
+        >
+          <div className="grid gap-3">
+            <div>
+              <label className="label" htmlFor="company-logo-file">{locale === "ar" ? "ملف صورة" : "Image file"}</label>
+              <input
+                id="company-logo-file"
+                type="file"
+                accept="image/*"
+                className="input"
+                onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              />
+              {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setLogoOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!logoFile}
+                onClick={() => {
+                  const file = logoFile;
+                  setLogoOpen(false);
+                  if (file) void uploadLogo(file);
+                }}
+              >
+                {locale === "ar" ? "حفظ" : "Save"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      <Toast message={message} />
     </section>
   );
 }

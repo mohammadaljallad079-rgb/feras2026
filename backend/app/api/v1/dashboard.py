@@ -27,15 +27,17 @@ from app.schemas import DashboardAction, DashboardCard, DashboardOut
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
+# §5.1–§5.7: every role's dashboard screen is titled «لوحة التحكم»; the role is
+# carried separately in the sidebar and in the ``role`` field.
 DASH_TITLES = {
-    "owner": ("لوحة المالك", "Owner dashboard"),
-    "company_manager": ("لوحة مدير الشركة", "Company manager dashboard"),
-    "accountant": ("لوحة المحاسب", "Accountant dashboard"),
-    "business_developer": ("لوحة مطوّر الأعمال", "Business developer dashboard"),
-    "marketer": ("لوحة المسوّق", "Marketer dashboard"),
-    "designer": ("لوحة المصمّم", "Designer dashboard"),
-    "advisor": ("لوحة المستشار", "Advisor dashboard"),
-    "service_specialist": ("لوحة أخصائي الخدمات", "Service specialist dashboard"),
+    "owner": ("لوحة التحكم", "Dashboard"),
+    "company_manager": ("لوحة التحكم", "Dashboard"),
+    "accountant": ("لوحة التحكم", "Dashboard"),
+    "business_developer": ("لوحة التحكم", "Dashboard"),
+    "marketer": ("لوحة التحكم", "Dashboard"),
+    "designer": ("لوحة التحكم", "Dashboard"),
+    "advisor": ("لوحة التحكم", "Dashboard"),
+    "service_specialist": ("لوحة التحكم", "Dashboard"),
 }
 
 
@@ -99,14 +101,45 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
                 Company.id,
             )
         ).scalar_one()
-        approved_period = db.execute(
-            select(func.count(MonthlyReport.id)).where(
-                MonthlyReport.status.in_([ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value])
-            )
-        ).scalar_one()
-        late = db.execute(
-            select(func.count(MonthlyReport.id)).where(MonthlyReport.status == ReportStatus.RETURNED.value)
-        ).scalar_one()
+        # Table 3: «تقارير معتمدة للفترة» — approved *for the current period*, so
+        # the card is scoped to that period rather than counting every period.
+        current = db.execute(
+            select(ReportingPeriod).order_by(ReportingPeriod.year.desc(), ReportingPeriod.month.desc())
+        ).scalars().first()
+        approved_period = 0
+        if current is not None:
+            approved_period = db.execute(
+                select(func.count(MonthlyReport.id)).where(
+                    MonthlyReport.period_id == current.id,
+                    MonthlyReport.status.in_([ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value]),
+                )
+            ).scalar_one()
+        # Table 3: «تقارير متأخرة» is a missed deadline, not a report the
+        # accountant sent back. It counts active companies whose current-period
+        # report has not reached the accountant by the due date.
+        late = 0
+        if current is not None and current.due_on < date.today():
+            submitted = db.execute(
+                select(MonthlyReport.company_id).where(
+                    MonthlyReport.period_id == current.id,
+                    MonthlyReport.status.in_(
+                        [
+                            ReportStatus.SUBMITTED.value,
+                            ReportStatus.APPROVED.value,
+                            ReportStatus.FORWARDED.value,
+                        ]
+                    ),
+                )
+            ).scalars().all()
+            late = db.execute(
+                company_scope(
+                    select(func.count(Company.id)).where(
+                        Company.status == CompanyStatus.ACTIVE.value,
+                        Company.id.notin_(submitted or {-1}),
+                    ),
+                    Company.id,
+                )
+            ).scalar_one()
         decisions = db.execute(
             select(func.count(Opportunity.id)).where(
                 Opportunity.status.in_([OpportunityStatus.SUBMITTED.value, OpportunityStatus.UNDER_REVIEW.value])
@@ -247,7 +280,7 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         # PDF p.22: the five actions that start the monthly work.
         actions = [
             DashboardAction(label_ar="تقرير جديد", label_en="New report", href="/reports"),
-            DashboardAction(label_ar="طلب خدمة", label_en="Service request", href="/service-requests"),
+            DashboardAction(label_ar="طلب خدمة جديد", label_en="New service request", href="/service-requests"),
             DashboardAction(label_ar="إضافة موظف", label_en="Add employee", href="/hr"),
             DashboardAction(label_ar="العملاء المحولون", label_en="Transferred leads", href="/leads"),
             DashboardAction(label_ar="توجيهاتي", label_en="My directives", href="/directives"),
@@ -264,9 +297,10 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         if probe is not None:
             actions.append(
                 DashboardAction(
-                    label_ar="اختبار العزل: فتح تقرير شركة أخرى",
-                    label_en="Isolation test: open another company's report",
+                    label_ar="فتح تقرير شركة أخرى عبر الرابط المباشر",
+                    label_en="Open another company's report by direct link",
                     href=f"/reports/{probe}",
+                    group="isolation",
                 )
             )
     elif role == "accountant":
@@ -287,9 +321,14 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         # accounting entry buttons.
         actions = [
             DashboardAction(label_ar="مراجعة تقرير", label_en="Review a report", href="/reports"),
-            DashboardAction(label_ar="مصروف جديد", label_en="New expense", href="/accounting?kind=expense"),
-            DashboardAction(label_ar="إيراد / فاتورة جديدة", label_en="New income / invoice", href="/accounting?kind=invoice"),
-            DashboardAction(label_ar="عمولة جديدة", label_en="New commission", href="/accounting?kind=commission"),
+            # §5.3 / Table 3: the accountant's dashboard carries one quick button
+            # «مصروف / فاتورة / عمولة جديدة» that opens holding accounting, where
+            # the three separate forms live (Table 5).
+            DashboardAction(
+                label_ar="مصروف / فاتورة / عمولة جديدة",
+                label_en="New expense / invoice / commission",
+                href="/accounting",
+            ),
         ]
     elif role == "business_developer":
         group_reports = db.execute(

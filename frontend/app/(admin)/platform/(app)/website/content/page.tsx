@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
+import { Toast } from "@/components/Toast";
 import { api, loadError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -169,11 +170,6 @@ export default function SiteContentPage() {
         ))}
       </div>
 
-      {message && (
-        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
-          {message}
-        </p>
-      )}
 
       <DataStates loading={loading} error={error} empty={false}>
         {tab === "settings" && (
@@ -247,6 +243,7 @@ export default function SiteContentPage() {
           </div>
         )}
       </DataStates>
+      <Toast message={message} />
     </section>
   );
 }

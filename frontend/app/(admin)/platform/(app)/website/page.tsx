@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
+import { Toast } from "@/components/Toast";
+import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
 import { AuthImage } from "@/components/AuthImage";
 import { api, loadError, Company } from "@/lib/api";
@@ -78,8 +80,8 @@ export default function WebsitePage() {
   // human review only (no user is created).
   const CONVERT_TOAST: Record<string, { ar: string; en: string }> = {
     service_request: { ar: "تم توجيه طلب الخدمة إلى الشركة والمختص.", en: "The service request was routed to the company and specialist." },
-    opportunity: { ar: "تم توجيه الفرصة للمراجعة مع المرفق.", en: "Opportunity routed for review with attachment." },
-    job_application: { ar: "أُرسل الطلب للمراجعة البشرية.", en: "Application sent for human review." },
+    opportunity: { ar: "حُولت الفرصة للمراجعة الداخلية مع إرفاقها.", en: "The opportunity was routed to internal review with its attachment." },
+    job_application: { ar: "سُجل الطلب للمراجعة البشرية.", en: "The request was recorded for human review." },
     lead: { ar: "تم التحويل إلى سجل داخلي.", en: "Converted to an internal record." },
   };
 
@@ -173,6 +175,11 @@ export default function WebsitePage() {
     }
   }
 
+  // Table 7: «تعديل الشعار» — its own window «تغيير شعار الشركة»: pick an image,
+  // cancel or save.
+  const [logoFor, setLogoFor] = useState<Company | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+
   // Table 7: «تعديل الشعار» — reuse the file endpoint and the company logo field.
   async function uploadLogo(companyId: number, file: File) {
     setMessage(null);
@@ -204,7 +211,7 @@ export default function WebsitePage() {
           </a>
         )}
       </header>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+
 
       <div className="card mb-4">
         <h2 className="section-title mb-1">{locale === "ar" ? "ملخص البيانات" : "Data summary"}</h2>
@@ -310,19 +317,17 @@ export default function WebsitePage() {
                         <button type="button" className="btn-ghost" onClick={() => { setProfile({ activity_ar: c.public_activity_ar ?? "", activity_en: c.public_activity_en ?? "", website_url: c.website_url ?? "" }); setEditing(c); }}>
                           {locale === "ar" ? "تعديل النشاط" : "Edit activity"}
                         </button>
-                        {/* Table 7: «تعديل الشعار» — upload a logo image. */}
-                        <label className="btn-ghost cursor-pointer">
+                        {/* Table 7: «تعديل الشعار» — opens the logo window. */}
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoFor(c);
+                          }}
+                        >
                           {locale === "ar" ? "تعديل الشعار" : "Edit logo"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) void uploadLogo(c.id, file);
-                            }}
-                          />
-                        </label>
+                        </button>
                         <a className="btn-ghost" href={`/platform/companies/${c.id}`}>{locale === "ar" ? "تعديل" : "Edit"}</a>
                       </div>
                     </td>
@@ -366,7 +371,7 @@ export default function WebsitePage() {
                 </button>
               )}
               {details.status === "new" && can("website:manage") && (
-                <button type="button" className="btn-ghost" onClick={() => { const r = details; setDetails(null); void reject(r.id); }}>
+                <button type="button" className="btn-bad" onClick={() => { const r = details; setDetails(null); void reject(r.id); }}>
                   {locale === "ar" ? "رفض" : "Reject"}
                 </button>
               )}
@@ -427,6 +432,46 @@ export default function WebsitePage() {
           </form>
         </div>
       )}
+      {logoFor && (
+        <Modal
+          title={locale === "ar" ? "تغيير شعار الشركة" : "Change the company logo"}
+          onClose={() => setLogoFor(null)}
+        >
+          <div className="grid gap-3">
+            <p className="muted">{locale === "ar" ? logoFor.name_ar : logoFor.name_en}</p>
+            <div>
+              <label className="label" htmlFor="site-logo-file">{locale === "ar" ? "ملف صورة" : "Image file"}</label>
+              <input
+                id="site-logo-file"
+                type="file"
+                accept="image/*"
+                className="input"
+                onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              />
+              {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setLogoFor(null)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!logoFile}
+                onClick={() => {
+                  const target = logoFor;
+                  const file = logoFile;
+                  setLogoFor(null);
+                  if (target && file) void uploadLogo(target.id, file);
+                }}
+              >
+                {locale === "ar" ? "حفظ" : "Save"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      <Toast message={message} />
     </section>
   );
 }

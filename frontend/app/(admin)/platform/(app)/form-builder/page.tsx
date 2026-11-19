@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
+import { Modal } from "@/components/Modal";
+import { Toast } from "@/components/Toast";
 import { api, loadError, Company, FormField } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -23,6 +25,12 @@ const SCOPES = [
   { value: "sector", ar: "قطاع كامل", en: "Whole sector" },
 ];
 
+function typeLabel(value: string, locale: string): string {
+  const found = FIELD_TYPES.find((t) => t.value === value);
+  if (!found) return value;
+  return locale === "ar" ? found.ar : found.en;
+}
+
 export default function FormBuilderPage() {
   const { locale, can } = useAuth();
   const [fields, setFields] = useState<FormField[]>([]);
@@ -30,6 +38,7 @@ export default function FormBuilderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [scope, setScope] = useState("company");
   const [form, setForm] = useState({ code: "", name_ar: "", name_en: "", field_type: "amount", is_required: false, sector_scope: "", company_id: "", parent_id: "" });
   // §5.1 / Table 5: «تعديل» opens a modal to edit the field definition. Editing
@@ -65,6 +74,7 @@ export default function FormBuilderPage() {
         company_id: scope === "company" && form.company_id ? Number(form.company_id) : null,
       });
       setForm({ code: "", name_ar: "", name_en: "", field_type: "amount", is_required: false, sector_scope: "", company_id: "", parent_id: "" });
+      setFormOpen(false);
       setMessage(locale === "ar" ? "تمت إضافة الحقل. نسخة التعريف 1." : "Field added. Definition version 1.");
       await load();
     } catch {
@@ -118,18 +128,29 @@ export default function FormBuilderPage() {
 
   return (
     <section>
-      <header className="mb-6">
-        <h1 className="page-title">{locale === "ar" ? "منشئ النماذج" : "Form builder"}</h1>
-        <p className="muted">
-          {locale === "ar"
-            ? "تُخزَّن قيم التقارير مع نسخة تعريف الحقل، لذا لا تُفسد التغييرات التقارير السابقة."
-            : "Report values are stored with their field-definition version, so changes never corrupt historical reports."}
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="page-title">{locale === "ar" ? "منشئ النماذج" : "Form builder"}</h1>
+          <p className="muted">
+            {locale === "ar"
+              ? "تُخزَّن قيم التقارير مع نسخة تعريف الحقل، لذا لا تُفسد التغييرات التقارير السابقة."
+              : "Report values are stored with their field-definition version, so changes never corrupt historical reports."}
+          </p>
+        </div>
+        {can("form:manage") && (
+          <button type="button" className="btn-primary" onClick={() => setFormOpen(true)}>
+            {locale === "ar" ? "إضافة حقل" : "Add field"}
+          </button>
+        )}
       </header>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
 
-      {can("form:manage") && (
-        <form onSubmit={create} className="card mb-4 grid gap-3 sm:grid-cols-3">
+      {formOpen && can("form:manage") && (
+        <Modal
+          title={locale === "ar" ? "إضافة حقل" : "Add field"}
+          onClose={() => setFormOpen(false)}
+          wide
+        >
+        <form onSubmit={create} className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="label" htmlFor="ff-code">{locale === "ar" ? "الرمز" : "Code"}</label>
             <input id="ff-code" className="input" dir="ltr" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
@@ -143,7 +164,7 @@ export default function FormBuilderPage() {
             <input id="ff-en" className="input" dir="ltr" required value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="ff-type">{locale === "ar" ? "نوع البيانات" : "Data type"}</label>
+            <label className="label" htmlFor="ff-type">{locale === "ar" ? "نوع الحقل" : "Field type"}</label>
             <select id="ff-type" className="input" value={form.field_type} onChange={(e) => setForm({ ...form, field_type: e.target.value })}>
               {FIELD_TYPES.map((t) => (<option key={t.value} value={t.value}>{locale === "ar" ? t.ar : t.en}</option>))}
             </select>
@@ -179,12 +200,16 @@ export default function FormBuilderPage() {
           </div>
           <div className="flex items-center gap-2">
             <input id="ff-required" type="checkbox" checked={form.is_required} onChange={(e) => setForm({ ...form, is_required: e.target.checked })} />
-            <label htmlFor="ff-required">{locale === "ar" ? "حقل مطلوب" : "Required field"}</label>
+            <label htmlFor="ff-required">{locale === "ar" ? "إلزامي" : "Required"}</label>
           </div>
-          <div className="flex items-end">
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إضافة حقل" : "Add field"}</button>
+          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+            <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+            <button type="submit" className="btn-primary">{locale === "ar" ? "حفظ" : "Save"}</button>
           </div>
         </form>
+        </Modal>
       )}
 
       <DataStates loading={loading} error={error} empty={fields.length === 0}>
@@ -192,13 +217,14 @@ export default function FormBuilderPage() {
           <table className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr className="border-b border-line bg-pearl">
-                <th className="p-3 text-start">{locale === "ar" ? "الرمز" : "Code"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "الاسم" : "Name"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "النوع" : "Type"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "مطلوب" : "Required"}</th>
+                {/* §5.1: «جدول حقول التقرير الشهري (الحقل بالعربية، بالإنجليزية،
+                    النطاق، النوع، إلزامي، الحقل الرئيسي، الحالة)». */}
+                <th className="p-3 text-start">{locale === "ar" ? "الحقل بالعربية" : "Field (Arabic)"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "الحقل بالإنجليزية" : "Field (English)"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "النطاق" : "Scope"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "النوع" : "Type"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "إلزامي" : "Required"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الحقل الرئيسي" : "Main field"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "النسخة" : "Version"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الحالة" : "Status"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "إجراءات" : "Actions"}</th>
               </tr>
@@ -206,21 +232,20 @@ export default function FormBuilderPage() {
             <tbody>
               {fields.map((f) => (
                 <tr key={f.id} className="border-b border-line last:border-0">
-                  <td className="p-3" dir="ltr">{f.code}</td>
-                  <td className="p-3">{locale === "ar" ? f.name_ar : f.name_en}</td>
-                  <td className="p-3">{f.field_type}</td>
-                  <td className="p-3">{f.is_required ? (locale === "ar" ? "نعم" : "Yes") : locale === "ar" ? "لا" : "No"}</td>
+                  <td className="p-3">{f.name_ar}</td>
+                  <td className="p-3" dir="ltr">{f.name_en}</td>
                   <td className="p-3">
                     {f.company_id
                       ? companies.find((c) => c.id === f.company_id)?.[locale === "ar" ? "name_ar" : "name_en"]
                       : f.sector_scope ?? (locale === "ar" ? "عام" : "Global")}
                   </td>
+                  <td className="p-3">{typeLabel(f.field_type, locale)}</td>
+                  <td className="p-3">{f.is_required ? (locale === "ar" ? "نعم" : "Yes") : locale === "ar" ? "لا" : "No"}</td>
                   <td className="p-3">
                     {f.parent_id
                       ? (() => { const p = fields.find((x) => x.id === f.parent_id); return p ? (locale === "ar" ? p.name_ar : p.name_en) : `#${f.parent_id}`; })()
                       : "—"}
                   </td>
-                  <td className="p-3 tabular-nums" dir="ltr">{f.version}</td>
                   <td className="p-3">
                     <span className={f.is_active ? "chip-ok" : "chip-neutral"}>{f.is_active ? (locale === "ar" ? "مفعّل" : "Active") : locale === "ar" ? "مؤرشف" : "Archived"}</span>
                   </td>
@@ -300,7 +325,7 @@ export default function FormBuilderPage() {
               </div>
               <div className="flex items-center gap-2">
                 <input id="ef-required" type="checkbox" checked={editForm.is_required} onChange={(e) => setEditForm({ ...editForm, is_required: e.target.checked })} />
-                <label htmlFor="ef-required">{locale === "ar" ? "حقل مطلوب" : "Required field"}</label>
+                <label htmlFor="ef-required">{locale === "ar" ? "إلزامي" : "Required"}</label>
               </div>
             </div>
             <div className="flex gap-2">
@@ -310,6 +335,7 @@ export default function FormBuilderPage() {
           </form>
         </div>
       )}
+      <Toast message={message} />
     </section>
   );
 }

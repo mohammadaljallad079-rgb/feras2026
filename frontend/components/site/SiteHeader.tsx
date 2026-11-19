@@ -78,15 +78,14 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
             href={`/${locale}/service-request`}
             className="site-btn site-btn-primary hidden sm:inline-flex"
           >
-            {ar ? "طلب خدمة" : "Request a service"}
+            {ar ? "اطلب خدمة" : "Request a service"}
           </Link>
-          {/* §9: the top menu carries two buttons — request a service and
-              submit an opportunity. */}
+          {/* §9: the top menu carries two buttons — «اطلب خدمة» and «قدّم فرصة». */}
           <Link
             href={`/${locale}/opportunities`}
             className="site-btn site-btn-outline hidden lg:inline-flex"
           >
-            {ar ? "تقديم فرصة" : "Submit an opportunity"}
+            {ar ? "قدّم فرصة" : "Submit an opportunity"}
           </Link>
           <button
             type="button"

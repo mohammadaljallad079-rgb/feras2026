@@ -38,7 +38,7 @@ export default async function SolutionsPage({ params }: { params: Promise<{ loca
                 </p>
               )}
               <Link href={`/${locale}/service-request?service=${encodeURIComponent(s.slug)}`} className="site-btn site-btn-outline mt-6 w-fit">
-                {ar ? "طلب الخدمة" : "Request service"}
+                {ar ? "اطلب خدمة" : "Request a service"}
               </Link>
             </li>
           ))}

@@ -2,8 +2,10 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Modal } from "@/components/Modal";
 import { ResourceTable, Column } from "@/components/ResourceTable";
-import { StatusChip } from "@/components/StatusChip";
+import { StatusChip, statusLabel } from "@/components/StatusChip";
+import { Toast } from "@/components/Toast";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -33,6 +35,7 @@ export default function LeadsPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [form, setForm] = useState({ name: "", contact_method: "", contact_email: "", contact_phone: "", requested_service: "", source: "", company_id: "", follow_up_at: "", notes: "" });
   const [message, setMessage] = useState<string | null>(null);
+  const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   // §5.1: the leads table narrows by company, status, source and follow-up.
   const [companyFilter, setCompanyFilter] = useState("");
@@ -129,6 +132,7 @@ export default function LeadsPage() {
         company_id: Number(form.company_id),
       });
       setForm({ name: "", contact_method: "", contact_email: "", contact_phone: "", requested_service: "", source: "", company_id: "", follow_up_at: "", notes: "" });
+      setLeadFormOpen(false);
       setMessage(locale === "ar" ? "تم إنشاء العميل المحتمل." : "Lead created.");
       setReloadKey((k) => k + 1);
     } catch {
@@ -173,37 +177,51 @@ export default function LeadsPage() {
 
   return (
     <>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
-      {can("service:create") && (
-        <div className="mb-4">
-          <button type="button" className="btn-ghost" onClick={() => setComplaintOpen((v) => !v)}>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {can("lead:manage") && (
+          <button type="button" className="btn-primary" onClick={() => setLeadFormOpen(true)}>
+            {locale === "ar" ? "عميل محتمل جديد" : "New lead"}
+          </button>
+        )}
+        {can("service:create") && (
+          <button type="button" className="btn-ghost" onClick={() => setComplaintOpen(true)}>
             {locale === "ar" ? "إرسال شكوى للمالك" : "Send a complaint to the owner"}
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {complaintOpen && can("service:create") && (
-        <form onSubmit={sendComplaint} className="card mb-4 space-y-3">
-          <label className="label" htmlFor="complaint-body">
-            {locale === "ar" ? "نص الشكوى *" : "Complaint text *"}
-          </label>
-          <textarea
-            id="complaint-body"
-            className="input"
-            required
-            rows={4}
-            value={complaint}
-            onChange={(e) => setComplaint(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إرسال" : "Send"}</button>
-            <button type="button" className="btn-ghost" onClick={() => setComplaintOpen(false)}>
-              {locale === "ar" ? "إلغاء" : "Cancel"}
-            </button>
-          </div>
-        </form>
+        <Modal
+          title={locale === "ar" ? "إرسال شكوى للمالك" : "Send a complaint to the owner"}
+          onClose={() => setComplaintOpen(false)}
+        >
+          <form onSubmit={sendComplaint} className="space-y-3">
+            <label className="label" htmlFor="complaint-body">
+              {locale === "ar" ? "نص الشكوى" : "Complaint text"}<span aria-hidden="true"> *</span>
+            </label>
+            <textarea
+              id="complaint-body"
+              className="input"
+              required
+              rows={4}
+              value={complaint}
+              onChange={(e) => setComplaint(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setComplaintOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="submit" className="btn-primary">{locale === "ar" ? "إرسال" : "Send"}</button>
+            </div>
+          </form>
+        </Modal>
       )}
-      {can("lead:manage") && (
-        <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
+      {leadFormOpen && can("lead:manage") && (
+        <Modal
+          title={locale === "ar" ? "عميل محتمل جديد" : "New lead"}
+          onClose={() => setLeadFormOpen(false)}
+          wide
+        >
+        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="label" htmlFor="lead-name">{locale === "ar" ? "الاسم" : "Name"}</label>
             <input id="lead-name" className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -227,8 +245,8 @@ export default function LeadsPage() {
             <input id="lead-phone" className="input" dir="ltr" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="lead-service">{locale === "ar" ? "الخدمة المطلوبة" : "Requested service"}</label>
-            <input id="lead-service" className="input" value={form.requested_service} onChange={(e) => setForm({ ...form, requested_service: e.target.value })} />
+            <label className="label" htmlFor="lead-service">{locale === "ar" ? "الخدمة المطلوبة" : "Requested service"}<span aria-hidden="true"> *</span></label>
+            <input id="lead-service" className="input" required value={form.requested_service} onChange={(e) => setForm({ ...form, requested_service: e.target.value })} />
           </div>
           <div>
             <label className="label" htmlFor="lead-source">{locale === "ar" ? "المصدر" : "Source"}</label>
@@ -249,12 +267,16 @@ export default function LeadsPage() {
             <label className="label" htmlFor="lead-notes">{locale === "ar" ? "ملاحظة مختصرة" : "Brief note"}</label>
             <input id="lead-notes" className="input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
-          <div className="flex items-end">
-            {/* Table 5: the save action is «حفظ وتحويل» — it converts the lead to
+          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+            <button type="button" className="btn-ghost" onClick={() => setLeadFormOpen(false)}>
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+            {/* Table 6: the save action is «حفظ وتحويل» — it converts the lead to
                 the receiving company's manager. */}
             <button type="submit" className="btn-primary">{locale === "ar" ? "حفظ وتحويل" : "Save and convert"}</button>
           </div>
         </form>
+        </Modal>
       )}
       <ResourceTable<Lead>
         key={reloadKey}
@@ -279,7 +301,7 @@ export default function LeadsPage() {
               <select id="filter-status" className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">{locale === "ar" ? "كل الحالات" : "All statuses"}</option>
                 {LEAD_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{statusLabel(s, locale)}</option>
                 ))}
               </select>
             </div>
@@ -342,7 +364,7 @@ export default function LeadsPage() {
                   onChange={(e) => void advanceStatus(row.id, e.target.value)}
                 >
                   {LEAD_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>{statusLabel(s, locale)}</option>
                   ))}
                 </select>
                 <select
@@ -377,7 +399,7 @@ export default function LeadsPage() {
                 onChange={(e) => setUpdateStatus(e.target.value)}
               >
                 {LEAD_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{statusLabel(s, locale)}</option>
                 ))}
               </select>
             </div>
@@ -399,6 +421,7 @@ export default function LeadsPage() {
           </form>
         </div>
       )}
+      <Toast message={message} />
     </>
   );
 }

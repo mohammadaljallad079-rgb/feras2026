@@ -18,7 +18,7 @@ export function loadError(
   const status = (e as ApiError | undefined)?.status;
   const ar = locale === "ar";
   if (status === 403) {
-    return ar ? "لا تملك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
+    return ar ? "ليست لديك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
   }
   if (status === 404 && notFound) {
     return ar ? notFound.ar : notFound.en;
@@ -177,7 +177,7 @@ export type Dashboard = {
   banner_ar: string | null;
   banner_en: string | null;
   banner_tone: string | null;
-  actions: { label_ar: string; label_en: string; href: string }[];
+  actions: { label_ar: string; label_en: string; href: string; group?: string | null }[];
 };
 
 export type MonthlyReport = {

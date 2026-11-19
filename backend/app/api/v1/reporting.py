@@ -22,7 +22,7 @@ from app.models.business import (
     ReportEvent,
     ReportValue,
 )
-from app.models.enums import ReportStatus
+from app.models.enums import CompanyStatus, ReportStatus
 from app.models.operations import StoredFile
 from app.models.identity import User
 from app.schemas import (
@@ -219,6 +219,10 @@ def create_report(
         raise HTTPException(status_code=404, detail="Company or period not found")
     if period.status != "open":
         raise HTTPException(status_code=409, detail="Reporting period is closed")
+    # §6.2: «الشركة المحفوظة مسودة لا تظهر في القوائم ولا التقارير حتى تُفعَّل» —
+    # a draft has no reporting obligation, so no report may be opened against it.
+    if company.status != CompanyStatus.ACTIVE.value:
+        raise HTTPException(status_code=409, detail="Company is not active")
     if db.execute(
         select(MonthlyReport).where(
             MonthlyReport.company_id == payload.company_id, MonthlyReport.period_id == payload.period_id
@@ -286,6 +290,13 @@ def save_values(
     }
     if len(fields) != len({v.field_id for v in payload.values}):
         raise HTTPException(status_code=422, detail="Unknown form field")
+    # Table 5 R15: a company-scoped field belongs to its own company's reports
+    # only, so a value for a field outside this report's company/sector scope is
+    # refused rather than stored.
+    report_company = db.get(Company, report.company_id)
+    out_of_scope = [f.id for f in fields.values() if not _applies(f, report_company)]
+    if out_of_scope:
+        raise HTTPException(status_code=422, detail={"error": "field_out_of_scope", "field_ids": out_of_scope})
 
     existing = {v.field_id: v for v in report.values}
     for item in payload.values:

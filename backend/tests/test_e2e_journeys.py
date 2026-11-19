@@ -228,7 +228,7 @@ def test_business_developer_opportunity_and_owner_decision(clients, scoped, comp
     bd, owner = scoped["bd"], clients["owner"]
     created = bd.post(
         "/api/v1/opportunities",
-        json={"title": _unique("Opp"), "company_id": company_id, "estimated_value": "50000.00", "currency": "SAR"},
+        json={"title": _unique("Opp"), "company_id": company_id, "country": "البحرين", "estimated_value": "50000.00", "currency": "SAR"},
     )
     assert created.status_code == 201, created.text
     opp_id = created.json()["id"]

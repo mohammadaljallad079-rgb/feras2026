@@ -179,12 +179,14 @@ SERVICES = [
 ]
 
 # --- Navigation (header) ---------------------------------------------------
+# §9: «القائمة العلوية: عن القابضة، شركات المجموعة، منظومة الحلول، الفرص
+# التجارية، الوظائف، تواصل» — exactly these six links; the brand mark is the
+# way back to the home page, so there is no «الرئيسية» entry.
 HEADER_NAV = [
-    ("الرئيسية", "Home", "/"),
     ("عن القابضة", "About", "/about"),
     ("شركات المجموعة", "Companies", "/companies"),
     ("منظومة الحلول", "Solutions", "/solutions"),
-    ("الفرص", "Opportunities", "/opportunities"),
+    ("الفرص التجارية", "Opportunities", "/opportunities"),
     ("الوظائف", "Careers", "/careers"),
     ("تواصل", "Contact", "/contact"),
 ]

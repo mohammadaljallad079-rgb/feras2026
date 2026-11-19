@@ -89,7 +89,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                   <p className="mt-2 text-[14px] text-brand-slate">{pick(locale, s.description_ar, s.description_en)}</p>
                 )}
                 <Link href={`${l("/service-request")}?service=${encodeURIComponent(s.slug)}`} className="site-btn site-btn-outline mt-6 w-fit">
-                  {ar ? "طلب الخدمة" : "Request service"}
+                  {ar ? "اطلب خدمة" : "Request a service"}
                 </Link>
               </li>
             ))}
@@ -101,7 +101,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="bg-gradient-to-br from-brand-deep to-brand-ink py-20 text-white" aria-labelledby="h-sr">
         <div className="site-container grid items-center gap-12 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <span className="site-eyebrow">{ar ? "طلب خدمة" : "Service request"}</span>
+            <span className="site-eyebrow">{ar ? "نافذة واحدة" : "One window"}</span>
             <h2 id="h-sr" className="site-h2 text-white">
               {ar ? "اطلب خدمات المجموعة عبر نموذج مباشر." : "Request the group's services through a direct form."}
             </h2>
@@ -170,7 +170,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="site-section bg-white" aria-labelledby="h-careers">
         <div className="site-container">
           <div className="rounded-2xl border border-brand-line bg-brand-mist p-12 text-center">
-            <h2 id="h-careers" className="text-[28px] font-bold">
+            <span className="site-eyebrow">{ar ? "العمل معنا" : "Work with us"}</span>
+            <h2 id="h-careers" className="mt-2 text-[28px] font-bold">
               {pick(locale, careers?.title_ar, careers?.title_en) || (ar ? "هل ترغب في الانضمام إلى فريقنا؟" : "Would you like to join our team?")}
             </h2>
             <p className="mt-3 text-brand-slate">

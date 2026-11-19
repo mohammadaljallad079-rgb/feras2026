@@ -76,11 +76,40 @@ const LABELS: Record<string, { ar: string; en: string }> = {
   commission: { ar: "عمولة", en: "Commission" },
 };
 
+/**
+ * Table 8 names the report states in full — «مسودة»، «مرسل للمحاسبة»،
+ * «أُعيد للتعديل»، «معتمد»، «مرسل للإدارة». The generic `submitted`/`returned`
+ * chips belong to other modules (service requests, opportunities), so reports
+ * carry their own vocabulary.
+ */
+export const REPORT_STATUS_LABELS: Record<string, { ar: string; en: string }> = {
+  draft: { ar: "مسودة", en: "Draft" },
+  submitted: { ar: "مرسل للمحاسبة", en: "Submitted to accounting" },
+  returned: { ar: "أُعيد للتعديل", en: "Returned for edit" },
+  approved: { ar: "معتمد", en: "Approved" },
+  forwarded: { ar: "مرسل للإدارة", en: "Sent to management" },
+};
+
+/** The Arabic/English label for a status code, for pickers and plain text. */
+export function statusLabel(value: string, locale: string): string {
+  return LABELS[value]?.[locale as "ar" | "en"] ?? value;
+}
+
 export function StatusChip({ value }: { value: string }) {
   const { locale } = useAuth();
   const tone = STATUS_MAP[value] ?? "neutral";
   const cls =
     tone === "ok" ? "chip-ok" : tone === "warn" ? "chip-warn" : tone === "bad" ? "chip-bad" : "chip-neutral";
   const label = LABELS[value]?.[locale] ?? value;
+  return <span className={cls}>{label}</span>;
+}
+
+/** Table 8 status chip: the report's own five states, with the shared tones. */
+export function ReportStatusChip({ value }: { value: string }) {
+  const { locale } = useAuth();
+  const tone = STATUS_MAP[value] ?? "neutral";
+  const cls =
+    tone === "ok" ? "chip-ok" : tone === "warn" ? "chip-warn" : tone === "bad" ? "chip-bad" : "chip-neutral";
+  const label = REPORT_STATUS_LABELS[value]?.[locale] ?? value;
   return <span className={cls}>{label}</span>;
 }

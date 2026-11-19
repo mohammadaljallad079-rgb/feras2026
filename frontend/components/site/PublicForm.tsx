@@ -197,8 +197,8 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
 
       {needsExpertise && (
         <div>
-          <label className="site-label" htmlFor="f-expertise">{t("expertise")} <span className="site-req">*</span></label>
-          <input id="f-expertise" name="expertise" className="site-field" required maxLength={255} />
+          <label className="site-label" htmlFor="f-expertise">{t("expertise")}</label>
+          <input id="f-expertise" name="expertise" className="site-field" maxLength={255} />
         </div>
       )}
 

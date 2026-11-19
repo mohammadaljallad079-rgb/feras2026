@@ -2,84 +2,106 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
+import { InviteUserForm } from "@/components/InviteUserForm";
+import { Modal } from "@/components/Modal";
+import { Toast } from "@/components/Toast";
 import { api, loadError, Role, UserOut } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 // Table 5, «دور مخصص»: the dialog picks modules (the platform tabs) and, under
-// each, the actions (عرض / إضافة / تعديل / اعتماد / تنزيل). Each action maps to
-// exactly one permission code the backend already enforces. A module never
-// offers a code the catalog does not define, so a granted role is always
-// enforceable.
+// each, the actions the backend can enforce. A module never offers a code the
+// catalog does not define, so a granted role is always enforceable.
 type Action = { key: string; ar: string; en: string; code: string };
+
+// Table 5 R18 names the action vocabulary explicitly: «الإجراءات (عرض، إضافة،
+// تعديل، حذف، اعتماد، تنزيل)». Each module offers the subset of those six verbs
+// the backend can enforce, and each verb maps to exactly one permission code.
+const VERBS: Record<string, { ar: string; en: string }> = {
+  view: { ar: "عرض", en: "View" },
+  add: { ar: "إضافة", en: "Add" },
+  edit: { ar: "تعديل", en: "Edit" },
+  delete: { ar: "حذف", en: "Delete" },
+  approve: { ar: "اعتماد", en: "Approve" },
+  download: { ar: "تنزيل", en: "Download" },
+};
+
 const MODULE_ACTIONS: { key: string; ar: string; en: string; actions: Action[] }[] = [
   { key: "companies", ar: "الشركات", en: "Companies", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "company:view" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "company:manage" },
+    { key: "view", ...VERBS.view, code: "company:view" },
+    { key: "edit", ...VERBS.edit, code: "company:manage" },
   ] },
   { key: "reports", ar: "التقارير الشهرية", en: "Monthly reports", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "report:view_all" },
-    { key: "add", ar: "إضافة", en: "Add", code: "report:submit" },
-    { key: "approve", ar: "اعتماد", en: "Approve", code: "report:review" },
-    { key: "forward", ar: "إرسال للإدارة", en: "Forward", code: "report:forward" },
-    { key: "download", ar: "تنزيل", en: "Download", code: "report:export" },
-    { key: "period", ar: "فتح فترة", en: "Open period", code: "report:period_manage" },
+    { key: "view", ...VERBS.view, code: "report:view_all" },
+    { key: "add", ...VERBS.add, code: "report:submit" },
+    { key: "approve", ...VERBS.approve, code: "report:review" },
+    { key: "download", ...VERBS.download, code: "report:export" },
   ] },
   { key: "accounting", ar: "محاسبة القابضة", en: "Holding accounting", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "accounting:view" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "accounting:manage" },
+    { key: "view", ...VERBS.view, code: "accounting:view" },
+    { key: "edit", ...VERBS.edit, code: "accounting:manage" },
   ] },
   { key: "service", ar: "طلبات الخدمات", en: "Service requests", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "service:view" },
-    { key: "add", ar: "إضافة", en: "Add", code: "service:create" },
-    { key: "reply", ar: "تحديث الحالة", en: "Update status", code: "service:reply" },
-    { key: "assign", ar: "إسناد", en: "Assign", code: "service:assign" },
+    { key: "view", ...VERBS.view, code: "service:view" },
+    { key: "add", ...VERBS.add, code: "service:create" },
+    { key: "edit", ...VERBS.edit, code: "service:reply" },
   ] },
   { key: "leads", ar: "العملاء المحتملون", en: "Leads", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "lead:view" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "lead:manage" },
+    { key: "view", ...VERBS.view, code: "lead:view" },
+    { key: "edit", ...VERBS.edit, code: "lead:manage" },
   ] },
   { key: "opportunities", ar: "الفرص", en: "Opportunities", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "opportunity:view" },
-    { key: "add", ar: "إضافة", en: "Add", code: "opportunity:create" },
-    { key: "approve", ar: "اعتماد", en: "Approve", code: "opportunity:decide" },
+    { key: "view", ...VERBS.view, code: "opportunity:view" },
+    { key: "add", ...VERBS.add, code: "opportunity:create" },
+    { key: "approve", ...VERBS.approve, code: "opportunity:decide" },
   ] },
   { key: "directives", ar: "التوجيهات", en: "Directives", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "directive:view" },
-    { key: "add", ar: "إضافة", en: "Add", code: "directive:create" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "directive:update" },
+    { key: "view", ...VERBS.view, code: "directive:view" },
+    { key: "add", ...VERBS.add, code: "directive:create" },
+    { key: "edit", ...VERBS.edit, code: "directive:update" },
   ] },
   { key: "hr", ar: "الموظفون والموارد البشرية", en: "Employees & HR", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "hr:view" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "hr:manage" },
-    { key: "confidential", ar: "مرفقات مقيدة", en: "Confidential attachments", code: "hr:view_confidential" },
-    { key: "salary", ar: "الراتب", en: "Salary", code: "hr:view_salary" },
+    { key: "view", ...VERBS.view, code: "hr:view" },
+    { key: "edit", ...VERBS.edit, code: "hr:manage" },
   ] },
   { key: "website", ar: "إدارة الموقع", en: "Website management", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "website:view" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "website:manage" },
-    { key: "content", ar: "تحرير المحتوى", en: "Edit content", code: "site:manage" },
-    { key: "inbox", ar: "الوارد", en: "Inbox", code: "site:submissions" },
-    { key: "assign", ar: "إسناد", en: "Assign", code: "site:assign" },
+    { key: "view", ...VERBS.view, code: "website:view" },
+    { key: "edit", ...VERBS.edit, code: "website:manage" },
+    { key: "delete", ...VERBS.delete, code: "site:manage" },
   ] },
   { key: "advisor", ar: "المستشار الخارجي", en: "External advisor", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "advisor:view" },
-    { key: "add", ar: "إضافة", en: "Add", code: "advisor:submit" },
+    { key: "view", ...VERBS.view, code: "advisor:view" },
+    { key: "add", ...VERBS.add, code: "advisor:submit" },
   ] },
   { key: "assistant", ar: "المساعد الذكي", en: "AI assistant", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "ai:use" },
-    { key: "edit", ar: "إعداد المفتاح", en: "Configure key", code: "ai:configure" },
+    { key: "view", ...VERBS.view, code: "ai:use" },
   ] },
   { key: "formBuilder", ar: "منشئ النماذج", en: "Form builder", actions: [
-    { key: "edit", ar: "تعديل", en: "Edit", code: "form:manage" },
+    { key: "add", ...VERBS.add, code: "form:manage" },
+    { key: "edit", ...VERBS.edit, code: "form:manage" },
   ] },
   { key: "users", ar: "المستخدمون والأدوار", en: "Users and roles", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "user:view" },
-    { key: "edit", ar: "تعديل", en: "Edit", code: "user:manage" },
-    { key: "roles", ar: "الأدوار", en: "Roles", code: "role:manage" },
+    { key: "view", ...VERBS.view, code: "user:view" },
+    { key: "edit", ...VERBS.edit, code: "user:manage" },
   ] },
   { key: "audit", ar: "سجل النشاط", en: "Activity log", actions: [
-    { key: "view", ar: "عرض", en: "View", code: "audit:view" },
+    { key: "view", ...VERBS.view, code: "audit:view" },
   ] },
+];
+
+// Grants the six verbs do not express — narrower rights the specification gives
+// by name (own-company reports, forwarding, confidential HR attachments, the
+// salary column, assigning submissions, configuring the key, managing roles).
+const EXTRA_GRANTS: Action[] = [
+  { key: "report_own", ar: "تقارير شركته", en: "Own company reports", code: "report:view_own" },
+  { key: "report_forward", ar: "إرسال التقرير للإدارة", en: "Forward a report", code: "report:forward" },
+  { key: "report_period", ar: "فتح فترة", en: "Open a period", code: "report:period_manage" },
+  { key: "service_assign", ar: "إسناد الطلبات", en: "Assign requests", code: "service:assign" },
+  { key: "inbox", ar: "وارد الموقع", en: "Website inbox", code: "site:submissions" },
+  { key: "site_assign", ar: "إسناد الوارد", en: "Assign submissions", code: "site:assign" },
+  { key: "confidential", ar: "مرفقات مقيدة", en: "Confidential attachments", code: "hr:view_confidential" },
+  { key: "salary", ar: "الراتب", en: "Salary", code: "hr:view_salary" },
+  { key: "ai_key", ar: "إعداد مفتاح المساعد", en: "Configure the assistant key", code: "ai:configure" },
+  { key: "roles", ar: "إدارة الأدوار", en: "Manage roles", code: "role:manage" },
 ];
 
 export default function UsersPage() {
@@ -92,6 +114,7 @@ export default function UsersPage() {
   // §Table 5: «دور مخصص» opens a modal with name, description, modules and
   // actions; the chosen permission codes are derived from the checkboxes.
   const [roleOpen, setRoleOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [newRole, setNewRole] = useState({ slug: "", name_ar: "", name_en: "", description: "" });
   const [picked, setPicked] = useState<string[]>([]);
 
@@ -150,26 +173,45 @@ export default function UsersPage() {
     <section>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{locale === "ar" ? "المستخدمون والصلاحيات" : "Users and roles"}</h1>
-        {can("user:manage") && (
-          <a className="btn-primary" href="/platform/users/new">{locale === "ar" ? "دعوة مستخدم" : "Invite user"}</a>
-        )}
-        {can("role:manage") && (
-          <button type="button" className="btn-gold" onClick={() => setRoleOpen(true)}>
-            {locale === "ar" ? "دور مخصص" : "Custom role"}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {can("user:manage") && (
+            <button type="button" className="btn-primary" onClick={() => setInviteOpen(true)}>
+              {locale === "ar" ? "مستخدم جديد" : "New user"}
+            </button>
+          )}
+          {can("role:manage") && (
+            <button type="button" className="btn-gold" onClick={() => setRoleOpen(true)}>
+              {locale === "ar" ? "دور مخصص" : "Custom role"}
+            </button>
+          )}
+        </div>
       </header>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+
+      {inviteOpen && can("user:manage") && (
+        <Modal
+          title={locale === "ar" ? "مستخدم جديد" : "New user"}
+          onClose={() => setInviteOpen(false)}
+        >
+          <InviteUserForm
+            onDone={() => {
+              setMessage(locale === "ar" ? "أُنشئ المستخدم. شارك رابط إعداد كلمة المرور." : "User created. Share the password setup link.");
+              void load();
+            }}
+          />
+        </Modal>
+      )}
+
 
       <DataStates loading={loading} error={error} empty={users.length === 0}>
         <div className="card table-scroll p-0">
           <table className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr className="border-b border-line bg-pearl">
-                <th className="p-3 text-start">{locale === "ar" ? "البريد الإلكتروني" : "Email"}</th>
+                {/* §5.1: «جدول المستخدمين (الاسم، البريد، الأدوار، النطاق، الحالة)». */}
                 <th className="p-3 text-start">{locale === "ar" ? "الاسم" : "Name"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "البريد" : "Email"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الأدوار" : "Roles"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "نطاق الشركات" : "Company scope"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "النطاق" : "Scope"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الحالة" : "Status"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "إجراءات" : "Actions"}</th>
               </tr>
@@ -177,8 +219,8 @@ export default function UsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-b border-line last:border-0">
-                  <td className="p-3" dir="ltr">{u.email}</td>
                   <td className="p-3">{locale === "ar" ? u.full_name_ar : u.full_name_en}</td>
+                  <td className="p-3" dir="ltr">{u.email}</td>
                   <td className="p-3">{u.roles.join(", ")}</td>
                   <td className="p-3" dir="ltr">{u.company_ids.length ? u.company_ids.join(", ") : locale === "ar" ? "كل الشركات" : "All companies"}</td>
                   <td className="p-3">
@@ -186,7 +228,11 @@ export default function UsersPage() {
                   </td>
                   <td className="p-3">
                     {can("user:manage") && (
-                      <button type="button" className="btn-ghost" onClick={() => void toggleActive(u)}>
+                      <button
+                        type="button"
+                        className={u.is_active ? "btn-bad" : "btn-ghost"}
+                        onClick={() => void toggleActive(u)}
+                      >
                         {u.is_active ? (locale === "ar" ? "إيقاف" : "Suspend") : locale === "ar" ? "إعادة تفعيل" : "Reactivate"}
                       </button>
                     )}
@@ -198,7 +244,7 @@ export default function UsersPage() {
         </div>
       </DataStates>
 
-      <h2 className="section-title mb-3 mt-6">{locale === "ar" ? "الأدوار" : "Roles"}</h2>
+      <h2 className="section-title mb-3 mt-6">{locale === "ar" ? "الأدوار المخصصة" : "Custom roles"}</h2>
       <div className="card table-scroll p-0">
         <table className="w-full min-w-[560px] border-collapse">
           <thead>
@@ -209,9 +255,9 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {roles.map((r) => (
+            {roles.filter((r) => !r.is_system).map((r) => (
               <tr key={r.id} className="border-b border-line last:border-0">
-                <td className="p-3">{locale === "ar" ? r.name_ar : r.name_en}{r.is_system && <span className="chip-neutral ms-2">{locale === "ar" ? "نظامي" : "System"}</span>}</td>
+                <td className="p-3">{locale === "ar" ? r.name_ar : r.name_en}</td>
                 <td className="p-3 muted">{r.description ?? "—"}</td>
                 <td className="p-3 muted" dir="ltr">{r.permission_codes.join(", ")}</td>
               </tr>
@@ -231,7 +277,7 @@ export default function UsersPage() {
                 <input id="role-slug" className="input" dir="ltr" required value={newRole.slug} onChange={(e) => setNewRole({ ...newRole, slug: e.target.value })} />
               </div>
               <div>
-                <label className="label" htmlFor="role-ar">{locale === "ar" ? "الاسم بالعربية" : "Arabic name"}</label>
+                <label className="label" htmlFor="role-ar">{locale === "ar" ? "الاسم بالعربية" : "Arabic name"}<span aria-hidden="true"> *</span></label>
                 <input id="role-ar" className="input" dir="rtl" required value={newRole.name_ar} onChange={(e) => setNewRole({ ...newRole, name_ar: e.target.value })} />
               </div>
               <div>
@@ -252,13 +298,25 @@ export default function UsersPage() {
                     <p className="mb-2 font-medium">{locale === "ar" ? m.ar : m.en}</p>
                     <div className="flex flex-wrap gap-3">
                       {m.actions.map((a) => (
-                        <label key={a.code} className="flex items-center gap-2">
+                        <label key={`${m.key}-${a.key}`} className="flex items-center gap-2">
                           <input type="checkbox" checked={picked.includes(a.code)} onChange={() => togglePermission(a.code)} />
                           <span>{locale === "ar" ? a.ar : a.en}</span>
                         </label>
                       ))}
                     </div>
                   </div>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="label">{locale === "ar" ? "صلاحيات إضافية" : "Additional grants"}</legend>
+              <div className="flex flex-wrap gap-3">
+                {EXTRA_GRANTS.map((a) => (
+                  <label key={a.code} className="flex items-center gap-2">
+                    <input type="checkbox" checked={picked.includes(a.code)} onChange={() => togglePermission(a.code)} />
+                    <span>{locale === "ar" ? a.ar : a.en}</span>
+                  </label>
                 ))}
               </div>
             </fieldset>
@@ -272,6 +330,7 @@ export default function UsersPage() {
           </form>
         </div>
       )}
+      <Toast message={message} />
     </section>
   );
 }

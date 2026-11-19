@@ -208,6 +208,11 @@ def summary(
         f"approved reports: {len(approved)} — late: {late_count} — "
         "every amount in its own company currency."
     )
+    # §5.2: «نطاقه شركته فقط، ولا تظهر بيانات الشركات الأخرى ولا ملاحظات المالك
+    # السرية» — a scoped reader is told the boundary it is reading inside.
+    if allowed is not None:
+        scope_ar = f"نطاق شركتك فقط، دون بيانات الشركات الأخرى. {scope_ar}"
+        scope_en = f"Your company only, no other company data. {scope_en}"
 
     source_rows = [
         {
@@ -232,8 +237,10 @@ def summary(
     # itself — so the owner can open it instead of reading a dead-end warning.
     # Only a period whose due date has passed counts as «بعد موعده».
     notes: list[AiSummaryNote] = []
-    period_label = period.label_ar if period else ""
-    period_label_en = period.label_en if period else ""
+    # §7.5 quotes the alert as «لم يُرسل تقرير 2026-10 بعد موعده», so the note
+    # carries the machine period label rather than the prose one.
+    period_label = f"{period.year:04d}-{period.month:02d}" if period else ""
+    period_label_en = period_label
     past_due = bool(period and period.due_on and period.due_on < date.today())
     if past_due:
         for r in late:

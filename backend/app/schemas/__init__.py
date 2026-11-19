@@ -316,7 +316,8 @@ class AccountingCreate(BaseModel):
     reference: str
     description: str
     amount: Decimal
-    currency: str = "SAR"
+    # §5.3: «العملة الافتراضية BHD» — the holding books are kept in dinars.
+    currency: str = "BHD"
     entry_date: date
     party: str | None = None
     tax_amount: Decimal | None = None
@@ -426,7 +427,9 @@ class LeadCreate(BaseModel):
     name: str
     contact_email: EmailStr | None = None
     contact_phone: str | None = None
-    requested_service: str | None = None
+    # Table 6 R3 marks «الخدمة المطلوبة *» mandatory: it is what the receiving
+    # company's manager is asked to serve.
+    requested_service: str = Field(min_length=1)
     source: str | None = None
     contact_method: str | None = None
     company_id: int
@@ -464,9 +467,10 @@ class OpportunityCreate(BaseModel):
     title: str
     company_id: int
     description: str | None = None
-    # Table 5: «الدولة *» and «ملف الدراسة» (optional) on the new-opportunity
-    # modal. Table 3 lists the country, the file and the source per row.
-    country: str | None = None
+    # Table 5 R5: the new-opportunity modal marks «الدولة *» as mandatory, so the
+    # API refuses an opportunity that names no country. «ملف الدراسة» stays
+    # optional; Table 3 lists the country, the file and the source per row.
+    country: str = Field(min_length=1)
     attachment_file_id: int | None = None
     source: str | None = None
     estimated_value: Decimal | None = None
@@ -521,6 +525,9 @@ class DirectiveOut(ORMModel):
     completed_at: datetime | None
     escalation_note: str | None
     created_at: datetime
+    # Table 5/10: «نعم، أحلها لمطوّر الأعمال» produces a task, which the
+    # developer's dashboard shows as an assistant task rather than a directive.
+    is_assistant_task: bool = False
 
 
 # --- Employees --------------------------------------------------------------
@@ -997,6 +1004,9 @@ class DashboardAction(BaseModel):
     label_ar: str
     label_en: str
     href: str
+    # §5.2: the manager's isolation probe is rendered in its own «اختبار العزل»
+    # section rather than among the quick actions.
+    group: str | None = None
 
 
 class DashboardOut(BaseModel):

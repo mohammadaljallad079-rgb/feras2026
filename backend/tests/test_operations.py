@@ -28,7 +28,7 @@ def test_opportunity_decision_flow(client, make_user, login):
     created = client.post(
         "/api/v1/opportunities",
         headers=h_bd,
-        json={"title": "فرصة جديدة", "company_id": cid, "estimated_value": "50000.00", "currency": "SAR"},
+        json={"title": "فرصة جديدة", "company_id": cid, "country": "البحرين", "estimated_value": "50000.00", "currency": "SAR"},
     )
     assert created.status_code == 201, created.text
     oid = created.json()["id"]
@@ -150,10 +150,25 @@ def test_lead_requires_registered_company(client, make_user, login):
     cid = _company(client, h_owner, "LEAD-1")
     # The business developer is granted access to this company.
     client.patch(f"/api/v1/users/{bd.id}", headers=h_owner, json={"company_ids": [cid]})
-    bad = client.post("/api/v1/leads", headers=h_bd, json={"name": "x", "company_id": 999999})
+    bad = client.post("/api/v1/leads", headers=h_bd, json={"name": "x", "company_id": 999999, "requested_service": "تصميم"})
     assert bad.status_code == 422
-    ok = client.post("/api/v1/leads", headers=h_bd, json={"name": "عميل", "company_id": cid, "source": "referral"})
+    ok = client.post("/api/v1/leads", headers=h_bd, json={"name": "عميل", "company_id": cid, "source": "referral", "requested_service": "تسويق"})
     assert ok.status_code == 201, ok.text
+
+
+def test_lead_requires_the_requested_service(client, make_user, login):
+    """Table 6 R3 stars «الخدمة المطلوبة *»: the API must refuse a lead without it."""
+    make_user("ls_owner@safir-platform.com", ["owner"])
+    h_owner = login("ls_owner@safir-platform.com")
+    cid = _company(client, h_owner, "LEADS-1")
+
+    missing = client.post("/api/v1/leads", headers=h_owner, json={"name": "عميل", "company_id": cid})
+    assert missing.status_code == 422, missing.text
+
+    blank = client.post(
+        "/api/v1/leads", headers=h_owner, json={"name": "عميل", "company_id": cid, "requested_service": ""}
+    )
+    assert blank.status_code == 422, blank.text
 
 
 def test_lead_is_transferred_to_the_receiving_companys_manager(client, make_user, login):
@@ -187,7 +202,7 @@ def test_lead_is_transferred_to_the_receiving_companys_manager(client, make_user
     explicit = client.post(
         "/api/v1/leads",
         headers=h_owner,
-        json={"name": "عميل 2", "company_id": cid, "assigned_to_id": other.id, "source": "manual"},
+        json={"name": "عميل 2", "company_id": cid, "assigned_to_id": other.id, "source": "manual", "requested_service": "تسويق"},
     )
     assert explicit.status_code == 201, explicit.text
     assert explicit.json()["assigned_to_id"] == other.id
@@ -232,7 +247,7 @@ def test_lead_keeps_its_contact_method(client, make_user, login):
     created = client.post(
         "/api/v1/leads",
         headers=h_bd,
-        json={"name": "عميل", "company_id": cid, "contact_method": "whatsapp", "contact_phone": "39000000"},
+        json={"name": "عميل", "company_id": cid, "contact_method": "whatsapp", "contact_phone": "39000000", "requested_service": "تسويق"},
     )
     assert created.status_code == 201, created.text
     assert created.json()["contact_method"] == "whatsapp"
@@ -291,7 +306,7 @@ def test_website_conversion_defaults_to_the_holding_when_no_company_named(client
     # The public form sends no company_id.
     opp_sub = client.post(
         "/api/v1/public/submissions",
-        json={"kind": "opportunity", "name": "مستثمر", "email": "o@example.com", "phone": "123", "country": "البحرين", "subject": "فرصة", "consent": True},
+        json={"kind": "opportunity", "name": "مستثمر", "email": "o@example.com", "phone": "123", "country": "البحرين", "subject": "فرصة", "message": "وصف الفرصة", "consent": True},
     )
     assert opp_sub.status_code == 201, opp_sub.text
     converted = client.post(f"/api/v1/website/submissions/{opp_sub.json()['id']}/convert", headers=h_owner, json={"target": "opportunity"})
@@ -415,22 +430,20 @@ def test_dashboards_differ_per_role(client, make_user, login):
     assert owner_keys != designer_keys
 
 
-def test_accountant_dashboard_actions_deep_link_to_each_entry_kind(client, make_user, login):
-    """PDF p.24 / §5.3: the four buttons must open the right screen.
+def test_accountant_dashboard_actions_open_the_named_screens(client, make_user, login):
+    """PDF p.24 / §5.3 and Table 3: two buttons, each opening its own screen.
 
-    «مراجعة تقرير» opens the reports; the three accounting buttons open the
-    accounting screen on the right tab. The accounting page reads `?kind=`, so a
-    link without it lands on the default tab and the button silently does the
-    wrong thing.
+    «مراجعة تقرير» opens the reports list; «مصروف / فاتورة / عمولة جديدة» opens
+    holding accounting, where the three entry forms live (Table 5).
     """
     make_user("dash_acct@safir-platform.com", ["accountant"])
     dash = client.get("/api/v1/dashboard", headers=login("dash_acct@safir-platform.com")).json()
     assert dash["role"] == "accountant"
     hrefs = {a["label_en"]: a["href"] for a in dash["actions"]}
-    assert hrefs["Review a report"] == "/reports"
-    assert hrefs["New expense"] == "/accounting?kind=expense"
-    assert hrefs["New income / invoice"] == "/accounting?kind=invoice"
-    assert hrefs["New commission"] == "/accounting?kind=commission"
+    assert hrefs == {
+        "Review a report": "/reports",
+        "New expense / invoice / commission": "/accounting",
+    }
 
 
 def test_advisor_dashboard_actions_are_the_three_message_categories(client, make_user, login):

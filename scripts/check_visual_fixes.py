@@ -204,7 +204,7 @@ def check_page_24(page: Page) -> None:
     # download a real workbook rather than a dead control.
     page.goto(f"{BASE}/platform/accounting")
     page.wait_for_timeout(1500)
-    button = page.query_selector("button:has-text('تصدير Excel')")
+    button = page.query_selector("button:has-text('تنزيل Excel')")
     _record(24, "the accounting export button is present", bool(button))
     if button:
         with page.expect_download(timeout=20000) as download:
@@ -226,7 +226,7 @@ def check_forbidden_message(browser) -> None:
         page.goto(f"{BASE}{path}")
         page.wait_for_timeout(2000)
         body = page.inner_text("body")
-        refused = "لا تملك صلاحية عرض هذه البيانات" in body
+        refused = "ليست لديك صلاحية عرض هذه البيانات" in body
         generic = "تعذّر تحميل البيانات" in body
         _record(
             19,

@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { api, loadError, Company, FormField, MonthlyReport } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
-import { StatusChip } from "@/components/StatusChip";
+import { ReportStatusChip } from "@/components/StatusChip";
+import { Toast } from "@/components/Toast";
 
 type ReportEvent = { from_status: string | null; to_status: string; reason: string | null; created_at: string };
 
@@ -172,7 +173,7 @@ export default function ReportDetailPage() {
           {locale === "ar" ? "التقرير الشهري" : "Monthly report"} #{params.id}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          {report && <StatusChip value={report.status} />}
+          {report && <ReportStatusChip value={report.status} />}
           {/* Table 3 / Table 9: «رجوع» returns to the reports list for every role. */}
           <button type="button" className="btn-ghost" onClick={() => router.push("/platform/reports")}>
             {locale === "ar" ? "رجوع" : "Back"}
@@ -180,11 +181,6 @@ export default function ReportDetailPage() {
         </div>
       </header>
 
-      {message && (
-        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
-          {message}
-        </p>
-      )}
       {locked && (
         <p className="mb-4 rounded-control border border-warn bg-warnbg p-3 text-warn">
           {locale === "ar" ? "التقرير معتمد ومقفل." : "The report is approved and locked."}
@@ -286,7 +282,7 @@ export default function ReportDetailPage() {
                 {editable && can("report:submit") && (
                   <>
                     <button type="button" className="btn-ghost" onClick={() => void saveValues()} disabled={busy}>
-                      {locale === "ar" ? "حفظ مسودة" : "Save draft"}
+                      {locale === "ar" ? "حفظ المسودة" : "Save draft"}
                     </button>
                     <button
                       type="button"
@@ -294,7 +290,7 @@ export default function ReportDetailPage() {
                       disabled={busy}
                       onClick={() => void run(() => api.post(`/api/v1/reports/${params.id}/submit`), "تم الإرسال إلى المحاسبة.", "Submitted to accounting.")}
                     >
-                      {locale === "ar" ? "إرسال إلى المحاسبة" : "Submit to accounting"}
+                      {locale === "ar" ? "إرسال للمحاسبة" : "Submit to accounting"}
                     </button>
                   </>
                 )}
@@ -310,11 +306,11 @@ export default function ReportDetailPage() {
                     </button>
                     <button
                       type="button"
-                      className="btn-ghost"
+                      className="btn-bad"
                       disabled={busy}
                       onClick={() => setReturning(true)}
                     >
-                      {locale === "ar" ? "إعادة للتعديل" : "Return for correction"}
+                      {locale === "ar" ? "إعادة للتصحيح" : "Return for correction"}
                     </button>
                   </>
                 )}
@@ -334,7 +330,7 @@ export default function ReportDetailPage() {
                     className="btn-ghost"
                     onClick={() => void api.download(`/api/v1/reports/${params.id}/export`, `report-${params.id}.xlsx`)}
                   >
-                    {locale === "ar" ? "تصدير Excel" : "Export Excel"}
+                    {locale === "ar" ? "تنزيل Excel" : "Download Excel"}
                   </button>
                 )}
               </div>
@@ -384,7 +380,7 @@ export default function ReportDetailPage() {
                   {history.map((h, i) => (
                     <li key={i} className="border-b border-line pb-2 last:border-0">
                       <div className="flex items-center gap-2">
-                        <StatusChip value={h.to_status} />
+                        <ReportStatusChip value={h.to_status} />
                         <span className="muted" dir="ltr">
                           {h.created_at.slice(0, 16).replace("T", " ")}
                         </span>
@@ -415,7 +411,7 @@ export default function ReportDetailPage() {
             <h2 className="section-title">{locale === "ar" ? "إعادة للتعديل" : "Return for correction"}</h2>
             <div>
               <label className="label" htmlFor="return-reason">
-                {locale === "ar" ? "السبب (إلزامي، واضح)" : "Reason (mandatory, clear)"}<span aria-hidden="true"> *</span>
+                {locale === "ar" ? "السبب (إلزامي، واضح) *" : "Reason (mandatory, clear) *"}
               </label>
               <textarea
                 id="return-reason"
@@ -429,13 +425,14 @@ export default function ReportDetailPage() {
               <button type="button" className="btn-ghost" onClick={() => setReturning(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>
-              <button type="submit" className="btn-primary" disabled={reason.trim().length < 3}>
+              <button type="submit" className="btn-bad" disabled={reason.trim().length < 3}>
                 {locale === "ar" ? "إعادة" : "Return"}
               </button>
             </div>
           </form>
         </div>
       )}
+      <Toast message={message} />
     </section>
   );
 }

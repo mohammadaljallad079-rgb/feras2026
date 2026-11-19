@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusChip } from "@/components/StatusChip";
 import { DataStates } from "@/components/DataStates";
+import { Modal } from "@/components/Modal";
+import { Toast } from "@/components/Toast";
 import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -48,6 +50,13 @@ export default function AccountingPage() {
   // file is uploaded first so the entry can reference the stored file id.
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  // §5.3 «ثلاثة أزرار (مصروف جديد، إيراد/فاتورة جديدة، عمولة جديدة)» — each
+  // button opens the same entry window with its kind already chosen.
+  const [entryOpen, setEntryOpen] = useState(false);
+  const openEntry = (kind: string) => {
+    setForm((f) => ({ ...f, kind }));
+    setEntryOpen(true);
+  };
   const [form, setForm] = useState({
     kind: initialKind,
     company_id: "",
@@ -57,7 +66,7 @@ export default function AccountingPage() {
     currency: "BHD",
     entry_date: new Date().toISOString().slice(0, 10),
     party: "",
-    tax_amount: "",
+    tax_percent: "",
     direction: "incoming",
     payment_status: "unpaid",
     tax_registration_no: "",
@@ -78,7 +87,16 @@ export default function AccountingPage() {
 
   useEffect(() => {
     void load();
-    api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
+    // §5.3: these entries belong to «محاسبة القابضة», so the company is the
+    // Holding itself and the form does not ask for it.
+    api
+      .get<Company[]>("/api/v1/companies?include_holding=true")
+      .then((rows) => {
+        setCompanies(rows);
+        const holding = rows.find((c) => c.is_holding);
+        if (holding) setForm((f) => ({ ...f, company_id: String(holding.id) }));
+      })
+      .catch(() => undefined);
   }, [load]);
 
   useEffect(() => {
@@ -99,6 +117,14 @@ export default function AccountingPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
+    if (!form.company_id) {
+      setMessage(
+        locale === "ar"
+          ? "سجل القابضة غير متاح بعد؛ أعد تحميل الشاشة."
+          : "The Holding record is not available yet; reload the screen.",
+      );
+      return;
+    }
     setBusy(true);
     try {
       // An optional expense attachment is uploaded before the entry is saved.
@@ -110,10 +136,20 @@ export default function AccountingPage() {
         const stored = await api.upload<{ id: number }>("/api/v1/files", fd);
         document_file_id = stored.id;
       }
+      // Table 5, «إيراد / فاتورة جديدة»: «الضريبة % عند انطباقها» — the tax is
+      // entered as a rate and the total is computed by the platform.
+      const tax_amount =
+        form.kind === "invoice" && form.tax_percent
+          ? (Number(form.amount) * Number(form.tax_percent)) / 100
+          : null;
+      const { tax_percent: _taxPercent, ...payload } = form;
       await api.post("/api/v1/accounting", {
-        ...form,
+        ...payload,
+        // Table 5 lists no reference field; the platform assigns one so every
+        // entry stays searchable in the tables and the Excel export.
+        reference: `${form.kind.toUpperCase()}-${Date.now()}`,
         company_id: Number(form.company_id),
-        tax_amount: form.tax_amount || null,
+        tax_amount,
         party: form.party || null,
         tax_registration_no: form.kind === "invoice" ? form.tax_registration_no || null : null,
         service_item: form.kind === "invoice" ? form.service_item || null : null,
@@ -121,8 +157,9 @@ export default function AccountingPage() {
         payment_status: form.kind === "invoice" ? null : form.payment_status,
         document_file_id,
       });
-      setForm((f) => ({ ...f, reference: "", description: "", amount: "", party: "", tax_amount: "", tax_registration_no: "", service_item: "" }));
+      setForm((f) => ({ ...f, reference: "", description: "", amount: "", party: "", tax_percent: "", tax_registration_no: "", service_item: "" }));
       setDocumentFile(null);
+      setEntryOpen(false);
       setMessage(locale === "ar" ? "تم تسجيل القيد." : "Entry recorded.");
       setTab(form.kind);
       await load();
@@ -208,47 +245,53 @@ export default function AccountingPage() {
               : "Three operations only: expense, income/invoice and commission. No payments or bank transfers."}
           </p>
         </div>
-        {/* The backend exports every entry the caller may see; the button is
-            offered to anyone who can view accounting at all. */}
-        {can("accounting:view") && (
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => void api.download("/api/v1/accounting/export.xlsx", "accounting.xlsx")}
-          >
-            {locale === "ar" ? "تصدير Excel" : "Export Excel"}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {/* The backend exports every entry the caller may see; the button is
+              offered to anyone who can view accounting at all. */}
+          {can("accounting:view") && (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => void api.download("/api/v1/accounting/export.xlsx", "accounting.xlsx")}
+            >
+              {locale === "ar" ? "تنزيل Excel" : "Download Excel"}
+            </button>
+          )}
+          {can("accounting:manage") && (
+            <>
+              <button type="button" className="btn-primary" onClick={() => openEntry("expense")}>
+                {locale === "ar" ? "مصروف جديد" : "New expense"}
+              </button>
+              <button type="button" className="btn-primary" onClick={() => openEntry("invoice")}>
+                {locale === "ar" ? "إيراد/فاتورة جديدة" : "New income/invoice"}
+              </button>
+              <button type="button" className="btn-primary" onClick={() => openEntry("commission")}>
+                {locale === "ar" ? "عمولة جديدة" : "New commission"}
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
-      {message && (
-        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
-          {message}
-        </p>
-      )}
-
-      {can("accounting:manage") && (
-        <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="label" htmlFor="kind">{locale === "ar" ? "النوع" : "Kind"}</label>
-            <select id="kind" className="input" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
-              <option value="expense">{locale === "ar" ? "مصروف" : "Expense"}</option>
-              <option value="invoice">{locale === "ar" ? "فاتورة" : "Invoice"}</option>
-              <option value="commission">{locale === "ar" ? "عمولة" : "Commission"}</option>
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="ac-company">{locale === "ar" ? "الشركة" : "Company"}</label>
-            <select id="ac-company" className="input" required value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}>
-              <option value="">—</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>{locale === "ar" ? c.name_ar : c.name_en}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="reference">{locale === "ar" ? "المرجع" : "Reference"}</label>
-            <input id="reference" className="input" dir="ltr" required value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
+      {entryOpen && can("accounting:manage") && (
+        <Modal
+          title={
+            form.kind === "invoice"
+              ? locale === "ar" ? "إيراد/فاتورة جديدة" : "New income/invoice"
+              : form.kind === "commission"
+                ? locale === "ar" ? "عمولة جديدة" : "New commission"
+                : locale === "ar" ? "مصروف جديد" : "New expense"
+          }
+          onClose={() => setEntryOpen(false)}
+          wide
+        >
+        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
+          <div className="sm:col-span-3">
+            <p className="muted">
+              {locale === "ar"
+                ? `القيد على محاسبة القابضة · ${KIND_TABS.find((k) => k.key === form.kind)?.ar ?? ""}`
+                : `Recorded on the Holding's books · ${KIND_TABS.find((k) => k.key === form.kind)?.en ?? ""}`}
+            </p>
           </div>
           <div className="sm:col-span-2">
             <label className="label" htmlFor="description">
@@ -271,7 +314,7 @@ export default function AccountingPage() {
               {form.kind === "invoice"
                 ? locale === "ar" ? "المجموع قبل الضريبة" : "Net before tax"
                 : locale === "ar" ? "المبلغ" : "Amount"}
-            </label>
+            <span aria-hidden="true"> *</span></label>
             <input id="amount" className="input" dir="ltr" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </div>
           {form.kind === "invoice" && (
@@ -290,8 +333,14 @@ export default function AccountingPage() {
           )}
           {form.kind === "invoice" && (
             <div>
-              <label className="label" htmlFor="tax_amount">{locale === "ar" ? "الضريبة (عند انطباقها)" : "Tax (when applicable)"}</label>
-              <input id="tax_amount" className="input" dir="ltr" inputMode="decimal" value={form.tax_amount} onChange={(e) => setForm({ ...form, tax_amount: e.target.value })} />
+              <label className="label" htmlFor="tax_percent">{locale === "ar" ? "الضريبة % (عند انطباقها)" : "Tax % (when applicable)"}</label>
+              <input id="tax_percent" className="input" dir="ltr" inputMode="decimal" value={form.tax_percent} onChange={(e) => setForm({ ...form, tax_percent: e.target.value })} />
+              <p className="muted mt-1" dir="ltr">
+                {`${(
+                  Number(form.amount || 0) +
+                  (Number(form.amount || 0) * Number(form.tax_percent || 0)) / 100
+                ).toFixed(2)} ${form.currency}`}
+              </p>
             </div>
           )}
           {form.kind === "commission" && (
@@ -347,7 +396,10 @@ export default function AccountingPage() {
               {documentFile && <p className="muted mt-1" dir="ltr">{documentFile.name}</p>}
             </div>
           )}
-          <div className="flex items-end">
+          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+            <button type="button" className="btn-ghost" onClick={() => setEntryOpen(false)}>
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
             <button type="submit" className="btn-primary" disabled={busy}>
               {form.kind === "invoice"
                 ? locale === "ar" ? "حفظ وإصدار" : "Save and issue"
@@ -355,6 +407,7 @@ export default function AccountingPage() {
             </button>
           </div>
         </form>
+        </Modal>
       )}
 
       <div className="mb-4 flex flex-wrap gap-2" role="tablist">
@@ -400,6 +453,7 @@ export default function AccountingPage() {
           </table>
         </div>
       </DataStates>
+      <Toast message={message} />
     </section>
   );
 }

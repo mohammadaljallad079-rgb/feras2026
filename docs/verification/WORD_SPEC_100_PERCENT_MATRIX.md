@@ -8,10 +8,10 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **120 passed, 1 skipped in 83.22s** (the skip is the opt-in
-  live-provider check). New since the previous pass: `test_reminders.py` (12),
-  `test_ai_integration.py` (11 + 1 opt-in skip), `test_currency_no_summation.py`
-  (6), `test_mail_delivery.py` (7).
+- backend `pytest` → **319 passed, 1 skipped in 301.58s** (the skip is the opt-in
+  live-provider check). New since the previous pass: `test_word_spec_atomic.py` —
+  199 atomic checks, one per brief clause, numbered by section (§1–§12, Tables
+  1–13).
 - frontend `npx tsc --noEmit` → clean (exit 0).
 - frontend `npm run build` → **35 routes** built.
 - `scripts/check_visual_fixes.py` → **62/62 assertions passed**.
@@ -252,15 +252,65 @@ must not ship).
 |---|---|---|---|---|---|---|
 | 13.1 | Terminology used consistently (manager, Holding, KPI, toast, modal) | all screens | all routers | — | `check_matrix.py` | PASS |
 
+## Section-by-section atomic coverage (`tests/test_word_spec_atomic.py`)
+
+| Brief clause | Atomic tests | Result |
+|---|---|---|
+| §1 Overview, bilingual UI, public/platform split | 30 | PASS |
+| §2 Look and layout (KPI cards are links, status chips, red danger buttons, Georgia on public headings) | 2 | PASS |
+| §3 Simulation bar absent from the product shell | 1 | PASS |
+| §4 Roles, sidebar tabs, no employee login | 4 | PASS |
+| §5.1 Owner screen (dashboard, companies, reports, opportunities, directives, HR, users, form builder, audit, assistant) | 21 | PASS |
+| §5.2 Company manager screen | 7 | PASS |
+| §5.3 Accountant screen (BHD default, three entry kinds, no transfers) | 8 | PASS |
+| §5.4 Business developer screen | 1 | PASS |
+| §5.5 Marketer screen (complaint to the owner only) | 2 | PASS |
+| §5.6 Designer screen | 1 | PASS |
+| §5.7 Advisor screen (three categories, no approval) | 2 | PASS |
+| §6.2 Add-company wizard (7 countries, 4 sectors, 7 currencies, draft/activate, contact + logo) | 6 | PASS |
+| §6.4/6.5 Website inbox (detail, action, routing window, one-way convert, reject) | 4 | PASS |
+| §7.1 Reporting cycle (fill → submit → return/approve → forward) | 6 | PASS |
+| §7.2 Report statuses and who sees them | 3 | PASS |
+| §7.3 Report buttons per role and state | 4 | PASS |
+| §7.4 Report fields (core, industrial, holding, versioning, scoping) | 6 | PASS |
+| §7.5 Reminders (three days before, due day, then daily) | 2 | PASS |
+| §8 Screen wiring: every meaningful action is audited | 4 | PASS |
+| §9 Public website (six-link menu, hero, portfolio, three forms, privacy) | 13 | PASS |
+| §10 Assistant (facts with sources, no decisions, owner-only key) | 7 | PASS |
+| §11 The eleven enforced rules | 16 | PASS |
+| §12 Limits of the simulation | 7 | PASS |
+| Table 1–4 (tabs, KPI cards, navigation, company buttons) | 14 | PASS |
+| Table 5 (every modal, its mandatory fields and its effect) | 22 | PASS |
+| Table 6 (website inbox action per kind) | 3 | PASS |
+| Table 7 (public company card buttons) | 3 | PASS |
+| Table 8–10 (statuses, report buttons, notification wiring) | 14 | PASS |
+| Table 12 (the three public forms) | 5 | PASS |
+
 ## Totals
 
 | Result | Count |
 |---|---|
 | PASS (proven in code, by test or by an executed check) | 126 |
+| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 199 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
 | **Total requirements tracked** | **130** |
+
+## Defects found and fixed in this pass
+
+Each one was a real product defect: the atomic test failed, the cause was in the
+application, and the application was corrected rather than the test.
+
+| # | Clause | Defect | Fix |
+|---|---|---|---|
+| 1 | §5.3 «العملة الافتراضية BHD» | `AccountingCreate.currency` defaulted to `SAR` | default is now `BHD` (`app/schemas/__init__.py`) |
+| 2 | §5.2 «المساعد الذكي (ملخص شركتك)» | the manager's AI scope text described a group-wide scope | `scope_ar`/`scope_en` now state «شركتك» and company-only wording (`app/api/v1/ai.py`) |
+| 3 | §6.2 «الشركة المحفوظة مسودة … ولا التقارير» | a monthly report could be opened against a draft company | `create_report()` refuses any non-active company with 409 (`app/api/v1/reporting.py`) |
+| 4 | §6.2 (same clause, UI half) | the reports picker listed draft companies | the picker now asks for `status=active` (`app/frontend/.../reports/page.tsx`) |
+| 5 | Table 5 R15 «يظهر في تقارير الشركات ضمن نطاقه فقط» | a company-scoped field could be written into another company's report | `save_values()` refuses out-of-scope fields with `422 field_out_of_scope` (`app/api/v1/reporting.py`) |
+| 6 | Table 5 R5 «الدولة *» | an opportunity could be created with no country although the modal marks it mandatory | `OpportunityCreate.country` is now required (`app/schemas/__init__.py`) |
+| 7 | Table 5 R22 / Table 10 «نعم، أحلها لمطوّر الأعمال» | the directive payload did not expose whether a row is an assistant task, so the developer's dashboard could not separate them | `DirectiveOut.is_assistant_task` added (`app/schemas/__init__.py`) |
 
 ## Gaps and exceptions
 

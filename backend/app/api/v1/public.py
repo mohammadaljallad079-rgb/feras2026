@@ -28,12 +28,15 @@ from app.services.files import path_for, save_upload
 
 router = APIRouter(prefix="/public", tags=["public"])
 
-# Fields each form requires, beyond name/email/consent (brief §8).
+# Fields each form requires, beyond name/email/consent (Table 12). Only the
+# starred fields are mandatory: «نوع الخدمة *» for a service request,
+# «دولة المشروع *» and «وصف مختصر *» for an opportunity, and the CV for a job
+# application. «موضوع الفرصة» and «مجال الاهتمام أو الخبرة» carry no star.
 _KIND_REQUIRED: dict[str, tuple[str, ...]] = {
     SubmissionKind.CONTACT.value: (),
     SubmissionKind.SERVICE_REQUEST.value: ("phone", "service_type"),
-    SubmissionKind.OPPORTUNITY.value: ("phone", "country", "subject"),
-    SubmissionKind.JOB_APPLICATION.value: ("phone", "expertise"),
+    SubmissionKind.OPPORTUNITY.value: ("phone", "country", "message"),
+    SubmissionKind.JOB_APPLICATION.value: ("phone",),
 }
 
 
