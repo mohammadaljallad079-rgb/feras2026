@@ -35,7 +35,7 @@ none is copied from an earlier report.
 | TypeScript check | `npx tsc --noEmit` | **clean (exit 0)** |
 | Word-spec atomic suite | `pytest tests/test_word_spec_atomic.py` | **201 passed in 194.80s** |
 | Production build | `npm run build` | **35 routes built** |
-| Browser visual fixes | `scripts/check_visual_fixes.py` | **62/62 assertions passed** |
+| Browser visual fixes | `scripts/check_visual_fixes.py` | **67/67 assertions passed** |
 | Route/viewport matrix | `scripts/check_matrix.py` | **85 combinations, 0 failures** |
 | Mobile overflow | `scripts/check_mobile.py` | **no horizontal overflow at 400px (11 routes)** |
 
@@ -53,7 +53,7 @@ The test suite refuses to run against any database whose name does not end in
 | Reports (lifecycle, states, reminders, export) | `test_reporting_workflow.py` (13) | PASS |
 | Public site and forms | `test_site_cms.py` (8), `test_public_submission_rate_limit_and_conversion`, `check_matrix.py` | PASS |
 | Attachments and mail | `test_confidential_hr_attachment_is_restricted_to_the_manager`, `test_service_request_routing_emails_the_specialist`, `test_directive_notifies_its_single_recipient`, `test_conversion_emails_the_company_manager_and_specialist`, `test_complaint_reaches_only_the_owner_by_email`, `test_account_emails_carry_a_brief_secure_link_and_no_financial_detail`, `test_mail_delivery.py` (7), `test_reminders.py` (12) | PASS |
-| UI and mobile | `check_visual_fixes.py` (62/62), `check_matrix.py` (85/85), `check_mobile.py` | PASS |
+| UI and mobile | `check_visual_fixes.py` (67/67), `check_matrix.py` (85/85), `check_mobile.py` | PASS |
 
 ## 3. Security and authorisation results
 

@@ -7,13 +7,13 @@ import { Toast } from "@/components/Toast";
 import { api, loadError, Company, FormField } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-// Table 5 names two field types — «رقم / مبلغ» and «سؤال وجواب» — plus the
+// Table 5 names two field types — «رقم / مبلغ» and «سؤال وإجابة» — plus the
 // date/flag kinds the report form already understands. Every value here must be
 // a member of the backend FieldType enum, or the save is rejected with a 422.
 const FIELD_TYPES: { value: string; ar: string; en: string }[] = [
   { value: "amount", ar: "رقم / مبلغ", en: "Number / amount" },
   { value: "number", ar: "رقم صحيح", en: "Whole number" },
-  { value: "text", ar: "سؤال وجواب", en: "Question and answer" },
+  { value: "text", ar: "سؤال وإجابة", en: "Question and answer" },
   { value: "textarea", ar: "نص طويل", en: "Long text" },
   { value: "date", ar: "تاريخ", en: "Date" },
   { value: "boolean", ar: "نعم / لا", en: "Yes / no" },

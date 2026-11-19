@@ -318,6 +318,8 @@ application, and the application was corrected rather than the test.
 | 12 | §5.1 / Table 5 «المنصب»، «رقم التواصل»، «العنوان» | the employee, directive and HR modals used «المسمى الوظيفي»، «الهاتف»، «عنوان التوجيه» | labels corrected |
 | 13 | Table 12 «تواصل \| البريد والهاتف فقط \| —» | the contact page also rendered a fourth public form the brief does not define | the page shows country, email and phone only (`app/(site)/[locale]/contact/page.tsx`) |
 | 14 | Table 13 field names | the opportunity country read «الدولة», the CV form's expertise «مجال الخبرة», the attachment «ملف الدراسة (اختياري)», and one phone label served all three forms | «دولة المشروع»، «مجال الاهتمام أو الخبرة»، «ملف الدراسة أو المرفقات»، and «رقم التواصل» on the service form vs «الهاتف» on the other two (`components/site/PublicForm.tsx`) |
+| 15 | Table 5 R12 «المبلغ (BHD) *» | the expense amount label read «المبلغ» and named the currency only in a separate field | the label now reads `المبلغ (BHD)`, following the form's currency (`app/(admin)/platform/(app)/accounting/page.tsx`) |
+| 16 | Table 5 R15 «سؤال وإجابة» | the field-type option read «سؤال وجواب» | label corrected (`app/(admin)/platform/(app)/form-builder/page.tsx`) |
 
 ## Gaps and exceptions
 

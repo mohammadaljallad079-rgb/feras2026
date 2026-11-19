@@ -313,7 +313,7 @@ export default function AccountingPage() {
             <label className="label" htmlFor="amount">
               {form.kind === "invoice"
                 ? locale === "ar" ? "المجموع قبل الضريبة" : "Net before tax"
-                : locale === "ar" ? "المبلغ" : "Amount"}
+                : locale === "ar" ? `المبلغ (${form.currency})` : `Amount (${form.currency})`}
             <span aria-hidden="true"> *</span></label>
             <input id="amount" className="input" dir="ltr" inputMode="decimal" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </div>

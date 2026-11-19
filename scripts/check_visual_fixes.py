@@ -198,6 +198,14 @@ def check_page_24(page: Page) -> None:
     accounting = page.inner_text("main")
     for label in ["مصروف جديد", "إيراد/فاتورة جديدة", "عمولة جديدة"]:
         _record(24, f"accounting offers «{label}»", label in accounting)
+    # Table 5 R12 writes the amount as «المبلغ (BHD)», so the currency must
+    # appear in the label rather than only in the currency field.
+    page.click("text=مصروف جديد")
+    page.wait_for_timeout(1200)
+    amount_label = (page.inner_text("label[for=amount]") or "").strip()
+    _record(24, "the expense amount label names the currency", "المبلغ (BHD)" in amount_label, amount_label)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(500)
     # Each link must actually select its own tab. The tab captions are the
     # plural forms shown in the reference («المصاريف», «الفواتير», «العمولات»).
     for kind, label in [("expense", "المصاريف"), ("invoice", "الفواتير"), ("commission", "العمولات")]:
@@ -218,6 +226,13 @@ def check_page_24(page: Page) -> None:
             button.click()
         name = download.value.suggested_filename
         _record(24, "the export downloads a workbook", name.endswith(".xlsx"), f"name={name}")
+    # Table 5 R15 names the free-text field type «سؤال وإجابة».
+    page.goto(f"{BASE}/platform/form-builder")
+    page.wait_for_timeout(2000)
+    page.click("text=إضافة حقل")
+    page.wait_for_timeout(1200)
+    builder = page.inner_text("main")
+    _record(24, "the form builder offers «سؤال وإجابة»", "سؤال وإجابة" in builder)
 
 
 def check_forbidden_message(browser) -> None:
