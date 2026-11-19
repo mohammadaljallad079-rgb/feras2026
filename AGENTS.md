@@ -56,6 +56,17 @@ refuses any database whose name does not end in `_test`, so the e2e database is
 migrated and seeded separately and the server is started with `DATABASE_URL`
 overridden for that one process.
 
+### Browser checks read the built bundle, not the sources
+
+`scripts/check_visual_fixes.py`, `check_matrix.py` and `check_mobile.py` drive
+`next start` on `:12000`, which serves the last `npm run build` output. A label
+edit is invisible to them — and to a manual browser check — until the bundle is
+rebuilt and the server restarted, so an edit can look unfixed while the source
+is already correct. Rebuild, kill the old `next-server` (it keeps the port even
+after the `npx` parent dies), restart, then re-run. The same applies to the
+FastAPI process: it is started without `--reload`, so backend changes need a
+restart too.
+
 ## Conventions
 
 - Authorization is enforced in the backend. The permission-filtered sidebar is
