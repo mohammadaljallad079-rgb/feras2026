@@ -284,14 +284,14 @@ must not ship).
 | Table 6 (website inbox action per kind) | 3 | PASS |
 | Table 7 (public company card buttons) | 3 | PASS |
 | Table 8–10 (statuses, report buttons, notification wiring) | 14 | PASS |
-| Table 12 (the three public forms) | 5 | PASS |
+| Table 12 (the three public forms) | 6 | PASS |
 
 ## Totals
 
 | Result | Count |
 |---|---|
 | PASS (proven in code, by test or by an executed check) | 126 |
-| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 199 |
+| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 201 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
@@ -311,6 +311,13 @@ application, and the application was corrected rather than the test.
 | 5 | Table 5 R15 «يظهر في تقارير الشركات ضمن نطاقه فقط» | a company-scoped field could be written into another company's report | `save_values()` refuses out-of-scope fields with `422 field_out_of_scope` (`app/api/v1/reporting.py`) |
 | 6 | Table 5 R5 «الدولة *» | an opportunity could be created with no country although the modal marks it mandatory | `OpportunityCreate.country` is now required (`app/schemas/__init__.py`) |
 | 7 | Table 5 R22 / Table 10 «نعم، أحلها لمطوّر الأعمال» | the directive payload did not expose whether a row is an assistant task, so the developer's dashboard could not separate them | `DirectiveOut.is_assistant_task` added (`app/schemas/__init__.py`) |
+| 8 | §9 «القائمة العلوية: عن القابضة، …، تواصل» | the header carried an extra «الرئيسية» link and shortened «الفرص التجارية» to «الفرص» | the seed writes the six named links and prunes any it no longer names (`app/content/site_content.py`, `scripts/seed_site.py`); an atomic test pins labels and order |
+| 9 | §9 «اطلب خدمة، قدّم فرصة» | the header buttons read «طلب خدمة» / «إرسال فرصة» | labels corrected (`components/site/SiteHeader.tsx`) |
+| 10 | §2 red danger button | reject, suspend, close and return-for-correction used the neutral style | all now use the red style |
+| 11 | §2 decorative serif on public headings | public headings inherited the UI sans stack | `--brand-font-display` (Georgia-first) applied to `.site-h2` (`app/globals.css`) |
+| 12 | §5.1 / Table 5 «المنصب»، «رقم التواصل»، «العنوان» | the employee, directive and HR modals used «المسمى الوظيفي»، «الهاتف»، «عنوان التوجيه» | labels corrected |
+| 13 | Table 12 «تواصل \| البريد والهاتف فقط \| —» | the contact page also rendered a fourth public form the brief does not define | the page shows country, email and phone only (`app/(site)/[locale]/contact/page.tsx`) |
+| 14 | Table 13 field names | the opportunity country read «الدولة», the CV form's expertise «مجال الخبرة», the attachment «ملف الدراسة (اختياري)», and one phone label served all three forms | «دولة المشروع»، «مجال الاهتمام أو الخبرة»، «ملف الدراسة أو المرفقات»، and «رقم التواصل» on the service form vs «الهاتف» on the other two (`components/site/PublicForm.tsx`) |
 
 ## Gaps and exceptions
 
