@@ -1478,12 +1478,17 @@ def test_table10_unauthorized_report_open_is_refused_and_logged(client: TestClie
     """Table 10 R11 «محاولة فتح تقرير غير مصرح | رفض مع تسجيل في سجل النشاط»."""
     a = _company(db, "MA")
     b = _company(db, "MB")
+    p = _period(db)
+    make_user("mb@s.com", ["company_manager"], companies=[b.id])
+    rid_b = client.post("/api/v1/reports", headers=login("mb@s.com"),
+                        json={"company_id": b.id, "period_id": p.id}).json()["id"]
     make_user("m@s.com", ["company_manager"], companies=[a.id])
     make_user("o@s.com", ["owner"])
     hm = login("m@s.com")
-    assert client.get(f"/api/v1/companies/{b.id}", headers=hm).status_code == 404
+    assert client.get(f"/api/v1/reports/{rid_b}", headers=hm).status_code == 404
     log = client.get("/api/v1/audit", headers=login("o@s.com")).json()
-    assert any(r["action"] == "security.access_denied" for r in log)
+    assert any(r["action"] == "security.access_denied" and r["target_type"] == "company"
+               and r["target_id"] == str(b.id) for r in log), log
 
 
 # ===========================================================================

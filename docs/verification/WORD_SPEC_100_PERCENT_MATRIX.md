@@ -106,7 +106,7 @@ must not ship).
 
 | Id | Requirement | Frontend | Backend | API | Test | Result |
 |---|---|---|---|---|---|---|
-| 5.3.1 | Dashboard indicators + Review a report / New entry buttons | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_accountant_dashboard_actions_deep_link_to_each_entry_kind` | PASS |
+| 5.3.1 | Dashboard indicators + Review a report / New entry buttons | `platform/dashboard` | `dashboard.py` | `GET /api/v1/dashboard` | `test_accountant_dashboard_actions_open_the_named_screens` | PASS |
 | 5.3.2 | All company reports + Holding report, with Open | `platform/reports` | `reporting.py` | `GET /api/v1/reports` | `test_accountant_can_list_reports_for_review` | PASS |
 | 5.3.3 | Holding accounting: only financial editing screen, 3 buttons | `platform/accounting` | `accounting.py` | `POST /api/v1/accounting` | `test_accountant_records_accounting_entries` | PASS |
 | 5.3.4 | Default currency BHD | `accounting/page.tsx` | `accounting.py` | `POST /api/v1/accounting` | `test_invoice_carries_tax_registration_and_service_item` | PASS |
