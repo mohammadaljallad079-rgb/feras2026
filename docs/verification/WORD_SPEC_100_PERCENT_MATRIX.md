@@ -8,25 +8,28 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **310 passed, 1 skipped** in-process, plus **13 passed**
-  for `test_e2e_journeys.py` against the live API — **322 passed, 1 skipped**
-  in total (the skip is the opt-in live-provider check). The 13 journey tests
-  need a running server and a seeded `safir_e2e`, so they fail with
-  `ConnectError` when none is up; that is an environment precondition, not a
-  suite failure.
-- `test_word_spec_atomic.py` — 202 atomic checks, one per brief clause, numbered
+- backend `pytest` → **329 tests: 328 passed, 1 skipped** (the skip is the
+  opt-in live-provider check). `test_e2e_journeys.py` needs a running server and
+  a seeded `safir_e2e`, so it fails with `ConnectError` when none is up; that is
+  an environment precondition, not a suite failure.
+- `test_word_spec_atomic.py` — 206 atomic checks, one per brief clause, numbered
   by section (§1–§12, Tables 1–13).
 - frontend `npx tsc --noEmit` → clean (exit 0).
-- frontend `npm run build` → **25 static pages** generated, build clean.
+- frontend `npm run build` → build clean.
 - `scripts/check_visual_fixes.py` → **68/68 assertions passed** (needs a draft
   report in the seeded data; the bank-statement control is deliberately hidden
   on a locked report, so a forwarded-only database reports one false failure).
 - `scripts/check_matrix.py` → **85 route/viewport combinations, 0 failures**.
-- `scripts/check_all_buttons.py` → **215 controls pressed across 21 screens and
-  six roles: 214 ok, 1 disabled by design, 0 failing**. Each control is clicked
-  in a real browser on a freshly loaded screen, and a failure means an uncaught
-  JavaScript exception, a Next.js error overlay or a 5xx response — so §6
-  «الأزرار ووجهة كل منها» is proven by pressing, not by reading the code.
+- `scripts/check_all_buttons.py` → **513 controls pressed across every screen and
+  all eight roles: 512 ok, 1 disabled by design, 0 failing**. Each control is
+  clicked in a real browser on a freshly loaded screen, and a failure means an
+  uncaught JavaScript exception, a Next.js error overlay or a 5xx response — so
+  §6 «الأزرار ووجهة كل منها» is proven by pressing, not by reading the code.
+  This sweep is what surfaced the two permission gaps listed as defects 19–20.
+- Live API spot-checks: `GET /reports/1/export` → 200, 5 255-byte `PK` zip
+  (a real workbook, not CSV); `GET /accounting/export.xlsx` → 200, 6 176 bytes;
+  `scripts/send_report_reminders.py` → runs and reports 0 sent on the seeded
+  data rather than pretending to mail.
 - `scripts/check_mobile.py` → no horizontal overflow at 400px on 11 routes.
 - `alembic upgrade head` on a fresh database → clean, single head
   (`b7c1f4d92e35`), and `downgrade -1`/`upgrade head` round-trips.
@@ -302,7 +305,7 @@ must not ship).
 | Result | Count |
 |---|---|
 | PASS (proven in code, by test or by an executed check) | 126 |
-| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 202 |
+| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 206 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
@@ -333,6 +336,9 @@ application, and the application was corrected rather than the test.
 | 16 | Table 5 R15 «سؤال وإجابة» | the field-type option read «سؤال وجواب» | label corrected (`app/(admin)/platform/(app)/form-builder/page.tsx`) |
 | 17 | Table 6 «المستلم (واحد) *» | the directive modal labelled the field «المستلم» alone, so the single-recipient rule was not visible | the label now reads «المستلم (واحد)» (`app/(admin)/platform/(app)/directives/page.tsx`) |
 | 18 | §11 R9 / Table 5 «ترسل للمالك وحده» | the complaint reached the owner's inbox but was also readable by every role scoped to the same company — a manager or developer could list it and open it by id, because the row carries a `company_id` and company scope alone granted access | `service_requests.is_complaint` added; the list and the detail view keep a complaint to its recipient (`app/api/v1/service_requests.py`, `app/models/operations.py`, migration `b7c1f4d92e35`); `test_s11_complaint_stays_with_the_owner_inside_the_same_company` fails without the fix |
+| 19 | §11 «الصلاحيات تُفرض في الخادم لا في الواجهة» (UI half) | the directives page fired its list and overdue requests before checking the grant, so a role without `directive:view` (the service specialist, whose Table 1 tabs are the dashboard and requests only) got two 403s and a page that looked broken instead of the rule | the page now gates on `directive:view` and states the restriction (`app/(admin)/platform/(app)/directives/page.tsx`); `test_s10_directives_tab_excludes_the_service_specialist` pins the API refusal |
+| 20 | §5.1 / §11 (same pattern on the assistant) | the assistant page fired three requests before checking `ai:use`, so a role without the grant saw a broken screen | the page returns a clear "not permitted" panel and issues no request (`app/(admin)/platform/(app)/assistant/page.tsx`) |
+| 21 | §5.1 Table 1 «أخصائي الخدمات» | the service specialist still held `ai:use` in a running database: `ensure_system_roles()` reconciles grants to `ROLE_TEMPLATES` but only the seed script and the tests call it, so a template change never reached an existing database | the template is authoritative and `scripts/seed.py` reconciles; re-seeding applied the removal. The assistant tab is gone for that role |
 
 ## Gaps and exceptions
 
