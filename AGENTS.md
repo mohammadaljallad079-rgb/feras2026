@@ -183,3 +183,9 @@ email starts with `visitor-` before running it after a sweep.
 - The public holding website has no approved specification from the designer
   (§12 defers it), and the privacy-policy text is a draft pending legal review
   (§12, §9). Both are the two non-code items the brief reserves for people.
+- Draft companies are a two-sided rule: §6.2 hides them from lists and reports,
+  but the design (p.6) shows them in the owner's table with an «تفعيل» control.
+  `list_companies()` resolves it by returning drafts only to the holder of
+  `company:manage`. Do not "simplify" this to hide drafts from everyone — that
+  makes «حفظ مسودة» a dead end, since the activate button lives on the row.
+

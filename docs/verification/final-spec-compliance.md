@@ -144,3 +144,30 @@ either a stale test assertion or a probe using the wrong request shape.
 2. Legal review of the privacy-policy text.
 3. Configure a real AI provider key in the target environment (the abstraction,
    grounding and honest unconfigured status are already implemented and tested).
+
+## Live runtime sweep (fresh database, running server)
+
+Every section of `platform-explained-ar.docx` / `-en.docx` was exercised against
+a freshly migrated database with the seeded eight demo roles, not only through
+the test client. Results:
+
+| Section | Checked live | Result |
+|---|---|---|
+| §4 Table 1 | tabs derived from each role's real grants (15 nav entries × 8 roles) | matches the table for all eight roles |
+| §5.1–§5.7 | card count and title per role dashboard; group summary columns; advisor messages; manager quick actions and due banner | 6/4/3/6/1/1/1/1 cards as specified; banner reads «يستحق بعد 15 أيام»; five quick actions plus the isolation test button |
+| §6.2 | draft saved by the owner, hidden from a manager, absent from the dashboard count, no report openable, then activated | 201 → hidden → 409 on report → 200 activate |
+| §6.3 | close a company, close it again, reactivate | 200 / 200 / 200 (the UI only offers «إغلاق» on an active row) |
+| §6.5 | submissions inbox with `contact` / `opportunity` / `service_request`, convert, visibility toggle reflected on the public site immediately | 200; public list gained and lost the company on the same call |
+| §7.1 | period due date | `2026-12-05` for November 2026 |
+| §7.3 | return without a reason, blank reason, duplicate report | 422 / 422 / 409 |
+| §7.5 | reminder service plus cron entry point and dashboard alert | 20 reminder tests pass |
+| §8 | directive create → send → receive → complete; non-recipient refused; audit owner-only and read-only | 201 / 200 / 200 / 200, 403, 200/403/403, 405 on write |
+| §9 | six header links in order, seven sections, seven countries, the three public forms, privacy page | matches; a job application without a CV is refused `cv_required` |
+| §10 | owner summary spans the group in each company's currency, manager summary states «نطاق شركتك فقط» | 5 companies vs 1, wording distinct |
+| §11 | server-side enforcement, complaint kept to the owner, one recipient per directive | covered by the atomic suite |
+| §12 | real `.xlsx` export (`spreadsheetml` MIME, ZIP magic), real uploads, password reset | pass |
+
+Four defects surfaced in this sweep and were fixed in the application, not in the
+tests: the draft-company listing (defect 22), the unscoped marketer's complaint
+(23), the owner's mandatory recipient (24), and the caller-supplied due date (25).
+
