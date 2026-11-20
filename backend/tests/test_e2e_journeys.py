@@ -78,7 +78,7 @@ def period_id(clients) -> int:
             "year": 2026,
             "month": 1,
             "opens_on": "2026-01-01",
-            "due_on": "2026-01-31",
+            "due_on": "2026-02-05",
         },
     )
     assert resp.status_code in (201, 409), resp.text

@@ -227,7 +227,14 @@ def _prove_dashboard_linkage(token: str, expected: dict[str, str]) -> list[Findi
 # here is copied verbatim from the spec, so a drift in the site copy fails the
 # sweep instead of reaching a visitor.
 SPEC_COPY: list[tuple[str, str]] = [
+    # §3 hero slides: each slide has its own tag line, headline and body.
+    ("/ar", "ستارت أب سفير القابضة · البحرين"),
+    ("/ar", "نربط الخبرات والفرص لبناء أعمال قابلة للنمو"),
     ("/ar", "من البحرين، نعمل على تطوير شركات المجموعة وربط العملاء بالخدمات والفرص المناسبة."),
+    ("/ar", "شركات متخصصة، تعمل ضمن رؤية مجموعة واحدة"),
+    ("/ar", "تجمع القابضة بين خبرات شركات المجموعة وتوجهها نحو فرص النمو في الأسواق التي تعمل بها."),
+    ("/ar", "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو"),
+    ("/ar", "اختر الخدمة المناسبة لمشروعك، وسيصل طلبك إلى الجهة المختصة داخل المجموعة."),
     ("/ar", "إرسال المعلومات لا يعني قبولها أو الالتزام بتمويلها أو الدخول في شراكة."),
     ("/ar/about", "قابضة تجمع الخبرة وتحوّلها إلى فرص نمو."),
     ("/ar/about", "تعمل ستارت أب سفير القابضة على إدارة وتطوير شركات المجموعة، وتنسيق خبراتها، وفتح مسارات عملية للأعمال والفرص الاستثمارية."),
@@ -267,7 +274,7 @@ SPEC_COPY: list[tuple[str, str]] = [
     ("/ar", "استكشف فرص الاستثمار"),
     ("/ar", "اطلب حلولًا لأعمالك"),
     ("/ar", "انتقل إلى المحتوى"),
-    ("/ar", "© 2026 شركة ستارت أب سفير القابضة ذ.م.م"),
+    ("/ar", "© 2026 ستارت أب سفير القابضة ذ.م.م"),
     ("/ar/privacy", "سياسة الخصوصية"),
     ("/ar/solutions", "خدمات مترابطة لاحتياجات الأعمال."),
     ("/ar/contact", "ابدأ محادثة حول احتياج أعمالك."),
@@ -301,7 +308,15 @@ def _check_spec_copy(browser: Browser) -> list[Finding]:
         page = browser.new_context(viewport={"width": 1440, "height": 1000}).new_page()
         # 404 pages answer with the error status by design; the copy is what counts.
         page.goto(f"{BASE}{path}", wait_until="networkidle", timeout=45000)
-        pages[path] = page.inner_text("body")
+        # The hero is a carousel: only the active slide is visible, so walk the
+        # slide tabs and collect each one's text before asserting the copy.
+        text = page.inner_text("body")
+        tabs = page.locator('[role="tab"]')
+        for i in range(tabs.count()):
+            tabs.nth(i).click()
+            page.wait_for_timeout(350)
+            text += "\n" + page.inner_text("body")
+        pages[path] = text
         page.context.close()
     for path, expected in SPEC_COPY:
         found.append(Finding(f"{path} copy", expected[:28],

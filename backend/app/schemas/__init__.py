@@ -652,7 +652,9 @@ class SubmissionConvert(BaseModel):
     application are converted without further input.
     """
 
-    target: str
+    # Optional: the submission kind decides the outcome; this is only a fallback
+    # for callers that pass it explicitly.
+    target: str | None = None
     company_id: int | None = None
     service_type: str | None = None
 
@@ -715,6 +717,8 @@ class SiteSectionUpdate(BaseModel):
 
 class SiteSlideOut(ORMModel):
     id: int
+    eyebrow_ar: str | None
+    eyebrow_en: str | None
     title_ar: str
     title_en: str
     body_ar: str | None
@@ -731,6 +735,8 @@ class SiteSlideOut(ORMModel):
 
 
 class SiteSlideCreate(BaseModel):
+    eyebrow_ar: str | None = None
+    eyebrow_en: str | None = None
     title_ar: str
     title_en: str
     body_ar: str | None = None
@@ -747,6 +753,8 @@ class SiteSlideCreate(BaseModel):
 
 
 class SiteSlideUpdate(BaseModel):
+    eyebrow_ar: str | None = None
+    eyebrow_en: str | None = None
     title_ar: str | None = None
     title_en: str | None = None
     body_ar: str | None = None

@@ -54,7 +54,9 @@ export function HeroSlider({ locale, slides }: { locale: Locale; slides: SiteSli
       />
 
       <div className="site-container relative py-24">
-        <p className="site-eyebrow">{ar ? "شركة قابضة بحرينية" : "A Bahraini holding company"}</p>
+        {slide.eyebrow_ar || slide.eyebrow_en ? (
+          <p className="site-eyebrow">{pick(locale, slide.eyebrow_ar, slide.eyebrow_en)}</p>
+        ) : null}
         <h1
           key={slide.id}
           className="mt-5 max-w-[820px] text-[38px] font-bold leading-tight tracking-tight sm:text-[46px]"

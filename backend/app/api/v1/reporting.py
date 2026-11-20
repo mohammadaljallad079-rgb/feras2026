@@ -41,6 +41,11 @@ router = APIRouter(tags=["reporting"])
 LOCKED = {ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value}
 
 
+def _due_on(year: int, month: int) -> date:
+    """§7.1: the fifth day of the month that follows the reporting month."""
+    return date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 5)
+
+
 # --- Periods ----------------------------------------------------------------
 @router.get("/periods", response_model=list[PeriodOut])
 def list_periods(
@@ -63,7 +68,12 @@ def open_period(
         )
     ).scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Period already exists")
-    period = ReportingPeriod(**payload.model_dump())
+    data = payload.model_dump()
+    # §7.1: «الاستحقاق هو اليوم الخامس من الشهر التالي» — derived, not supplied,
+    # so a period cannot be opened with a due date the reminders would follow
+    # into the wrong day.
+    data["due_on"] = _due_on(payload.year, payload.month)
+    period = ReportingPeriod(**data)
     db.add(period)
     db.flush()
     audit.record(db, action="period.open", actor=actor, target_type="period", target_id=period.id)

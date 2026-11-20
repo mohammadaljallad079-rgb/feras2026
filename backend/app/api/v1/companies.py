@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import allowed_company_ids, assert_company_access, get_current_user, require
+from app.api.deps import allowed_company_ids, assert_company_access, get_current_user, permissions_of, require
 from app.core.db import get_db
 from app.models.business import Company
 from app.models.enums import CompanyStatus
@@ -60,8 +60,15 @@ def list_companies(
         stmt = stmt.where(Company.is_holding.is_(False))
     if status_filter:
         stmt = stmt.where(Company.status == status_filter)
-    elif not include_closed:
-        stmt = stmt.where(Company.status != CompanyStatus.CLOSED.value)
+    elif include_closed:
+        stmt = stmt.where(Company.status.in_([CompanyStatus.ACTIVE.value, CompanyStatus.CLOSED.value]))
+    elif "company:manage" in permissions_of(user):
+        # §6.2: «الشركة المحفوظة مسودة لا تظهر في القوائم ولا التقارير حتى تُفعَّل».
+        # The owner keeps sight of the draft so «حفظ مسودة» has a way back — the
+        # row is what carries the «تفعيل» control (§6.3, design p.6).
+        stmt = stmt.where(Company.status.in_([CompanyStatus.ACTIVE.value, CompanyStatus.DRAFT.value]))
+    else:
+        stmt = stmt.where(Company.status == CompanyStatus.ACTIVE.value)
     if q:
         like = f"%{q}%"
         stmt = stmt.where(Company.name_ar.ilike(like) | Company.name_en.ilike(like) | Company.code.ilike(like))

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import allowed_company_ids, assert_company_access, require
+from app.api.deps import allowed_company_ids, assert_company_access, holding_company_id, require
 from app.core.db import get_db
 from app.models.business import Company
 from app.models.enums import RequestPriority, RequestStatus, ServiceType
@@ -85,6 +85,10 @@ def create_request(
         raise HTTPException(status_code=422, detail="Unknown priority")
     recipient_id = payload.recipient_id
     if recipient_id is None:
+        # Table 6 R1: «للمالك: المختص المستلم *» — the owner picks the recipient,
+        # so an owner request without one is refused rather than auto-routed.
+        if "service:assign" in _perms(actor):
+            raise HTTPException(status_code=422, detail="The receiving specialist is required")
         # §6.4: "the request is routed to the specialist by service type". The
         # specialist role carries the service:reply grant and is chosen in
         # registration order when several exist.
@@ -147,12 +151,20 @@ def send_complaint(
     ).scalars().first()
     if owner is None:
         raise HTTPException(status_code=409, detail="No owner account exists to receive the complaint")
-    # The marketer may be scoped to one company; use it, else the first company.
+    # §5.5/Table 5: the marketer sends the complaint to the owner alone, so it is
+    # not routed to any subsidiary. A marketer scoped to a company reports from
+    # that company; an unscoped one reports from the Holding itself.
     allowed = sorted(allowed_company_ids(db, actor) or set())
-    company_id = payload.company_id if payload.company_id is not None else (allowed[0] if allowed else None)
+    if payload.company_id is not None:
+        company_id = payload.company_id
+        assert_company_access(db, actor, company_id)
+    elif allowed:
+        company_id = allowed[0]
+        assert_company_access(db, actor, company_id)
+    else:
+        company_id = holding_company_id(db)
     if company_id is None:
         raise HTTPException(status_code=422, detail="A company is required")
-    assert_company_access(db, actor, company_id)
     req = ServiceRequest(
         subject=payload.subject or "شكوى للمالك",
         body=payload.body,

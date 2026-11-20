@@ -6,6 +6,9 @@ import { pick, setting, type Locale, type SiteBootstrap } from "@/lib/site";
 export function SiteFooter({ locale, site }: { locale: Locale; site: SiteBootstrap }) {
   const ar = locale === "ar";
   const brand = setting(site, "brand_name", locale);
+  // §11 quotes the legal line as the short name plus the legal form, not the full name.
+  const brandShort = setting(site, "brand_short", locale);
+  const legalLine = ar ? `${brandShort} ذ.م.م` : `${brandShort} W.L.L.`;
   const description = ar
     ? "شركة قابضة بحرينية تعمل على تطوير شركات المجموعة وربط الخبرات بفرص الأعمال والنمو."
     : "A Bahraini holding company that develops the group's companies and connects expertise with business and growth opportunities.";
@@ -83,7 +86,7 @@ export function SiteFooter({ locale, site }: { locale: Locale; site: SiteBootstr
 
       <div className="border-t border-white/10">
         <div className="site-container flex flex-wrap items-center justify-between gap-3 py-5 text-[13px]">
-          <span>{`© ${year} ${brand}`}</span>
+          <span>{`© ${year} ${legalLine}`}</span>
           {/* §9: the visitor site and the staff platform live on separate
               addresses; this is the discreet entry point to the login page. */}
           <Link

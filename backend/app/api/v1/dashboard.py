@@ -357,7 +357,10 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             _card("opportunities", "فرص", "Opportunities", my_opps, href="/opportunities"),
             _card("submissions", "طلبات من الموقع", "Website submissions", submissions, href="/website"),
             _card("advisor", "رسائل المستشار", "Advisor messages", advisor, href="/advisor"),
-            _card("assistant", "مهام من المساعد", "Assistant tasks", assistant_tasks, href="/assistant"),
+            # The tasks are directives addressed to the developer, and Table 1
+            # gives that role no «المساعد الذكي» tab, so the card opens the
+            # directives screen where the tasks actually are.
+            _card("assistant", "مهام من المساعد", "Assistant tasks", assistant_tasks, href="/directives"),
         ]
     elif role == "marketer":
         assigned = db.execute(select(func.count(Lead.id)).where(Lead.assigned_to_id == user.id)).scalar_one()

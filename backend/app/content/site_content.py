@@ -54,6 +54,8 @@ SETTINGS: dict[str, tuple[str | None, str | None]] = {
 # --- Hero slides (approved headlines, brief §5.B) --------------------------
 SLIDES = [
     {
+        "eyebrow_ar": "ستارت أب سفير القابضة · البحرين",
+        "eyebrow_en": "Start Up Sphere Holding · Bahrain",
         "title_ar": "نربط الخبرات والفرص لبناء أعمال قابلة للنمو",
         "title_en": "Connecting expertise and opportunity to build businesses that grow",
         "body_ar": "من البحرين، نعمل على تطوير شركات المجموعة وربط العملاء بالخدمات والفرص المناسبة.",
@@ -68,6 +70,8 @@ SLIDES = [
         "cta_secondary_href": "/service-request",
     },
     {
+        "eyebrow_ar": "شركات المجموعة",
+        "eyebrow_en": "Group companies",
         "title_ar": "شركات متخصصة، تعمل ضمن رؤية مجموعة واحدة",
         "title_en": "Specialised companies, working under one group vision",
         "body_ar": "تجمع القابضة بين خبرات شركات المجموعة وتوجهها نحو فرص النمو في الأسواق التي تعمل بها.",
@@ -80,6 +84,8 @@ SLIDES = [
         "cta_secondary_href": "/about",
     },
     {
+        "eyebrow_ar": "منظومة الحلول",
+        "eyebrow_en": "Solutions ecosystem",
         "title_ar": "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو",
         "title_en": "Business solutions that start from your need and extend to growth",
         "body_ar": "اختر الخدمة المناسبة لمشروعك، وسيصل طلبك إلى الجهة المختصة داخل المجموعة.",

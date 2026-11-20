@@ -305,7 +305,7 @@ must not ship).
 | Result | Count |
 |---|---|
 | PASS (proven in code, by test or by an executed check) | 126 |
-| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 206 |
+| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 208 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
@@ -339,6 +339,10 @@ application, and the application was corrected rather than the test.
 | 19 | §11 «الصلاحيات تُفرض في الخادم لا في الواجهة» (UI half) | the directives page fired its list and overdue requests before checking the grant, so a role without `directive:view` (the service specialist, whose Table 1 tabs are the dashboard and requests only) got two 403s and a page that looked broken instead of the rule | the page now gates on `directive:view` and states the restriction (`app/(admin)/platform/(app)/directives/page.tsx`); `test_s10_directives_tab_excludes_the_service_specialist` pins the API refusal |
 | 20 | §5.1 / §11 (same pattern on the assistant) | the assistant page fired three requests before checking `ai:use`, so a role without the grant saw a broken screen | the page returns a clear "not permitted" panel and issues no request (`app/(admin)/platform/(app)/assistant/page.tsx`) |
 | 21 | §5.1 Table 1 «أخصائي الخدمات» | the service specialist still held `ai:use` in a running database: `ensure_system_roles()` reconciles grants to `ROLE_TEMPLATES` but only the seed script and the tests call it, so a template change never reached an existing database | the template is authoritative and `scripts/seed.py` reconciles; re-seeding applied the removal. The assistant tab is gone for that role |
+| 22 | §6.2 «الشركة المحفوظة مسودة … ولا التقارير» | a draft company was listed to every role and inflated the «الشركات النشطة» card; the first correction then hid drafts from the owner too, which left «حفظ مسودة» with no way back because the «تفعيل» control lives on the row | `list_companies()` now returns active rows to every role, plus drafts to the holder of `company:manage` — the owner who can activate them (`app/api/v1/companies.py`); `test_s6_2_draft_company_is_hidden_until_activated`, `test_s6_2_a_draft_stays_hidden_from_a_manager`, `test_s6_2_a_draft_never_reaches_a_report` |
+| 23 | §5.5 / §11 «المسوّق يرسل الشكوى للمالك وحده» | a complaint sent by a marketer with no company scope failed `422 A company is required`, so the one route the spec gives the marketer was closed | `send_complaint()` falls back to the holding company when the caller has no scope (`app/api/v1/service_requests.py`); `test_s5_5_complaint_from_an_unscoped_marketer_still_reaches_the_owner` |
+| 24 | §6.4 Table 6 R1 «للمالك: المختص المستلم *» | the owner could omit the receiving specialist and the server silently auto-routed the request, although the modal marks it mandatory for the owner | `create_request()` refuses an owner request with no recipient (`422 The receiving specialist is required`) while a manager's request still routes by service type (`app/api/v1/service_requests.py`); `test_owner_must_name_the_receiving_specialist`, `test_a_manager_request_is_routed_by_service_type` |
+| 25 | §7.1 «الاستحقاق هو اليوم الخامس من الشهر التالي» | `POST /periods` accepted any `due_on`, so a period could be opened with a due date the reminders would follow into the wrong day (the seeded acceptance period carried `2026-01-31`) | the due date is now derived server-side (`_due_on()` in `app/api/v1/reporting.py`) and a caller-supplied value is overridden; `test_s7_1_a_wrong_due_date_supplied_by_the_caller_is_overridden` |
 
 ## Gaps and exceptions
 

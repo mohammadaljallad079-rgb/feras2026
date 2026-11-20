@@ -768,6 +768,22 @@ def test_s5_5_marketer_complaint_needs_text_and_reaches_the_owner_alone(client: 
     assert not client.get("/api/v1/service-requests", headers=login("bd@s.com")).json()
 
 
+def test_s5_5_complaint_from_an_unscoped_marketer_still_reaches_the_owner(client: TestClient, make_user, login, db):
+    """§5.5 «إرسال شكوى للمالك» — the marketer needs no company to complain.
+
+    The complaint is addressed to the owner alone; an unscoped marketer reports
+    it against the Holding (which every deployment seeds) rather than being
+    refused.
+    """
+    _company(db, "HLD", is_holding=True)
+    make_user("mk3@s.com", ["marketer"])
+    make_user("o3@s.com", ["owner"])
+    resp = client.post("/api/v1/service-requests/complaint", headers=login("mk3@s.com"), json={"body": "شكوى"})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["is_complaint"] is True
+    assert client.get("/api/v1/service-requests", headers=login("o3@s.com")).json()
+
+
 def test_s11_complaint_stays_with_the_owner_inside_the_same_company(client: TestClient, make_user, login, db):
     """§11 R9 «المسوّق يرسل الشكوى للمالك وحده» — company scope must not widen it.
 
@@ -911,12 +927,46 @@ def test_s6_2_draft_company_is_hidden_until_activated(client: TestClient, make_u
         json={"name_ar": "مسودة", "name_en": "Draft", "country": "البحرين",
               "sector": "تقنية", "currency": "BHD", "status": "draft"},
     ).json()["id"]
-    listed = [c["id"] for c in client.get("/api/v1/companies", headers=h).json()]
     active = [c["id"] for c in client.get("/api/v1/companies?status=active", headers=h).json()]
     assert cid not in active, "a draft company must not appear among the active companies"
+    # The owner still sees the draft, because «حفظ مسودة» would otherwise have no
+    # way back: the row is what carries the «تفعيل» control.
+    assert cid in [c["id"] for c in client.get("/api/v1/companies", headers=h).json()]
     assert client.post(f"/api/v1/companies/{cid}/activate", headers=h).status_code == 200
     assert cid in [c["id"] for c in client.get("/api/v1/companies?status=active", headers=h).json()]
-    assert cid in listed or True
+    assert cid in [c["id"] for c in client.get("/api/v1/companies", headers=h).json()]
+
+
+def test_s6_2_a_draft_stays_hidden_from_a_manager(client: TestClient, make_user, login, db):
+    """§6.2: only the owner manages drafts; a manager never sees an unactivated company."""
+    make_user("o2@s.com", ["owner"])
+    h_owner = login("o2@s.com")
+    cid = client.post(
+        "/api/v1/companies", headers=h_owner,
+        json={"name_ar": "مسودة٢", "name_en": "Draft2", "country": "البحرين",
+              "sector": "تقنية", "currency": "BHD", "status": "draft"},
+    ).json()["id"]
+    make_user("m2@s.com", ["company_manager"], companies=[cid])
+    listed = [c["id"] for c in client.get("/api/v1/companies", headers=login("m2@s.com")).json()]
+    assert cid not in listed, "a manager must not see a company that is still a draft"
+
+
+def test_s6_2_a_draft_never_reaches_a_report(client: TestClient, make_user, login, db):
+    """§6.2: a draft appears in no report until it is activated."""
+    make_user("o3@s.com", ["owner"])
+    h_owner = login("o3@s.com")
+    cid = client.post(
+        "/api/v1/companies", headers=h_owner,
+        json={"name_ar": "مسودة٣", "name_en": "Draft3", "country": "البحرين",
+              "sector": "تقنية", "currency": "BHD", "status": "draft"},
+    ).json()["id"]
+    make_user("m3@s.com", ["company_manager"], companies=[cid])
+    period = _period(db, year=2026, month=3).id
+    resp = client.post(
+        "/api/v1/reports", headers=login("m3@s.com"),
+        json={"company_id": cid, "period_id": period},
+    )
+    assert resp.status_code == 409, resp.text
 
 
 @pytest.mark.parametrize("country", ["البحرين", "السعودية", "الإمارات", "الكويت", "قطر", "عُمان", "الأردن"])
@@ -1009,6 +1059,19 @@ def test_s7_1_period_due_date_is_the_fifth_of_the_next_month(
               "due_on": date(nxt_y, nxt_m, 5).isoformat()},
     ).json()
     assert body["due_on"] == due, body
+
+
+def test_s7_1_a_wrong_due_date_supplied_by_the_caller_is_overridden(
+    client: TestClient, make_user, login, db
+):
+    """§7.1 — the due date is the fifth of the next month, not whatever is sent."""
+    make_user("a@s.com", ["accountant"])
+    body = client.post(
+        "/api/v1/periods", headers=login("a@s.com"),
+        json={"label_ar": "2026-03", "label_en": "2026-03", "year": 2026, "month": 3,
+              "opens_on": "2026-03-01", "due_on": "2026-03-31"},
+    ).json()
+    assert body["due_on"] == "2026-04-05", body
 
 
 def test_s7_1_manager_fills_and_submits_to_the_accountant(client: TestClient, make_user, login, db):

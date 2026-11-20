@@ -35,6 +35,8 @@ export type SiteSection = {
 
 export type SiteSlide = {
   id: number;
+  eyebrow_ar: string | null;
+  eyebrow_en: string | null;
   title_ar: string;
   title_en: string;
   body_ar: string | null;

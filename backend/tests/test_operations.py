@@ -227,8 +227,11 @@ def test_assistant_referral_becomes_a_task_on_the_developers_dashboard(client, m
     referred = client.post("/api/v1/ai/refer", headers=h_owner, json={})
     assert referred.status_code == 200, referred.text
 
-    after = {c["key"]: c["value"] for c in client.get("/api/v1/dashboard", headers=h_bd).json()["cards"]}
-    assert after["assistant"] == 1
+    after = {c["key"]: c for c in client.get("/api/v1/dashboard", headers=h_bd).json()["cards"]}
+    assert after["assistant"]["value"] == 1
+    # Table 1 gives the developer no «المساعد الذكي» tab, so the card must open
+    # the directives screen that lists the task, not the assistant screen.
+    assert after["assistant"]["href"] == "/directives"
 
     # The task is also a directive the developer received, so it is actionable.
     directives = client.get("/api/v1/directives", headers=h_bd).json()
@@ -328,6 +331,34 @@ def test_website_conversion_defaults_to_the_holding_when_no_company_named(client
     assert lead_conv.status_code == 200, lead_conv.text
     lead = db.get(Lead, lead_conv.json()["converted_id"])
     assert lead is not None and lead.company_id == holding.id
+
+
+def test_conversion_target_is_optional(client, make_user, login, db):
+    """The submission kind already decides the outcome, so the routing window's
+    payload (company + service type) must convert without repeating the target.
+    """
+    from app.services.bootstrap import ensure_holding_company
+
+    holding = ensure_holding_company(db)
+    db.commit()
+
+    make_user("opt_owner@safir-platform.com", ["owner"])
+    h_owner = login("opt_owner@safir-platform.com")
+
+    sub = client.post(
+        "/api/v1/public/submissions",
+        json={"kind": "opportunity", "name": "مستثمر", "email": "opt@example.com", "phone": "123", "country": "البحرين", "subject": "فرصة", "message": "وصف", "consent": True},
+    )
+    assert sub.status_code == 201, sub.text
+
+    converted = client.post(f"/api/v1/website/submissions/{sub.json()['id']}/convert", headers=h_owner, json={})
+    assert converted.status_code == 200, converted.text
+    assert converted.json()["converted_type"] == "opportunity"
+
+    from app.models.operations import Opportunity
+
+    opp = db.get(Opportunity, converted.json()["converted_id"])
+    assert opp is not None and opp.company_id == holding.id
 
     # A job application is only recorded for human review — no record, no user.
     # It needs a CV, so it arrives through the multipart route.
@@ -791,14 +822,14 @@ def test_service_request_routing_emails_the_specialist(client, make_user, login,
     """Table 5: «الطلب يوجَّه للمختص حسب نوع الخدمة، ويصله بريد»."""
     box = _capture(monkeypatch)
     make_user("sr_owner@safir-platform.com", ["owner"])
-    make_user("sr_specialist@safir-platform.com", ["service_specialist"])
+    specialist = make_user("sr_specialist@safir-platform.com", ["service_specialist"])
     h_owner = login("sr_owner@safir-platform.com")
     cid = _company(client, h_owner, "SR-NOTIFY")
 
     resp = client.post(
         "/api/v1/service-requests",
         headers=h_owner,
-        json={"subject": "طلب تصميم", "body": "احتياج", "service_type": "design", "company_id": cid, "priority": "normal"},
+        json={"subject": "طلب تصميم", "body": "احتياج", "service_type": "design", "company_id": cid, "priority": "normal", "recipient_id": specialist.id},
     )
     assert resp.status_code == 201, resp.text
     assert "sr_specialist@safir-platform.com" in box.recipients()
@@ -806,6 +837,38 @@ def test_service_request_routing_emails_the_specialist(client, make_user, login,
     body = next(m[2] for m in box.messages if m[0] == "sr_specialist@safir-platform.com")
     assert "طلب تصميم" in body
     assert not re.search(r"[$€£]|\bSAR\b|\bBHD\b|\d+\.\d{2}\b", body)
+
+
+def test_owner_must_name_the_receiving_specialist(client, make_user, login, monkeypatch):
+    """Table 6 R1: «للمالك: المختص المستلم *» — the owner cannot leave it blank."""
+    _capture(monkeypatch)
+    make_user("sr_owner2@safir-platform.com", ["owner"])
+    make_user("sr_specialist2@safir-platform.com", ["service_specialist"])
+    h_owner = login("sr_owner2@safir-platform.com")
+    cid = _company(client, h_owner, "SR-REQ")
+    resp = client.post(
+        "/api/v1/service-requests",
+        headers=h_owner,
+        json={"subject": "طلب", "body": "احتياج", "service_type": "design", "company_id": cid},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+def test_a_manager_request_is_routed_by_service_type(client, make_user, login, monkeypatch):
+    """§6.4: a manager's request is routed to the specialist by service type."""
+    box = _capture(monkeypatch)
+    make_user("sr_owner3@safir-platform.com", ["owner"])
+    make_user("sr_specialist3@safir-platform.com", ["service_specialist"])
+    h_owner = login("sr_owner3@safir-platform.com")
+    cid = _company(client, h_owner, "SR-MGR")
+    make_user("sr_mgr@safir-platform.com", ["company_manager"], companies=[cid])
+    resp = client.post(
+        "/api/v1/service-requests",
+        headers=login("sr_mgr@safir-platform.com"),
+        json={"subject": "طلب", "body": "احتياج", "service_type": "design", "company_id": cid},
+    )
+    assert resp.status_code == 201, resp.text
+    assert "sr_specialist3@safir-platform.com" in box.recipients()
 
 
 def test_complaint_reaches_only_the_owner_by_email(client, make_user, login, monkeypatch):
