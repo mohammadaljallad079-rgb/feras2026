@@ -146,6 +146,15 @@ restart too.
 
 ## Known gaps
 
+- A change to `ROLE_TEMPLATES` does not reach a running database on its own:
+  `ensure_system_roles()` reconciles `RolePermission` rows to the template, but
+  only `scripts/seed.py` and the tests call it. Re-run the seed after editing a
+  template, or the old grant survives and the tab stays visible to a role the
+  brief excludes (this is how the service specialist kept the assistant tab).
+- Permission gating belongs in the page, not only in the nav: a screen that fires
+  its requests before checking the grant shows two or three 403s and looks
+  broken to a role that is simply not allowed in. `directives/page.tsx` and
+  `assistant/page.tsx` gate first and state the rule; follow that pattern.
 - The brand logo is delivered: `frontend/public/brand/holding-logo.png` is
   committed and `BrandMark` serves it. The component still re-checks on mount
   and falls back to a neutral `data-logo="missing"` mark, because the
