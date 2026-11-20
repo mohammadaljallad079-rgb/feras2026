@@ -1703,6 +1703,42 @@ def test_s10_missing_key_is_reported_not_faked(client: TestClient, make_user, lo
     assert "غير مهيأ" in status["message_ar"]
 
 
+def test_s10_assistant_belongs_to_the_owner_and_the_company_manager_only(
+    client: TestClient, make_user, login, db
+):
+    """Table 1 gives the AI assistant tab to the owner and the company manager.
+
+    Every other role — including the service specialist, who only handles
+    requests — must be refused, otherwise the tab appears for people the brief
+    never granted it to.
+    """
+    make_user("o@s.com", ["owner"])
+    make_user("m@s.com", ["company_manager"])
+    make_user("sp@s.com", ["service_specialist"])
+    make_user("bd@s.com", ["business_developer"])
+    make_user("ac@s.com", ["accountant"])
+    assert client.get("/api/v1/ai/status", headers=login("o@s.com")).status_code == 200
+    assert client.get("/api/v1/ai/status", headers=login("m@s.com")).status_code == 200
+    for email in ("sp@s.com", "bd@s.com", "ac@s.com"):
+        assert client.get("/api/v1/ai/status", headers=login(email)).status_code == 403, email
+
+
+def test_s10_directives_tab_excludes_the_service_specialist(
+    client: TestClient, make_user, login, db
+):
+    """Table 1 gives the specialist the dashboard and service requests only.
+
+    The directives tab is gated on ``directive:view``, so a role without that
+    grant must be refused rather than shown an empty table.
+    """
+    make_user("o@s.com", ["owner"])
+    make_user("sp@s.com", ["service_specialist"])
+    make_user("d@s.com", ["designer"])
+    assert client.get("/api/v1/directives", headers=login("o@s.com")).status_code == 200
+    assert client.get("/api/v1/directives", headers=login("d@s.com")).status_code == 200
+    assert client.get("/api/v1/directives", headers=login("sp@s.com")).status_code == 403
+
+
 def test_s10_referral_button_creates_a_task_for_the_developer(client: TestClient, make_user, login, db):
     """§5.1 ««نعم، أحلها لمطوّر الأعمال»» — creates a task, executes nothing."""
     make_user("o@s.com", ["owner"])
@@ -2075,6 +2111,38 @@ def test_table5_directive_lifecycle_receive_then_complete(client: TestClient, ma
     assert client.post(f"/api/v1/directives/{did}/complete", headers=hm).status_code == 200
     log = [r["action"] for r in client.get("/api/v1/audit", headers=ho).json()]
     assert any("directive" in a for a in log)
+
+
+def test_table5_directive_completed_by_any_recipient_role(client: TestClient, make_user, login, db):
+    """Table 5 R9 and Table 10 «توجيه جديد ... يؤكد الاستلام ثم يسجل الإنجاز».
+
+    The recipient records completion whatever their role, so a Business
+    Developer or an accountant — neither of whom holds directive:update —
+    must not be refused on a directive addressed to them.
+    """
+    make_user("o@s.com", ["owner"])
+    make_user("bd@s.com", ["business_developer"])
+    ho, hbd = login("o@s.com"), login("bd@s.com")
+    did = client.post("/api/v1/directives", headers=ho,
+                      json={"title": "T", "body": "b", "recipient_id": _uid(client, hbd),
+                            "follow_up_on": str(date.today())}).json()["id"]
+    client.post(f"/api/v1/directives/{did}/send", headers=ho)
+    assert client.post(f"/api/v1/directives/{did}/receive", headers=hbd).status_code == 200
+    assert client.post(f"/api/v1/directives/{did}/complete", headers=hbd).status_code == 200
+
+
+def test_table5_directive_completion_stays_with_the_recipient(client: TestClient, make_user, login, db):
+    """Table 5 R8 «لمستلم واحد فقط دون نسخة لغيره» — nobody else completes it."""
+    make_user("o@s.com", ["owner"])
+    make_user("bd@s.com", ["business_developer"])
+    make_user("ac@s.com", ["accountant"])
+    ho, hbd, hac = login("o@s.com"), login("bd@s.com"), login("ac@s.com")
+    did = client.post("/api/v1/directives", headers=ho,
+                      json={"title": "T", "body": "b", "recipient_id": _uid(client, hbd),
+                            "follow_up_on": str(date.today())}).json()["id"]
+    client.post(f"/api/v1/directives/{did}/send", headers=ho)
+    client.post(f"/api/v1/directives/{did}/receive", headers=hbd)
+    assert client.post(f"/api/v1/directives/{did}/complete", headers=hac).status_code == 403
 
 
 def test_table5_directive_rejects_a_second_recipient(client: TestClient, make_user, login, db):

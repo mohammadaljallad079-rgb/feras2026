@@ -44,15 +44,19 @@ export default function AssistantPage() {
   const [referMessage, setReferMessage] = useState<string | null>(null);
   const [keyInfo, setKeyInfo] = useState(false);
 
+  const canUse = can("ai:use");
   const canConfigure = can("ai:configure");
 
   const load = useCallback(async () => {
+    // Reaching this page without the permission used to fire three requests that
+    // all answered 403, so the page looked broken instead of explaining the rule.
+    if (!canUse) return;
     setStatus(await api.get<AiStatus>("/api/v1/ai/status").catch(() => null));
     setSummary(await api.get<AiSummary>("/api/v1/ai/summary").catch(() => null));
     if (canConfigure) {
       setSettings(await api.get<AiSettings>("/api/v1/ai/settings").catch(() => null));
     }
-  }, [canConfigure]);
+  }, [canUse, canConfigure]);
 
   useEffect(() => {
     void load();
@@ -119,6 +123,21 @@ export default function AssistantPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!canUse) {
+    return (
+      <section className="mx-auto max-w-4xl">
+        <header className="mb-6">
+          <h1 className="page-title">{locale === "ar" ? "المساعد الذكي" : "AI assistant"}</h1>
+        </header>
+        <p role="status" className="rounded-control border border-line bg-pearl p-4 text-secondary">
+          {locale === "ar"
+            ? "المساعد الذكي متاح للمالك ومدير الشركة فقط."
+            : "The AI assistant is available to the owner and the company manager only."}
+        </p>
+      </section>
+    );
   }
 
   return (

@@ -12,6 +12,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("STORAGE_DIR", "/tmp/safir-test-storage")
+# No mail transport exists in the suite, so the reset token must come back for
+# the flow to be exercisable. This is the only environment where that is on.
+os.environ.setdefault("EXPOSE_RESET_TOKEN", "true")
 
 # The suite drops and recreates every table. Refuse to run against anything but a
 # dedicated test database: sourcing the app's .env would otherwise point

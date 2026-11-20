@@ -101,6 +101,29 @@ def test_password_reset_does_not_enumerate(client):
     assert resp.json()["reset_token"] is None
 
 
+def test_password_reset_never_hands_the_token_to_the_caller(client, make_user, monkeypatch):
+    """An anonymous caller must not receive a reset token.
+
+    Returning it would let anyone who knows an email address set that account's
+    password — a full takeover of, say, the owner. The echo is off by default and
+    only an explicit opt-in for local testing turns it on.
+    """
+    from app.core.config import settings
+
+    make_user("victim@safir-platform.com", ["owner"])
+    monkeypatch.setattr(settings, "expose_reset_token", False)
+    issued = client.post(
+        "/api/v1/auth/password-reset/request", json={"email": "victim@safir-platform.com"}
+    )
+    assert issued.status_code == 200
+    assert issued.json()["reset_token"] is None
+    # And the account still logs in with its original password.
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email": "victim@safir-platform.com", "password": "Passw0rd!"},
+    ).status_code == 200
+
+
 def test_every_permission_checked_in_code_is_in_the_catalog():
     """A permission string that no role can hold silently disables its feature.
 

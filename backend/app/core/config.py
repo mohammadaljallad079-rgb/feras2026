@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     access_token_minutes: int = 30
     refresh_token_days: int = 14
     password_reset_minutes: int = 60
+    # Returning a reset token in the HTTP response lets any anonymous caller
+    # take over an account, so it is off by default and only enabled for local
+    # testing where no mail transport exists.
+    expose_reset_token: bool = False
     algorithm: str = "HS256"
 
     # Storage

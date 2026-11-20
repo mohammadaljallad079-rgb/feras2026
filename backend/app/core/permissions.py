@@ -206,7 +206,7 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         "name_ar": "أخصائي خدمات",
         "name_en": "Service Specialist",
         "permissions": [
-            COMPANY_VIEW, SERVICE_VIEW, SERVICE_REPLY, AI_USE,
+            COMPANY_VIEW, SERVICE_VIEW, SERVICE_REPLY,
         ],
     },
 }

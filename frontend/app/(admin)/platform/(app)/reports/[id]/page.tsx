@@ -345,6 +345,7 @@ export default function ReportDetailPage() {
               {managementRows.length === 0 ? (
                 <p className="muted">{locale === "ar" ? "لا توجد بيانات لعرضها." : "No data to display."}</p>
               ) : (
+                <div className="table-scroll">
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-line">
@@ -363,6 +364,7 @@ export default function ReportDetailPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
               <p className="muted mt-3">
                 {locale === "ar"

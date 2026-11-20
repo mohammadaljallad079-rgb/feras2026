@@ -46,16 +46,46 @@ SCREENS = [
     ("owner", "/platform/audit"),
     ("owner", "/platform/directives"),
     ("owner", "/platform/hr"),
+    ("owner", "/platform/reports"),
+    ("owner", "/platform/opportunities"),
+    ("owner", "/platform/service-requests"),
+    ("owner", "/platform/assistant"),
+    ("owner", "/platform/accounting"),
+    ("owner", "/platform/leads"),
+    ("owner", "/platform/website"),
+    ("manager", "/platform/dashboard"),
     ("manager", "/platform/reports"),
-    ("manager", "/platform/reports/2"),
-    ("manager", "/platform/reports/3"),
-    ("accountant", "/platform/accounting"),
+    ("manager", "/platform/reports/1"),
+    ("manager", "/platform/leads"),
+    ("manager", "/platform/service-requests"),
+    ("manager", "/platform/directives"),
+    ("manager", "/platform/hr"),
+    ("manager", "/platform/assistant"),
     ("accountant", "/platform/dashboard"),
+    ("accountant", "/platform/accounting"),
+    ("accountant", "/platform/reports"),
+    ("accountant", "/platform/reports/1"),
+    ("accountant", "/platform/directives"),
+    ("accountant", "/platform/form-builder"),
+    ("bd", "/platform/dashboard"),
     ("bd", "/platform/leads"),
     ("bd", "/platform/opportunities"),
+    ("bd", "/platform/website"),
+    ("bd", "/platform/reports"),
+    ("bd", "/platform/directives"),
+    ("bd", "/platform/advisor"),
+    ("marketer", "/platform/dashboard"),
+    ("marketer", "/platform/leads"),
+    ("marketer", "/platform/directives"),
+    ("designer", "/platform/dashboard"),
+    ("designer", "/platform/service-requests"),
+    ("designer", "/platform/directives"),
+    ("advisor", "/platform/dashboard"),
     ("advisor", "/platform/advisor"),
+    ("advisor", "/platform/directives"),
+    ("specialist", "/platform/dashboard"),
     ("specialist", "/platform/service-requests"),
-    ("specialist", "/platform/assistant"),
+    ("specialist", "/platform/directives"),
 ]
 
 SELECTOR = "button, [role=button], input[type=submit]"
@@ -109,10 +139,16 @@ def _press_screen(browser: Browser, role: str, route: str) -> None:
     page.on("pageerror", lambda e: errors.append(str(e)))
 
     def _watch(resp):
-        # A 5xx means the button reached the server and the server broke; a 4xx
-        # is usually the form's own validation, so only 5xx is a defect here.
-        if resp.status >= 500 and "/api/" in resp.url:
+        # A 5xx means the button reached the server and the server broke. A 403
+        # on a control the role can see means the screen offers an action the
+        # role may not take, which is a defect in the screen, not in the form;
+        # other 4xx answers are the form's own validation.
+        if "/api/" not in resp.url:
+            return
+        if resp.status >= 500:
             bad_status.append(f"{resp.status} {resp.url.split('/api/')[-1][:70]}")
+        elif resp.status == 403:
+            bad_status.append(f"403 refused {resp.url.split('/api/')[-1][:60]}")
 
     page.on("response", _watch)
     try:

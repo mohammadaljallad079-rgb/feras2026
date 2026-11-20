@@ -39,7 +39,16 @@ export default function DirectivesPage() {
   const [form, setForm] = useState({ title: "", body: "", recipient_id: "", follow_up_on: "" });
   const [formOpen, setFormOpen] = useState(false);
 
+  const canView = can("directive:view");
+
   const load = useCallback(async () => {
+    // The tab is gated on directive:view. Opening the URL directly used to fire
+    // two requests that answered 403, so the page looked broken rather than
+    // explaining the rule.
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       setRows(await api.get<Directive[]>("/api/v1/directives"));
@@ -49,12 +58,13 @@ export default function DirectivesPage() {
     } finally {
       setLoading(false);
     }
-  }, [locale]);
+  }, [locale, canView]);
 
   useEffect(() => {
     void load();
+    if (!canView) return;
     api.get<Person[]>("/api/v1/users/directory").then(setPeople).catch(() => undefined);
-  }, [load]);
+  }, [load, canView]);
 
   // The AI assistant's source record links here as ?open=<id>; scroll that
   // directive into view so the link lands on the record it cites.
@@ -99,6 +109,21 @@ export default function DirectivesPage() {
             : "The action failed.",
       );
     }
+  }
+
+  if (!canView) {
+    return (
+      <section className="mx-auto max-w-4xl">
+        <header className="mb-6">
+          <h1 className="page-title">{locale === "ar" ? "التوجيهات التنفيذية" : "Executive directives"}</h1>
+        </header>
+        <p role="status" className="rounded-control border border-line bg-pearl p-4 text-secondary">
+          {locale === "ar"
+            ? "لا تملك صلاحية الوصول إلى التوجيهات التنفيذية."
+            : "You do not have access to executive directives."}
+        </p>
+      </section>
+    );
   }
 
   return (
