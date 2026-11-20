@@ -70,9 +70,9 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
             href={swapped}
             className="site-btn site-btn-outline !px-3 !py-2 text-[13px]"
             hrefLang={other}
-            aria-label={ar ? "Switch to English" : "التبديل إلى العربية"}
+            aria-label={ar ? "التبديل إلى الإنجليزية" : "Switch to Arabic"}
           >
-            {ar ? "English" : "العربية"}
+            {ar ? "EN" : "AR"}
           </Link>
           <Link
             href={`/${locale}/service-request`}
@@ -92,6 +92,7 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
             className="site-btn site-btn-outline !px-3 !py-2 nav:hidden"
             aria-expanded={open}
             aria-controls="site-mobile-nav"
+            aria-label={ar ? (open ? "إغلاق القائمة" : "فتح القائمة") : open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((v) => !v)}
           >
             <span className="sr-only">{ar ? "القائمة" : "Menu"}</span>

@@ -14,6 +14,7 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
   const email = setting(site, "contact_email", locale);
   const phone = setting(site, "contact_phone", locale);
   const country = setting(site, "country", locale);
+  const brand = setting(site, "brand_name", locale);
 
   // Table 12: «تواصل | البريد والهاتف فقط | —» — the contact section carries no
   // form and no button; the three forms that feed the platform live on their
@@ -23,8 +24,12 @@ export default async function ContactPage({ params }: { params: Promise<{ locale
       <div className="site-container max-w-2xl">
         <div>
           <span className="site-eyebrow">{ar ? "تواصل" : "Contact"}</span>
-          <h1 className="site-h2">{ar ? "تواصل معنا" : "Contact us"}</h1>
+          <h1 className="site-h2">{ar ? "ابدأ محادثة حول احتياج أعمالك." : "Start a conversation about your business need."}</h1>
           <dl className="mt-8 grid gap-4">
+            {brand && (
+              <div><dt className="text-[13px] uppercase tracking-wider text-brand-slate">{ar ? "الشركة" : "Company"}</dt>
+                <dd className="mt-1 text-[15px] font-semibold">{brand}</dd></div>
+            )}
             {country && (
               <div><dt className="text-[13px] uppercase tracking-wider text-brand-slate">{ar ? "الدولة" : "Country"}</dt>
                 <dd className="mt-1 text-[15px]">{country}</dd></div>

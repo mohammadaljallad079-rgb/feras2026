@@ -79,6 +79,26 @@ after the `npx` parent dies), restart, then re-run. The same applies to the
 FastAPI process: it is started without `--reload`, so backend changes need a
 restart too.
 
+### The public-submission sweep hits the hourly IP cap
+
+`_check_rate_limit` in `backend/app/api/v1/public.py` counts rows by `source_ip`
+in the last hour and answers `429 {"error": "rate_limited"}` past
+`public_rate_limit_per_hour` (default 20). Every form submit the sweep makes —
+public site, dashboard flow, and `test_e2e_journeys` — comes from `127.0.0.1`,
+so a few runs in one hour starve the next one and it fails with a 429 that
+looks like a broken form.
+
+Both checkers therefore delete their own earlier rows before submitting, gated
+on `CHECKER_DB_URL` so a plain run never touches the database:
+
+```bash
+CHECKER_DB_URL=postgresql://safir:safir@127.0.0.1:5432/safir_e2e \
+  backend/.venv/bin/python scripts/check_public_site.py
+```
+
+`test_e2e_journeys.py` has no such hook — clear `website_submissions` rows whose
+email starts with `visitor-` before running it after a sweep.
+
 ## Conventions
 
 - Authorization is enforced in the backend. The permission-filtered sidebar is

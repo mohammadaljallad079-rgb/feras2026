@@ -71,7 +71,9 @@ export function CompanyPortfolio({
           <span className="site-eyebrow">{ar ? "شركات المجموعة" : "Group companies"}</span>
           <h2 id="h-companies" className="site-h2">{ar ? "محفظة الشركات" : "Our portfolio"}</h2>
           <p className="site-lead">
-            {ar ? "تُعرض الشركات المنشورة فقط من قاعدة البيانات." : "Only companies published from the database are shown."}
+            {ar
+              ? "شركات متخصصة تعمل في قطاعات وأسواق مختلفة ضمن محفظة واحدة."
+              : "Specialised companies operating across different sectors and markets within one portfolio."}
           </p>
         </>
       )}
@@ -98,7 +100,7 @@ export function CompanyPortfolio({
 
       {rows.length === 0 ? (
         <p className="mt-8 rounded-xl border border-dashed border-brand-line bg-white p-9 text-center text-brand-slate">
-          {ar ? "لا توجد شركات منشورة حالياً." : "No published companies at the moment."}
+          {ar ? "لا توجد شركات معروضة حالياً." : "No companies are shown at the moment."}
         </p>
       ) : (
         <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

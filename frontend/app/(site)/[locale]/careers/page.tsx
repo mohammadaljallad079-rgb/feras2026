@@ -25,8 +25,8 @@ export default async function CareersPage({ params }: { params: Promise<{ locale
           </h1>
           <p className="site-lead">
             {ar
-              ? "أرسل سيرتك الذاتية وسنراها في المجموعة."
-              : "Send your CV and it will be reviewed within the group."}
+              ? "أرسل سيرتك الذاتية ومجال اهتمامك. سنتواصل معك إذا توفرت فرصة مناسبة."
+              : "Send your CV and your area of interest. We will contact you if a suitable opportunity becomes available."}
           </p>
         </div>
         <PublicForm

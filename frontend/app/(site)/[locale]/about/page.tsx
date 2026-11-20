@@ -21,8 +21,17 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
     <section className="site-section">
       <div className="site-container">
         <span className="site-eyebrow">{ar ? "من نحن" : "About us"}</span>
-        <h1 className="site-h2">{ar ? "عن القابضة" : "About the holding"}</h1>
-        {about && <p className="site-lead">{pick(locale, about.body_ar, about.body_en)}</p>}
+        <h1 className="site-h2">
+          {ar ? "قابضة تجمع الخبرة وتحوّلها إلى فرص نمو." : "A holding company that gathers expertise and turns it into growth."}
+        </h1>
+        <p className="site-lead">
+          {ar
+            ? "تعمل ستارت أب سفير القابضة على إدارة وتطوير شركات المجموعة، وتنسيق خبراتها، وفتح مسارات عملية للأعمال والفرص الاستثمارية. تتولى كل شركة أعمالها ضمن نشاطها، بينما تعمل القابضة على تعزيز التكامل بينها وتوجيه المجموعة نحو نمو مدروس."
+            : "Start Up Sphere Holding manages and develops the group's companies, coordinates their expertise, and opens practical paths for business and investment opportunities. Each company runs its own activity, while the holding strengthens integration between them and steers the group toward measured growth."}
+        </p>
+        <p className="site-lead">
+          {`${brand} · ${country}`}
+        </p>
 
         <dl className="mt-10 grid gap-6 sm:grid-cols-3">
           <div className="site-card">

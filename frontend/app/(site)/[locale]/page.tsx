@@ -101,14 +101,19 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="bg-gradient-to-br from-brand-deep to-brand-ink py-20 text-white" aria-labelledby="h-sr">
         <div className="site-container grid items-center gap-12 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <span className="site-eyebrow">{ar ? "نافذة واحدة" : "One window"}</span>
+            <span className="site-eyebrow">{ar ? "اطلب خدمة" : "Request a service"}</span>
             <h2 id="h-sr" className="site-h2 text-white">
-              {ar ? "اطلب خدمات المجموعة عبر نموذج مباشر." : "Request the group's services through a direct form."}
+              {ar ? "نافذة واحدة لاحتياجات الأعمال" : "One window for your business needs"}
             </h2>
             <p className="mt-4 max-w-[560px] text-[#c9dbe2]">
               {ar
-                ? "يُحفظ الطلب في قاعدة البيانات ويصل مباشرة إلى فريق المجموعة."
-                : "Your request is saved in the database and reaches the group's team directly."}
+                ? "أخبرنا بما يحتاجه مشروعك، وسنوجّه طلبك إلى الفريق المناسب."
+                : "Tell us what your project needs, and we will route your request to the right team."}
+            </p>
+            <p className="mt-3 max-w-[560px] text-[#a9b6c9]">
+              {ar
+                ? "نموذج واضح يجمع المعلومات الأساسية فقط، ثم يتولى فريق المجموعة مراجعة الطلب والتواصل معك."
+                : "A clear form that collects only the essential information; the group's team then reviews the request and contacts you."}
             </p>
             <Link href={l("/service-request")} className="site-btn site-btn-sand mt-7">
               {ar ? "ابدأ طلب الخدمة" : "Start a service request"}
@@ -137,9 +142,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </h2>
           <div className="mt-9 grid gap-6 md:grid-cols-2">
             <div className="site-card">
-              <h3 className="text-[19px] font-bold">{ar ? "أرسل فرصتك إلى المجموعة" : "Send your opportunity to the group"}</h3>
+              <h3 className="text-[19px] font-bold">
+                {ar ? "هل لديك مشروع أو فرصة للنمو؟" : "Do you have a project or a growth opportunity?"}
+              </h3>
               <p className="mt-3 text-[15px] text-brand-slate">
-                {ar ? "شاركنا تفاصيل الفرصة التجارية أو الاستثمارية لدراستها." : "Share the details of your commercial or investment opportunity for review."}
+                {ar
+                  ? "أرسل موجز الفرصة والدولة التي يوجد بها المشروع. يراجع فريقنا المعلومات ويتواصل معك عند الحاجة إلى تفاصيل إضافية."
+                  : "Send the opportunity brief and the country where the project is located. Our team reviews the information and contacts you if further details are needed."}
               </p>
               <Link href={l("/opportunities")} className="site-btn site-btn-primary mt-5">
                 {ar ? "أرسل فرصة" : "Submit an opportunity"}
@@ -149,8 +158,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               <h3 className="text-[19px] font-bold">{ar ? "كيف تُدرس الفرص؟" : "How are opportunities reviewed?"}</h3>
               <p className="mt-3 text-[15px] text-brand-slate">
                 {ar
-                  ? "تُستقبل الفرص وتُسجّل في قاعدة البيانات ثم تُراجع من الفريق المختص."
-                  : "Opportunities are received, recorded in the database, and reviewed by the relevant team."}
+                  ? "تُراجع الفرص من الفريق المختص، ويُتواصل معك عند الحاجة إلى تفاصيل إضافية."
+                  : "Opportunities are reviewed by the relevant team, and you are contacted if further details are needed."}
               </p>
             </div>
           </div>
@@ -175,7 +184,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               {pick(locale, careers?.title_ar, careers?.title_en) || (ar ? "هل ترغب في الانضمام إلى فريقنا؟" : "Would you like to join our team?")}
             </h2>
             <p className="mt-3 text-brand-slate">
-              {ar ? "أرسل سيرتك الذاتية وسنراها في المجموعة." : "Send your CV and it will be reviewed within the group."}
+              {ar
+                ? "أرسل سيرتك الذاتية ومجال اهتمامك. سنتواصل معك إذا توفرت فرصة مناسبة."
+                : "Send your CV and your area of interest. We will contact you if a suitable opportunity becomes available."}
             </p>
             <Link href={l("/careers")} className="site-btn site-btn-sand mt-6">
               {ar ? "قدّم طلب انضمام" : "Submit an application"}

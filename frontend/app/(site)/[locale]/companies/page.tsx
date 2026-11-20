@@ -16,10 +16,12 @@ export default async function CompaniesPage({ params }: { params: Promise<{ loca
   return (
     <section className="site-section">
       <div className="site-container">
-        <span className="site-eyebrow">{ar ? "شركات المجموعة" : "Group companies"}</span>
-        <h1 className="site-h2">{ar ? "محفظة الشركات" : "Our portfolio"}</h1>
+        <span className="site-eyebrow">{ar ? "محفظة المجموعة" : "Group portfolio"}</span>
+        <h1 className="site-h2">{ar ? "شركات المجموعة" : "Group companies"}</h1>
         <p className="site-lead">
-          {ar ? "تُعرض الشركات المنشورة فقط من قاعدة البيانات." : "Only companies published from the database are shown."}
+          {ar
+            ? "شركات متخصصة تعمل في قطاعات وأسواق مختلفة ضمن محفظة واحدة."
+            : "Specialised companies operating in different sectors and markets within one portfolio."}
         </p>
         <div className="mt-6">
           <CompanyPortfolio companies={companies} locale={locale} showHeading={false} />
