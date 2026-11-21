@@ -55,13 +55,30 @@ def role_slugs(user: User) -> list[str]:
     return sorted(ur.role.slug for ur in user.roles if ur.role)
 
 
+def _record_denial(db: Session, user: User, missing: list[str]) -> None:
+    """§11: «فتح رابط غير مصرح به يرفض ويسجل» — the refusal itself is the event."""
+    audit.record(
+        db,
+        action="security.access_denied",
+        actor=user,
+        target_type="permission",
+        target_id=",".join(missing),
+        meta={"missing_permissions": missing},
+    )
+    db.commit()
+
+
 def require(*required: str) -> Callable[[User], User]:
     """Dependency factory: caller must hold *all* listed permissions."""
 
-    def _checker(user: User = Depends(get_current_user)) -> User:
+    def _checker(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
         held = permissions_of(user)
         missing = [p for p in required if p not in held]
         if missing:
+            _record_denial(db, user, missing)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "forbidden", "missing_permissions": missing},
@@ -79,9 +96,13 @@ def require_any(*required: str) -> Callable[[User], User]:
     and owner (``report:view_all``).
     """
 
-    def _checker(user: User = Depends(get_current_user)) -> User:
+    def _checker(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
         held = permissions_of(user)
         if not any(p in held for p in required):
+            _record_denial(db, user, list(required))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "forbidden", "missing_permissions": list(required)},

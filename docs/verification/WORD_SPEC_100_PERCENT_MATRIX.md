@@ -374,6 +374,7 @@ application, and the application was corrected rather than the test.
 
 | 29 | §11 «إعادة التقرير تتطلب سببًا» | `ReportReturn` carried `Field(min_length=3)` only, so a reason of three spaces passed and a report was returned with no readable explanation; the UI's own guard was bypassed by any direct API call | `reason` now rejects a whitespace-only value and is stored stripped (`app/schemas/__init__.py`); `test_report_return_reason.py` pins blank, too-short and padded input, and was mutation-checked against the old schema |
 
+| 30 | §11 «فتح رابط غير مصرح به يرفض ويسجل» | only the company-isolation path (`assert_company_access`, which answers 404) wrote `security.access_denied`. A route refused by `require()` / `require_any()` for a missing permission answered 403 and wrote nothing, so a role probing screens it may not open left no trace — the spec asks for the refusal to be both refused and logged | both dependencies now record `security.access_denied` with the actor, role and the missing permissions before raising 403 (`app/api/deps.py`); `test_permission_denial_audit.py` counts the log around a refused call and asserts the missing permission is named, and fails on both counts without the fix |
 ## Gaps and exceptions
 
 1. **3 PASS\*** items are **pending human approval**: the brief itself reserves
