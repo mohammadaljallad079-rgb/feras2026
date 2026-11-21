@@ -207,3 +207,18 @@ email starts with `visitor-` before running it after a sweep.
   `safir_e2e`. To exercise the 13 live journeys, start the API on `safir_e2e` and
   pass `SAFIR_BASE_URL=http://127.0.0.1:8011`; without a server they error with
   `ConnectError`, which is an environment precondition, not a failure.
+- Two copy sources describe the public site and they disagree in places. The
+  Word spec (`platform-explained-*.docx`) and the prototype
+  (`safir_platform_prototype_v10_fixed.html`) are the product authority;
+  `content-*.md` is the copy deck and only restates the website face. Where they
+  differ the Word spec wins: Table 13 names the phone field «رقم التواصل» on the
+  service form but «الهاتف» / "Phone" on the opportunity and CV forms, even
+  though the deck and the prototype use «رقم التواصل» everywhere. Do not
+  "unify" the label — `phoneLabel` in `PublicForm.tsx` branches on `needsService`
+  for exactly this reason.
+- The footer is deck §11, not a generic site footer: one Explore column of three
+  links (About, Group companies, Solutions), then Contact with email and phone
+  only, then the privacy link and the copyright line. It deliberately does not
+  repeat the six header links, does not carry a separate Solutions column, and
+  does not print the country inside Contact — `test_site_cms.py` pins the nav
+  content, and the country lives in the bottom bar.
