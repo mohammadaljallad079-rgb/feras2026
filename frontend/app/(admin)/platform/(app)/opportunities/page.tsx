@@ -90,7 +90,6 @@ export default function OpportunitiesPage() {
   const [tone, setTone] = useState<"ok" | "bad">("ok");
   const [form, setForm] = useState({ title: "", company_id: "", description: "", country: "" });
   const [studyFile, setStudyFile] = useState<File | null>(null);
-  const [note, setNote] = useState("");
   // Table 6 R7: «رفض / تأجيل — السبب * (إلزامي)» opens a window holding only
   // the mandatory reason; the decision buttons stay windowless (R6).
   const [decision, setDecision] = useState<{ id: number; verb: "rejected" | "deferred" } | null>(null);
@@ -632,10 +631,10 @@ export default function OpportunitiesPage() {
                         )}
                         {["submitted", "under_review"].includes(r.status) && can("opportunity:decide") && (
                           <>
-                            <button type="button" className="btn-ghost" onClick={() => void act(r.id, "decision", { decision: "under_review", note })}>
+                            <button type="button" className="btn-ghost" onClick={() => void act(r.id, "decision", { decision: "under_review" })}>
                               {ar ? "قيد المراجعة" : "Under review"}
                             </button>
-                            <button type="button" className="btn-gold" onClick={() => void act(r.id, "decision", { decision: "approved", note })}>
+                            <button type="button" className="btn-gold" onClick={() => void act(r.id, "decision", { decision: "approved" })}>
                               {ar ? "اعتماد" : "Approve"}
                             </button>
                             <button

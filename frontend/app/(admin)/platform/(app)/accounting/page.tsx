@@ -142,7 +142,8 @@ export default function AccountingPage() {
         form.kind === "invoice" && form.tax_percent
           ? (Number(form.amount) * Number(form.tax_percent)) / 100
           : null;
-      const { tax_percent: _taxPercent, ...payload } = form;
+      const payload: Partial<typeof form> = { ...form };
+      delete payload.tax_percent;
       await api.post("/api/v1/accounting", {
         ...payload,
         // Table 5 lists no reference field; the platform assigns one so every

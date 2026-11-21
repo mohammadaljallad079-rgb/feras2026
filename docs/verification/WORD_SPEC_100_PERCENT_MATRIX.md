@@ -221,6 +221,9 @@ must not ship).
 | 9.7 | Each form carries the brand + privacy note; consent required | form pages | `public.py` (consent) | `POST /api/v1/public/submissions` | verified live (422 consent_required) | PASS |
 | 9.8 | Privacy policy page (draft, subject to legal review) | `[locale]/privacy` | CMS | `GET /api/v1/public/site` | `check_matrix.py` | PASS* |
 | 9.9 | Platform at a separate address requiring login; site for visitors | `(admin)/platform/**` | `auth.py` | `POST /api/v1/auth/login` | `test_unauthenticated_is_401` | PASS |
+| 9.10 | Table 11 sections, their copy and their buttons (hero slogan, 10 sections, «معاينة الشركة», numbered cards, sector filters) | `app/(site)/[locale]/page.tsx`, `components/site/CompanyPortfolio.tsx` | CMS | `GET /api/v1/public/site`, `/companies` | verified live (all 10 sections, `01`/`02`, filters, preview modal) | PASS |
+| 9.11 | Table 12 stars only these fields per form; unstarred fields stay optional | `components/site/PublicForm.tsx` | `public.py` (`_KIND_REQUIRED`) | `POST /api/v1/public/submissions` | `test_s9_service_request_short_description_is_optional`, `test_s9_opportunity_subject_is_optional`, `test_s9_job_application_area_of_interest_is_optional` | PASS |
+| 9.12 | The careers form refuses a submission with no CV before it reaches the API | `components/site/PublicForm.tsx` | `public.py` (`cv_required`) | `POST /api/v1/public/submissions/with-file` | `test_s9_job_application_requires_a_cv_attachment` | PASS |
 
 ## Section 10 — AI assistant
 
@@ -304,12 +307,12 @@ must not ship).
 
 | Result | Count |
 |---|---|
-| PASS (proven in code, by test or by an executed check) | 126 |
+| PASS (proven in code, by test or by an executed check) | 129 |
 | PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 213 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
-| **Total requirements tracked** | **130** |
+| **Total requirements tracked** | **133** |
 
 ## Delivered beyond the brief (not counted in the totals)
 
@@ -366,6 +369,8 @@ application, and the application was corrected rather than the test.
 | 24 | §6.4 Table 6 R1 «للمالك: المختص المستلم *» | the owner could omit the receiving specialist and the server silently auto-routed the request, although the modal marks it mandatory for the owner | `create_request()` refuses an owner request with no recipient (`422 The receiving specialist is required`) while a manager's request still routes by service type (`app/api/v1/service_requests.py`); `test_owner_must_name_the_receiving_specialist`, `test_a_manager_request_is_routed_by_service_type` |
 | 25 | §7.1 «الاستحقاق هو اليوم الخامس من الشهر التالي» | `POST /periods` accepted any `due_on`, so a period could be opened with a due date the reminders would follow into the wrong day (the seeded acceptance period carried `2026-01-31`) | the due date is now derived server-side (`_due_on()` in `app/api/v1/reporting.py`) and a caller-supplied value is overridden; `test_s7_1_a_wrong_due_date_supplied_by_the_caller_is_overridden` |
 | 26 | Table 12 / §6.5 «تواصل \| البريد والهاتف فقط \| —» | defect 13 removed the fourth public form, but the API still accepted `kind=contact` and converted it to a lead — a record the brief never defines and that no public form can produce | `SubmissionKind.CONTACT` removed, so the endpoint answers `422 unknown_kind`; the `contact→lead` conversion target, its toast and its label are gone (`app/models/enums.py`, `app/api/v1/public.py`, `app/api/v1/website.py`, `components/site/PublicForm.tsx`, `app/(admin)/platform/(app)/website/page.tsx`); `test_s9_the_public_site_carries_exactly_three_submission_forms` |
+| 27 | Table 12 mandatory-field stars («الاسم \*»، «البريد \*»، «رقم التواصل \*»، «نوع الخدمة \*»، «دولة المشروع \*»، «وصف مختصر \*»، «السيرة الذاتية \*») | the three public forms starred and required fields the brief leaves unstarred: «موضوع الفرصة» and «وصف مختصر» on the service form, and «مجال الاهتمام أو الخبرة» on the careers form — a visitor with a valid request was blocked by «هذا الحقل مطلوب» | the client's `required` list now mirrors the table exactly (`name`, `email`, `phone`, plus `service_type` for the service form and `country`/`message` for the opportunity form); the stars were removed from the unstarred labels and added to the consent label (`components/site/PublicForm.tsx`); `test_s9_service_request_short_description_is_optional`, `test_s9_opportunity_subject_is_optional`, `test_s9_job_application_area_of_interest_is_optional` |
+| 28 | Table 12 «السيرة الذاتية \*» | the form is `noValidate`, so the CV input's `required` attribute never ran: submitting a careers form with no CV posted to the API and showed the generic «تعذر الإرسال» instead of naming the missing field | the submit handler now refuses a missing required attachment before the request (`components/site/PublicForm.tsx`), matching the server's `422` |
 
 ## Gaps and exceptions
 

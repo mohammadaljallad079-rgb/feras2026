@@ -1732,6 +1732,25 @@ def test_s9_opportunity_subject_is_optional(client: TestClient):
     assert resp.status_code == 201
 
 
+def test_s9_service_request_short_description_is_optional(client: TestClient):
+    """Table 12 R1: «وصف مختصر» carries no star on the service form, unlike R2."""
+    resp = client.post("/api/v1/public/submissions",
+                       json={"kind": "service_request", "name": "ن", "email": "a@b.com",
+                             "phone": "+973 1", "service_type": "الاستشارات",
+                             "consent": True})
+    assert resp.status_code == 201, resp.text
+
+
+def test_s9_job_application_area_of_interest_is_optional(client: TestClient):
+    """Table 12 R3: «مجال الاهتمام أو الخبرة» carries no star; only the CV does."""
+    resp = client.post("/api/v1/public/submissions",
+                       json={"kind": "job_application", "name": "ن", "email": "a@b.com",
+                             "phone": "+973 1", "consent": True})
+    # No CV attached, so the only refusal is the CV rule — not a missing field.
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["error"] == "cv_required"
+
+
 def test_s9_opportunity_country_must_be_one_of_the_seven(client: TestClient):
     """Table 12 R2 «دولة المشروع * (البحرين ... الأردن)»."""
     resp = client.post("/api/v1/public/submissions",

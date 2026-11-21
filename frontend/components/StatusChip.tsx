@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
-import { t } from "@/lib/i18n";
 
 /** Status chip vocabulary shared by every module. */
 const STATUS_MAP: Record<string, "ok" | "warn" | "bad" | "neutral"> = {

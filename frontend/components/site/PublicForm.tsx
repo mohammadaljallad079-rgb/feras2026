@@ -77,12 +77,21 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
     const form = e.currentTarget;
     const data = new FormData(form);
 
+    // Table 12 stars only these per form. The unstarred fields — «وصف مختصر» on
+    // the service form, «موضوع الفرصة» and «مجال الاهتمام أو الخبرة» — stay
+    // optional here, matching the server.
     const required = ["name", "email", "phone"];
-    if (needsService) required.push("service_type", "message");
-    if (needsCountry) required.push("country", "subject", "message");
-    if (needsExpertise) required.push("expertise");
+    if (needsService) required.push("service_type");
+    if (needsCountry) required.push("country", "message");
     const missing = required.find((f) => !String(data.get(f) ?? "").trim());
     if (missing) {
+      setError(t("required"));
+      return;
+    }
+    // The form is noValidate, so the input's `required` attribute is decorative.
+    // Table 12 stars «السيرة الذاتية» on the careers form only.
+    const fileInputEl = form.querySelector<HTMLInputElement>('input[type="file"]');
+    if (file?.required && !fileInputEl?.files?.length) {
       setError(t("required"));
       return;
     }
@@ -99,8 +108,7 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
 
     setBusy(true);
     try {
-      const fileInput = form.querySelector<HTMLInputElement>('input[type="file"]');
-      const hasFile = Boolean(fileInput?.files?.length);
+      const hasFile = Boolean(fileInputEl?.files?.length);
       let res: Response;
       if (hasFile) {
         // Multipart path: the backend records the row and links the attachment
@@ -112,7 +120,7 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         }
         body.append("kind", kind);
         body.append("consent", "true");
-        if (fileInput?.files?.[0]) body.append("attachment", fileInput.files[0]);
+        if (fileInputEl?.files?.[0]) body.append("attachment", fileInputEl.files[0]);
         res = await fetch("/api/backend/api/v1/public/submissions/with-file", { method: "POST", body });
       } else {
         res = await fetch("/api/backend/api/v1/public/submissions", {
@@ -218,29 +226,31 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
 
       {needsSubject && (
         <div>
-          <label className="site-label" htmlFor="f-subject">{t("subject")} <span className="site-req">*</span></label>
-          <input id="f-subject" name="subject" className="site-field" required maxLength={255} />
+          <label className="site-label" htmlFor="f-subject">{t("subject")}</label>
+          <input id="f-subject" name="subject" className="site-field" maxLength={255} />
         </div>
       )}
 
       {needsExpertise && (
         <div>
-          <label className="site-label" htmlFor="f-expertise">{t("expertise")} <span className="site-req">*</span></label>
-          <input id="f-expertise" name="expertise" className="site-field" required maxLength={255} />
+          <label className="site-label" htmlFor="f-expertise">{t("expertise")}</label>
+          <input id="f-expertise" name="expertise" className="site-field" maxLength={255} />
         </div>
       )}
 
       {needsMessage && (
         <div>
+          {/* Table 12 stars «وصف مختصر» on the opportunity form only; the
+              service form lists it without a star. */}
           <label className="site-label" htmlFor="f-message">
-            {t("message")} <span className="site-req">*</span>
+            {t("message")} {needsCountry && <span className="site-req">*</span>}
           </label>
           <textarea
             id="f-message"
             name="message"
             className="site-field min-h-[120px]"
             rows={5}
-            required
+            required={needsCountry}
           />
         </div>
       )}
@@ -264,7 +274,7 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
       <label className="flex items-start gap-3 text-[14px] text-brand-slate">
         <input type="checkbox" name="consent" className="mt-1" required />
         <span>
-          {t("consent")}{" "}
+          {t("consent")} <span className="site-req">*</span>{" "}
           <a href={consentHref} className="text-brand-deep underline">
             {t("viewPolicy")}
           </a>

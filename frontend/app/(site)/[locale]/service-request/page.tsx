@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSite, pick, sectionByKey, type Locale } from "@/lib/site";
+import { getSite, pick, type Locale } from "@/lib/site";
 import { PublicForm } from "@/components/site/PublicForm";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
@@ -12,7 +12,6 @@ export default async function ServiceRequestPage({ params }: { params: Promise<{
   const locale = raw as Locale;
   const ar = locale === "ar";
   const site = await getSite();
-  const section = sectionByKey(site, "service_request");
 
   return (
     <section className="site-section">

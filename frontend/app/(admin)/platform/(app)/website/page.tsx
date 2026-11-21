@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { DataStates } from "@/components/DataStates";
 import { Toast } from "@/components/Toast";
 import { Modal } from "@/components/Modal";
@@ -202,9 +203,9 @@ export default function WebsitePage() {
             : "Public form submissions are stored in the platform. The public site's own design is not specified by the reference, so it is provisional."}
         </p>
         {can("site:manage") && (
-          <a className="btn-ghost mt-3 inline-flex" href="/platform/website/content">
+          <Link className="btn-ghost mt-3 inline-flex" href="/platform/website/content">
             {locale === "ar" ? "تحرير محتوى الموقع" : "Edit website content"}
-          </a>
+          </Link>
         )}
       </header>
 

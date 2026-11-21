@@ -78,24 +78,3 @@ export default async function LocaleLayout({
   );
 }
 
-/** Bilingual 404 for a path whose first segment is not a language. */
-function UnknownLocale({ segment }: { segment: string }) {
-  return (
-    <html lang="ar" dir="rtl">
-      <body className="site-root">
-        <main className="site-container flex min-h-screen flex-col items-center justify-center text-center">
-          <p className="text-[13px] font-bold uppercase tracking-widest text-brand-sand">404</p>
-          <h1 className="mt-4 text-[28px] font-bold">الصفحة غير موجودة</h1>
-          <p className="mt-3 max-w-[520px] text-brand-slate">
-            ربما نُقلت الصفحة أو تغيّر رابطها. عد إلى الصفحة الرئيسية. / The page may have moved or its address changed. Return to the home page.
-            {segment ? <span dir="ltr" className="mt-2 block font-mono text-[13px]">/{segment}</span> : null}
-          </p>
-          <div className="mt-7 flex gap-3">
-            <a href="/ar" className="site-btn site-btn-primary">الصفحة الرئيسية</a>
-            <a href="/en" className="site-btn site-btn-outline">Home page</a>
-          </div>
-        </main>
-      </body>
-    </html>
-  );
-}

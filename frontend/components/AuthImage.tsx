@@ -49,5 +49,8 @@ export function AuthImage({
   }, [path]);
 
   if (!url) return null;
+  // The source is a blob: URL built from an authenticated fetch, which the
+  // Next.js image optimiser cannot reach.
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt={alt} className={className} />;
 }
