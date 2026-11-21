@@ -127,6 +127,15 @@ copy when the live file serves more than this project.
 > A second project on the same Nginx must keep its own `server` block. This plan
 > only replaces the Safir `location` entries.
 
+The routing decisions in this file are locked by
+`backend/tests/test_deployment_contract.py`. Nginx could not be started in the
+preparation environment (no binary, no root), so those nine checks read the
+configuration and the compose file instead of proxying real traffic. They prove
+the contract is intact — `/api/` to FastAPI, `/` to Next.js, probes answered
+directly, forwarded and security headers present, upload ceiling bounded, and
+only Nginx publishing a host port — but they cannot prove a particular server's
+live config matches. That is what the diff above is for.
+
 ---
 
 ## 4. Build without stopping the running site
@@ -167,13 +176,14 @@ commit `cf21cf6`:
 
 | Check | Result |
 |---|---|
-| Backend suite | **381 tests, 0 failures, 0 errors, 1 skipped** (261 s) |
+| Backend suite | **389 passed, 0 failed, 0 errors, 1 skipped** (262 s) |
 | Frontend lint (`lint:ci`, zero warnings) | **0 errors, 0 warnings** |
 | Frontend typecheck (`tsc --noEmit`) | **clean** |
 | Frontend production build | **succeeded**, all `/platform/*` routes present |
 | Word-spec matrix (`scripts/check_matrix.py`) | **exit 0**, 133 tracked rows, 129 PASS, 0 FAIL |
 | Responsive sweep (`check_matrix.py` route/viewport) | **85 combinations, 0 failures** |
 | GitHub Actions run `44949960556` on `cf21cf6` | **Backend tests success; Lint, Typecheck, Build all success** |
+| Reverse-proxy contract (`tests/test_deployment_contract.py`) | **9 checks pass**: `/api/`→FastAPI, `/`→Next.js, probes direct, forwarded + security headers, bounded upload ceiling, upstream names match compose, only Nginx publishes a port |
 
 Opportunities section (§5.1, Table 6 R6/R7), verified against the production
 build rather than the dev server:

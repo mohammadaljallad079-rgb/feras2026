@@ -377,8 +377,12 @@ application, and the application was corrected rather than the test.
 1. **3 PASS\*** items are **pending human approval**: the brief itself reserves
    them for people (§12) — owner approval of the public-site design, the
    designer's final artwork, and legal review of the privacy policy. The code
-   handles them honestly (the site is labelled provisional, the policy is marked
-   a draft), so no code proof is possible and no automated test can close them.
+   handles them honestly and visibly: `/platform/website` states that the public
+   site's design is «مؤقت» because the reference does not specify it, and
+   `/ar/privacy` prints the deck's review note («هذا النص معروض للمراجعة
+   القانونية...») above the sections. Both were confirmed rendering on the
+   production build. No code proof can close these items and no automated test
+   can substitute for the approval itself.
 2. **1 N/A** item is the simulation bar (§3), which the brief says belongs to the
    prototype and must not ship in the real product.
 3. No other gaps. See `FINAL_HANDOFF_REPORT.md` for the production-configuration
