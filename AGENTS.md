@@ -56,6 +56,22 @@ refuses any database whose name does not end in `_test`, so the e2e database is
 migrated and seeded separately and the server is started with `DATABASE_URL`
 overridden for that one process.
 
+### `npm run lint` is not wired up
+
+There is no ESLint config or `eslint` dependency in `frontend/`, so
+`npm run lint` (which runs `next lint`) stops on an interactive
+*"How would you like to configure ESLint?"* prompt and never finishes. Don't
+treat that as a failure and don't add a config just to silence it: `npx tsc
+--noEmit` plus `npm run build` are the gates that actually run here.
+
+### A test that needs the schema must request a fixture that creates it
+
+`Base.metadata.create_all` runs in the session-scoped `engine` fixture, not at
+import time. A test that touches the database without requesting `engine` (or
+`db`, which depends on it) passes only when some earlier test happened to create
+the tables, and fails when the file is run alone. `test_scheduler.py` had two
+such tests; they now take `engine`.
+
 ### Rebuilding the databases after the container restarts
 
 Postgres runs in Docker and nothing starts it again on its own, so a restarted
