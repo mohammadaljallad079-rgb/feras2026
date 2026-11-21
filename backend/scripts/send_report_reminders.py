@@ -1,4 +1,9 @@
-"""Send the monthly-report deadline reminders (§7.5).
+"""Daily job: open the month's period, then send the report reminders (§7.1, §7.5, §12.3).
+
+This is the cron entry point. It goes through ``scheduler.run_once`` rather than
+calling ``reminders.run`` directly, because the period rollover has to happen
+before the reminders are computed — a job that only reminds would keep pointing
+at a period nobody opened.
 
 Run from cron once a day, ideally shortly after the reminders timezone's day
 boundary. The work itself is idempotent: each company/period/day reminder is
@@ -21,17 +26,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.services import reminders  # noqa: E402
+from app.services import scheduler  # noqa: E402
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    try:
-        sent = reminders.run()
-    except Exception:  # the job failed; make it visible to cron
-        logging.getLogger("send_report_reminders").exception("Report reminder run failed")
+    if not scheduler.run_once():
         return 2
-    print(f"Report reminders sent: {sent}")
+    print("Daily job completed: period opened and reminders attempted.")
     return 0
 
 

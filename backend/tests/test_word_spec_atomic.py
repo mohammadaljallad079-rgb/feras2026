@@ -498,6 +498,60 @@ def test_s5_1_owner_form_builder_has_add_edit_archive(client: TestClient, make_u
     assert client.post(f"/api/v1/form-fields/{fid}/deactivate", headers=h).status_code == 200
 
 
+def test_s6_4_editing_a_field_does_not_change_a_past_report(client: TestClient, make_user, login, db):
+    """Table 6 «Form builder / Edit ... Editing does not change past reports»."""
+    c = _company(db, "COLA")
+    p = _period(db)
+    make_user("o@s.com", ["owner"])
+    make_user("m@s.com", ["company_manager"], companies=[c.id])
+    ho, hm = login("o@s.com"), login("m@s.com")
+    fid = client.post(
+        "/api/v1/form-fields", headers=ho,
+        json={"name_ar": "اسم أصلي", "name_en": "Original name", "field_type": "amount"},
+    ).json()["id"]
+    rid = client.post("/api/v1/reports", headers=hm, json={"company_id": c.id, "period_id": p.id}).json()["id"]
+    assert client.put(
+        f"/api/v1/reports/{rid}/values", headers=hm,
+        json={"values": [{"field_id": fid, "value_number": "1500.00"}]},
+    ).status_code == 200
+
+    assert client.patch(
+        f"/api/v1/form-fields/{fid}", headers=ho,
+        json={"name_ar": "اسم جديد", "name_en": "New name"},
+    ).status_code == 200
+
+    value = client.get(f"/api/v1/reports/{rid}", headers=hm).json()["values"][0]
+    assert value["field_name_ar"] == "اسم أصلي", value
+    assert value["field_name_en"] == "Original name", value
+    # The live definition did move on; only the historical label is frozen.
+    live = {f["id"]: f for f in client.get("/api/v1/form-fields", headers=ho).json()}[fid]
+    assert live["name_ar"] == "اسم جديد"
+
+
+def test_s6_4_an_archived_field_disappears_from_new_reports_only(client: TestClient, make_user, login, db):
+    """Table 6 «Form builder / Archive ... The field disappears from new reports»."""
+    c = _company(db, "COLA")
+    p = _period(db)
+    make_user("o@s.com", ["owner"])
+    make_user("m@s.com", ["company_manager"], companies=[c.id])
+    ho, hm = login("o@s.com"), login("m@s.com")
+    fid = client.post(
+        "/api/v1/form-fields", headers=ho,
+        json={"name_ar": "حقل مؤرشف", "name_en": "Archived", "field_type": "amount"},
+    ).json()["id"]
+    rid = client.post("/api/v1/reports", headers=hm, json={"company_id": c.id, "period_id": p.id}).json()["id"]
+    client.put(
+        f"/api/v1/reports/{rid}/values", headers=hm,
+        json={"values": [{"field_id": fid, "value_number": "10.00"}]},
+    )
+    assert client.post(f"/api/v1/form-fields/{fid}/deactivate", headers=ho).status_code == 200
+
+    live_ids = {f["id"] for f in client.get("/api/v1/form-fields", headers=hm).json()}
+    assert fid not in live_ids, "an archived field is still offered on new reports"
+    kept = client.get(f"/api/v1/reports/{rid}", headers=hm).json()["values"]
+    assert any(v["field_id"] == fid for v in kept), "the archived field vanished from a past report"
+
+
 def test_s5_1_users_screen_is_owner_only(client: TestClient, make_user, login, db):
     """§5.1 «المستخدمون والأدوار. للمالك وحده»."""
     make_user("o@s.com", ["owner"])
@@ -2019,7 +2073,9 @@ def test_s12_reminders_run_on_a_real_schedule_not_a_simulated_date():
     script = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "send_report_reminders.py"
     assert script.exists()
     text = script.read_text(encoding="utf-8")
-    assert "reminders.run()" in text, "the cron entry point must run the scheduler service"
+    # §7.1/§12.3: the cron job must open the month's period, not only remind.
+    # Going straight to ``reminders.run`` skipped the rollover entirely.
+    assert "scheduler.run_once()" in text, "the cron entry point must run the whole daily job"
     service = (pathlib.Path(__file__).resolve().parents[1] / "app" / "services" / "reminders.py").read_text(
         encoding="utf-8"
     )

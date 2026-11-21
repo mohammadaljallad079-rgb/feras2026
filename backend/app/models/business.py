@@ -157,6 +157,8 @@ class ReportValue(Base):
     field_id: Mapped[int] = mapped_column(ForeignKey("form_fields.id", ondelete="RESTRICT"), index=True)
     # Snapshot of the definition at capture time so later edits cannot corrupt history.
     field_version: Mapped[int] = mapped_column(Integer, default=1)
+    field_name_ar: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    field_name_en: Mapped[str | None] = mapped_column(String(255), nullable=True)
     value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_number: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
 

@@ -181,12 +181,40 @@ credential. See `.env.example` for the full list. Key settings:
 
 ### Scheduled report reminders (§7.5, §12)
 
-The monthly-report deadline reminders are sent by a cron job rather than by the
-application process, so the schedule survives a restart and needs no in-process
-scheduler. Run it once a day:
+The monthly-report deadline reminders run on a schedule that survives a restart
+and needs no host cron. `docker compose up` starts the `scheduler` service, which
+runs `python -m app.services.scheduler`:
 
 ```bash
-# crontab -e — 07:00 daily
+docker compose up -d scheduler      # automatic, no host cron needed
+```
+
+The service does two things on every run, in this order:
+
+1. `periods.run_rollover()` opens the month's reporting period (§7.1) — so a
+   restart after a long outage catches up on every missed month.
+2. `reminders.run()` sends the §7.5 reminders.
+
+It fires at a **fixed hour** — `REMINDER_SCHEDULE_TIME` (default `07:00`) in
+`REMINDERS_TIMEZONE` (default `Asia/Bahrain`) — so the job does not drift by its
+own run duration, and it **retries** a failed run after `RETRY_DELAY` (15
+minutes) up to `MAX_ATTEMPTS` (3). Every failure is logged; a success is never
+logged for a failed attempt. A durable per-day marker means a restart re-attempts
+the day instead of silently skipping it.
+
+If you deploy without Compose, run the same module as a long-lived process (it
+sleeps until the next fixed hour and never exits on its own):
+
+```bash
+cd /srv/safir/backend && DATABASE_URL=... .venv/bin/python -m app.services.scheduler
+```
+
+`scripts/send_report_reminders.py` is the one-shot manual trigger for a host
+cron. It routes through the same `scheduler.run_once()` and therefore also opens
+the period first, so no path can bypass the auto-open:
+
+```bash
+# crontab -e — 07:00 daily, in the platform's timezone
 0 7 * * *  cd /srv/safir/backend && DATABASE_URL=... .venv/bin/python scripts/send_report_reminders.py
 ```
 

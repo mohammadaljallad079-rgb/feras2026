@@ -201,11 +201,10 @@ def test_send_report_reminders_script_exit_code(monkeypatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    monkeypatch.setattr(module.reminders, "run", lambda: 0)
+    # The script now runs the whole daily job through the scheduler, which opens
+    # the month's period before reminding (§7.1, §12.3).
+    monkeypatch.setattr(module.scheduler, "run_once", lambda: True)
     assert module.main() == 0
 
-    def boom():
-        raise RuntimeError("db down")
-
-    monkeypatch.setattr(module.reminders, "run", boom)
+    monkeypatch.setattr(module.scheduler, "run_once", lambda: False)
     assert module.main() == 2

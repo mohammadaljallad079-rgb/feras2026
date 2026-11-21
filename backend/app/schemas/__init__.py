@@ -280,6 +280,8 @@ class ReportReturn(BaseModel):
 class ReportValueOut(ORMModel):
     field_id: int
     field_version: int
+    field_name_ar: str | None = None
+    field_name_en: str | None = None
     value_text: str | None
     value_number: Decimal | None
 

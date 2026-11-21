@@ -7,13 +7,37 @@ import { Modal } from "@/components/Modal";
 
 type Draft = Partial<Company> & { [key: string]: unknown };
 
-// §6.2: the wizard is three steps in one window. Step 3 ends with the review
-// summary and the save buttons.
+/**
+ * §6.2 «معالج إضافة شركة» — four steps in one window.
+ *
+ * The Word section opens by calling it «ثلاث خطوات» and then lists four blocks,
+ * the fourth being «مراجعة بيانات الشركة» with «حفظ مسودة» and «حفظ وتفعيل».
+ * Design p.7 is unambiguous: «نافذة بخطوات (من 1/4 إلى 4/4) مع زر حفظ كمسودة
+ * والخروج. الخطوة الأخيرة مراجعة قبل الحفظ، ثم تفعيل.» The design is the
+ * authoritative reference for the platform (AGENTS.md), so the review is its own
+ * step and the counter reads 1/4 … 4/4.
+ */
 const STEPS = [
   { ar: "البيانات الأساسية", en: "Basic data" },
   { ar: "التواصل والإدارة", en: "Contact and management" },
   { ar: "العلاقة بالقابضة", en: "Relationship with the holding" },
+  { ar: "مراجعة البيانات", en: "Review and save" },
 ];
+
+// §6.2: the fields the brief marks as required with a star. A step cannot be
+// left while one of its required fields is empty, so the user never reaches the
+// review with a payload the API will reject.
+const REQUIRED_BY_STEP: Record<number, { key: string; ar: string; en: string }[]> = {
+  0: [
+    { key: "name_ar", ar: "الاسم بالعربية", en: "Arabic name" },
+    { key: "name_en", ar: "الاسم بالإنجليزية", en: "English name" },
+    { key: "country", ar: "الدولة", en: "Country" },
+    { key: "sector", ar: "القطاع", en: "Sector" },
+  ],
+  1: [{ key: "currency", ar: "العملة المحلية", en: "Local currency" }],
+  2: [{ key: "relationship", ar: "نوع العلاقة", en: "Relationship type" }],
+  3: [],
+};
 
 // §6.2: the country, currency and sector choices named in the brief.
 const COUNTRIES = [
@@ -42,9 +66,9 @@ const RELATIONSHIPS = [
 type Person = { id: number; full_name_ar: string; full_name_en: string };
 
 /**
- * §6.2: «معالج إضافة شركة» — three steps inside one window over the companies
- * screen, titled «إضافة شركة تابعة · 1/3» … «3/3», with «التالي» and «السابق»
- * between the steps and «إلغاء» closing the window.
+ * §6.2: «معالج إضافة شركة» — four steps inside one window over the companies
+ * screen, titled «إضافة شركة تابعة · 1/4» … «4/4», with «التالي» and «السابق»
+ * between the steps, «إلغاء» closing the window, and the review on step 4.
  */
 export function CompanyWizard({
   onClose,
@@ -65,6 +89,7 @@ export function CompanyWizard({
   // §6.2 step 2: the company logo is an uploaded image. It is sent after the
   // company row exists, because the file must be tied to a company id.
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -76,6 +101,55 @@ export function CompanyWizard({
 
   function set<K extends string>(key: K, value: unknown) {
     setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  // The preview is an object URL, so it is revoked when the file changes or the
+  // window closes; leaking them would pin the image in memory.
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
+
+  function missingOn(index: number): { key: string; ar: string; en: string }[] {
+    return REQUIRED_BY_STEP[index].filter((f) => {
+      const value = draft[f.key];
+      return value === undefined || value === null || String(value).trim() === "";
+    });
+  }
+
+  function validateStep(index: number): boolean {
+    const missing = missingOn(index);
+    if (missing.length === 0) return true;
+    const names = missing.map((m) => (locale === "ar" ? m.ar : m.en)).join(locale === "ar" ? "، " : ", ");
+    setError(
+      locale === "ar"
+        ? `أكمل الحقول المطلوبة: ${names}.`
+        : `Complete the required fields: ${names}.`,
+    );
+    return false;
+  }
+
+  function goNext() {
+    if (!validateStep(step)) return;
+    setError(null);
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  }
+
+  function goBack() {
+    setError(null);
+    setStep((s) => Math.max(0, s - 1));
+  }
+
+  /** Jump from the review back to the first step that still has a gap. */
+  function goEdit() {
+    const firstIncomplete = [0, 1, 2].find((i) => missingOn(i).length > 0) ?? 0;
+    setError(null);
+    setStep(firstIncomplete);
   }
 
   function payload(status: "draft" | "active") {
@@ -97,10 +171,16 @@ export function CompanyWizard({
   }
 
   async function persist(status: "draft" | "active"): Promise<number | null> {
+    // A second click while the first request is in flight would create a second
+    // company, so the guard is on the state, not only on the button's disabled
+    // attribute (which React applies on the next render).
+    if (busy) return null;
     setBusy(true);
     setError(null);
     try {
       const body = payload(status);
+      // Once a row exists the wizard updates it, so retrying a failed save can
+      // never leave a duplicate behind.
       const saved = savedId
         ? await api.patch<Company>(`/api/v1/companies/${savedId}`, body)
         : await api.post<Company>("/api/v1/companies", body);
@@ -252,7 +332,8 @@ export function CompanyWizard({
                   {managers.map((m) => (<option key={m.id} value={m.id}>{locale === "ar" ? m.full_name_ar : m.full_name_en}</option>))}
                 </select>
               </div>
-              {/* §6.2 step 2: «شعار الشركة (رفع صورة)». */}
+              {/* §6.2 step 2: «شعار الشركة (رفع صورة)» — chosen here, uploaded
+                  after the row exists, previewed so the choice is visible. */}
               <div>
                 <label className="label" htmlFor="logo">{locale === "ar" ? "شعار الشركة (رفع صورة)" : "Company logo (upload an image)"}</label>
                 <input
@@ -263,6 +344,14 @@ export function CompanyWizard({
                   onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
                 />
                 {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
+                {logoPreview && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logoPreview}
+                    alt={locale === "ar" ? "معاينة شعار الشركة" : "Company logo preview"}
+                    className="mt-2 h-16 w-16 rounded-control border border-line object-contain"
+                  />
+                )}
               </div>
             </>
           )}
@@ -286,19 +375,26 @@ export function CompanyWizard({
                   ? "تُنشأ استمارة التقارير الشهرية من منشئ النماذج. لا توجد أرصدة افتتاحية هنا."
                   : "The monthly report form is created in the form builder. There are no opening balances here."}
               </p>
-
-              <div className="border-t border-line pt-4">
-                <h2 className="section-title mb-3">{locale === "ar" ? "مراجعة بيانات الشركة" : "Review the company data"}</h2>
-                <dl className="grid gap-3 sm:grid-cols-2">
-                  {reviewRows.map(([k, label, value]) => (
-                    <div key={k}>
-                      <dt className="muted">{label}</dt>
-                      <dd>{value ? String(value) : "—"}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
             </>
+          )}
+
+          {step === 3 && (
+            <div>
+              <h2 className="section-title mb-3">{locale === "ar" ? "مراجعة بيانات الشركة" : "Review the company data"}</h2>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                {reviewRows.map(([k, label, value]) => (
+                  <div key={k}>
+                    <dt className="muted">{label}</dt>
+                    <dd>{value ? String(value) : "—"}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="muted mt-4">
+                {locale === "ar"
+                  ? "الشركة المحفوظة مسودة لا تظهر في القوائم ولا التقارير حتى تُفعَّل."
+                  : "A company saved as a draft does not appear in the lists or reports until it is activated."}
+              </p>
+            </div>
           )}
         </div>
 
@@ -307,19 +403,26 @@ export function CompanyWizard({
             <button type="button" className="btn-ghost" onClick={onClose}>
               {locale === "ar" ? "إلغاء" : "Cancel"}
             </button>
-            {/* §6.2: «تعديل» appears on the review step and returns to step 1. */}
+            {/* §6.2: «تعديل» on the review step returns to the data. */}
             {step === STEPS.length - 1 && (
-              <button type="button" className="btn-ghost" onClick={() => setStep(0)}>
+              <button type="button" className="btn-ghost" onClick={goEdit}>
                 {locale === "ar" ? "تعديل" : "Edit"}
               </button>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
+            {/* Design p.7: «مع زر حفظ كمسودة والخروج» — available on every step,
+                so a half-filled company can be kept without finishing the wizard. */}
+            {step > 0 && step < STEPS.length - 1 && (
+              <button type="button" className="btn-ghost" onClick={() => void saveDraft()} disabled={busy}>
+                {locale === "ar" ? "حفظ مسودة" : "Save draft"}
+              </button>
+            )}
+            <button type="button" className="btn-ghost" onClick={goBack} disabled={step === 0}>
               {locale === "ar" ? "السابق" : "Back"}
             </button>
             {step < STEPS.length - 1 ? (
-              <button type="button" className="btn-primary" onClick={() => setStep((s) => s + 1)}>
+              <button type="button" className="btn-primary" onClick={goNext}>
                 {locale === "ar" ? "التالي" : "Next"}
               </button>
             ) : (

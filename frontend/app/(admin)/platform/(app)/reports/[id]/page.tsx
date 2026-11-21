@@ -119,8 +119,8 @@ export default function ReportDetailPage() {
     return [
       {
         id: v.field_id,
-        name_ar: field?.name_ar ?? `#${v.field_id}`,
-        name_en: field?.name_en ?? `#${v.field_id}`,
+        name_ar: v.field_name_ar ?? field?.name_ar ?? `#${v.field_id}`,
+        name_en: v.field_name_en ?? field?.name_en ?? `#${v.field_id}`,
         numeric,
         display: numeric
           ? `${Number(v.value_number).toLocaleString("en-US", { maximumFractionDigits: 2 })} ${report?.currency ?? ""}`.trim()

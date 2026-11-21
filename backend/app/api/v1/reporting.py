@@ -317,6 +317,8 @@ def save_values(
             db.add(value)
         # Snapshot the definition version so a later schema change cannot rewrite history.
         value.field_version = field.version
+        value.field_name_ar = field.name_ar
+        value.field_name_en = field.name_en
         if field.field_type in {"number", "amount"}:
             value.value_number = item.value_number
             value.value_text = None
@@ -469,8 +471,8 @@ def export_report(
         field = fields.get(v.field_id)
         ws.append(
             [
-                field.name_ar if field else v.field_id,
-                field.name_en if field else "",
+                v.field_name_ar or (field.name_ar if field else v.field_id),
+                v.field_name_en or (field.name_en if field else ""),
                 v.field_version,
                 v.value_text,
                 float(v.value_number) if v.value_number is not None else None,

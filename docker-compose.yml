@@ -46,6 +46,42 @@ services:
     expose:
       - "8000"
 
+  # §7.5 / §12.3: the deadline reminders run automatically at a fixed Bahrain
+  # hour, with a bounded 15-minute retry. The policy lives in
+  # app/services/scheduler.py; the durable per-day claim in
+  # app/services/reminders.py makes a restart or an overlapping run harmless.
+  scheduler:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-safir}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-safir}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      STORAGE_DIR: /var/lib/safir/storage
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8080}
+      REMINDERS_TIMEZONE: ${REMINDERS_TIMEZONE:-Asia/Bahrain}
+      REMINDER_SCHEDULE_TIME: ${REMINDER_SCHEDULE_TIME:-07:00}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      TZ: ${REMINDERS_TIMEZONE:-Asia/Bahrain}
+    volumes:
+      # The success marker lives here, so a restart does not repeat the day and
+      # a missed day is caught up rather than skipped.
+      - storage:/var/lib/safir/storage
+    command: ["python", "-m", "app.services.scheduler"]
+    # The image's HEALTHCHECK probes the HTTP server, which this container does
+    # not run; left enabled it would report the job unhealthy forever.
+    healthcheck:
+      disable: true
+    # No ports: the scheduler only writes to the database and the mail transport.
+
   frontend:
     build: ./frontend
     restart: unless-stopped
@@ -66,25 +102,6 @@ services:
       - "${HTTP_PORT:-8080}:80"
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-
-  # Run deadline reminders automatically, including after a container restart.
-  # The reminder service uses durable DB claims to avoid concurrent sends.
-  scheduler:
-    build: ./backend
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-safir}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-safir}
-      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
-      STORAGE_DIR: /var/lib/safir/storage
-    volumes:
-      - storage:/var/lib/safir/storage
-    command: ["/bin/sh", "-c", "while true; do python scripts/send_report_reminders.py || true; sleep 86400; done"]
 
 volumes:
   db-data:

@@ -194,7 +194,7 @@ export type MonthlyReport = {
   forwarded_at: string | null;
   locked_at: string | null;
   created_at: string;
-  values: { field_id: number; field_version: number; value_text: string | null; value_number: string | null }[];
+  values: { field_id: number; field_version: number; field_name_ar?: string | null; field_name_en?: string | null; value_text: string | null; value_number: string | null }[];
 };
 
 export type ReportingPeriod = {

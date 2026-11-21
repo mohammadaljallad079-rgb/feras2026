@@ -135,8 +135,14 @@ Operational notes:
   (the backend image also applies migrations on start).
 - Run `python scripts/seed.py` once to create the eight system roles and the demo
   accounts, then `python scripts/seed_site.py` for the public-site CMS content.
-- Schedule `python scripts/send_report_reminders.py` once a day (cron) for §7.5
-  reminders.
+- §7.5 reminders need no external cron. The Compose `scheduler` service runs
+  `python -m app.services.scheduler`, which opens the month's reporting period
+  first (§7.1/§12.3) and then sends the reminders at a fixed `07:00` in
+  `Asia/Bahrain` (`REMINDERS_TIMEZONE` / `REMINDER_SCHEDULE_TIME`), retrying a
+  failed run after 15 minutes up to 3 attempts. A durable per-day claim makes a
+  restart or an overlapping run harmless. `python scripts/send_report_reminders.py`
+  remains available as a one-shot manual trigger and routes through the same
+  `scheduler.run_once()`; set `SMTP_*` so the run can deliver.
 - The privacy policy text must complete legal review before launch (§9, §12).
 
 ## 8. Constraint compliance
@@ -151,3 +157,59 @@ Operational notes:
 | No data deletion | Honoured |
 | No design change or new functionality | Honoured — documentation and one harness fix only |
 | Prior developer report not taken as final evidence | Honoured — every number was re-run this session |
+
+## 9. Documented spec conflicts (disclosed, not silently resolved)
+
+Two conflicts exist inside the source documents. Both were checked against three
+independent sources before choosing an implementation, and the choice is recorded
+here so a reviewer can overturn it deliberately rather than discover it.
+
+**9.1 Company wizard step count — «1/3» vs «1/4».**
+
+| Source | Says |
+|---|---|
+| `platform-explained-ar.docx` §6.2 prose | «ثلاث خطوات … 1/3 ثم 2/3 ثم 3/3» |
+| Same paragraph, itemised content | four groups: basics, contact, relationship, **review** |
+| Design PDF page 7 caption | «نافذة بخطوات (من 1/4 إلى 4/4) … الخطوة الأخيرة مراجعة» |
+| Design PDF page 7 screenshot | title reads «إضافة شركة تابعة · 1/3» |
+| Prototype `safir_platform_prototype_v10_fixed.html` | `form(\`… — ${step}/4\`)`, steps 1–4 with the review last |
+
+Three of the four sources say **four** steps: the design caption, the prototype
+code, and the Word paragraph's own itemised list. The "three" figure contradicts
+its own list, which names a fourth review step. The design *screenshot* still
+carries the older "1/3" label, so the picture and its own caption disagree.
+
+Implemented: **four steps**, counter `1/4 … 4/4`, last step a review with Edit /
+Save draft / Save and activate — matching the design caption, the prototype code
+and the Word itemised list. A reviewer who prefers three steps should say so
+explicitly; the change is confined to `STEPS` in `frontend/components/CompanyWizard.tsx`.
+
+**9.2 Reminder scheduling — "every 24 hours" vs a fixed hour.**
+
+The §12 text asks for a daily reminder job. A naive `sleep(24h)` loop drifts by
+its own run duration and cannot retry. Implemented instead: a fixed local hour
+(`REMINDER_SCHEDULE_TIME`, default `07:00`, in `REMINDERS_TIMEZONE`) plus a
+bounded retry (15 minutes, 3 attempts) and a durable per-day claim. This satisfies
+"daily" more strictly than a drifting 24-hour sleep; the README documents the
+fixed-hour behaviour so no operator expects a drifting interval.
+
+## 10. Test-data inventory in `safir_e2e`
+
+`E2E-323A2151` was named in the prior hand-off but **does not exist** in this
+environment: no company, user or audit row carries that id. The E2E harness
+derives a fresh random code per run, so each run leaves a new company behind.
+This is the actual state, listed rather than deleted (the constraint "no data
+deletion" still holds):
+
+| Company id | Code | Name | Status | Created |
+|---|---|---|---|---|
+| 1 | `HOLDING` | شركة ستارت أب سفير القابضة ذ.م.م | active | 2026-11-21 04:28 |
+| 2 | `E2E-ECAC8742` | شركة اختبار | active | 2026-11-21 04:28 |
+| 3 | `E2E-E54D2254` | شركة اختبار | active | 2026-11-21 04:33 |
+| 4 | `E2E-FD49C15D` | شركة اختبار | active | 2026-11-21 04:41 |
+
+Each of the three `E2E-*` companies owns exactly one monthly report (one value
+row), one accounting entry, two leads, one service request and one 18-byte
+`statement.pdf`. 20 users exist: 8 seeded demo accounts on `@safir-platform.com`
+plus 4 role accounts per E2E run. All of it is confined to the disposable
+`safir_e2e` database; `safir` and `safir_test` hold no E2E rows.

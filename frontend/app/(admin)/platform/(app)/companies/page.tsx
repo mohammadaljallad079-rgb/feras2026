@@ -19,7 +19,7 @@ export default function CompaniesPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  // §6.2: «إضافة شركة (معالج من ثلاث خطوات)» opens over this screen.
+  // §6.2 / design p.7: «إضافة شركة» opens the four-step wizard over this screen.
   const [wizardOpen, setWizardOpen] = useState(false);
   // §6.3: the logo modal and the close-confirmation modal.
   const [logoFor, setLogoFor] = useState<Company | null>(null);

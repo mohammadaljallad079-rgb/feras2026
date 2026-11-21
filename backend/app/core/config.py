@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # server's timezone.
     reminders_timezone: str = "Asia/Bahrain"
 
+    # §12.3: the hour the daily reminder job runs, in REMINDERS_TIMEZONE. A fixed
+    # local hour does not drift with the run duration, unlike a 24h sleep.
+    reminder_schedule_time: str = "07:00"
+
     # Outbound mail. When SMTP_HOST is empty the platform reports the mail
     # transport as unconfigured instead of pretending a message was delivered.
     smtp_host: str = ""

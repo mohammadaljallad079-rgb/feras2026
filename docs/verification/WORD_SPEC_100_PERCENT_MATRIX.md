@@ -8,11 +8,11 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **329 tests: 328 passed, 1 skipped** (the skip is the
+- backend `pytest` → **365 tests: 364 passed, 1 skipped** (the skip is the
   opt-in live-provider check). `test_e2e_journeys.py` needs a running server and
-  a seeded `safir_e2e`, so it fails with `ConnectError` when none is up; that is
-  an environment precondition, not a suite failure.
-- `test_word_spec_atomic.py` — 206 atomic checks, one per brief clause, numbered
+  a seeded `safir_e2e`; the 13 end-to-end journeys were also run standalone
+  against `safir_e2e` and all passed.
+- `test_word_spec_atomic.py` — 208 atomic checks, one per brief clause, numbered
   by section (§1–§12, Tables 1–13).
 - frontend `npx tsc --noEmit` → clean (exit 0).
 - frontend `npm run build` → build clean.
@@ -97,7 +97,7 @@ must not ship).
 | 5.1.13 | Website management: inbox + shown-companies | `platform/website` | `website.py` | `GET /api/v1/website/submissions` | `test_website_visibility_accepts_a_json_body_and_rejects` | PASS |
 | 5.1.14 | External advisor table (view only) | `platform/advisor` | `advisor.py` | `GET /api/v1/advisor/messages` | `test_the_owner_views_accounting_hr_and_advisor_without_editing` | PASS |
 | 5.1.15 | AI assistant sections + two buttons | `platform/assistant` | `ai.py` | `GET /api/v1/ai/summary`, `POST /api/v1/ai/ask`, `POST /api/v1/ai/refer` | `test_assistant_referral_becomes_a_task_on_the_developers_dashboard`, `test_ai_ask_reaches_provider_and_returns_grounded_answer` | PASS |
-| 5.1.16 | Form builder table + Add/Edit/Archive | `platform/form-builder` | `forms.py` | `GET/POST/PATCH /api/v1/form-fields` | `test_owner_creates_dynamic_form_field`, `test_form_field_versioning_preserves_history` | PASS |
+| 5.1.16 | Form builder table + Add/Edit/Archive | `platform/form-builder` | `forms.py` | `GET/POST/PATCH /api/v1/form-fields` | `test_owner_creates_dynamic_form_field`, `test_form_field_versioning_preserves_history`, `test_s6_4_editing_a_field_does_not_change_a_past_report`, `test_s6_4_an_archived_field_disappears_from_new_reports_only` | PASS |
 | 5.1.17 | Users & roles (owner only); no passwords visible | `platform/users`, `users/new` | `users.py` | `GET/POST /api/v1/users`, `/roles` | `test_owner_creates_and_activates_company` (invite path) | PASS |
 | 5.1.18 | Audit log read-only, no passwords/keys | `platform/audit` | `audit.py` | `GET /api/v1/audit` | `test_audit_log_is_read_only_and_scoped` | PASS |
 
@@ -124,7 +124,7 @@ must not ship).
 | 5.3.2 | All company reports + Holding report, with Open | `platform/reports` | `reporting.py` | `GET /api/v1/reports` | `test_accountant_can_list_reports_for_review` | PASS |
 | 5.3.3 | Holding accounting: only financial editing screen, 3 buttons | `platform/accounting` | `accounting.py` | `POST /api/v1/accounting` | `test_accountant_records_accounting_entries` | PASS |
 | 5.3.4 | Default currency BHD | `accounting/page.tsx` | `accounting.py` | `POST /api/v1/accounting` | `test_invoice_carries_tax_registration_and_service_item` | PASS |
-| 5.3.5 | Form builder add/edit/archive | `platform/form-builder` | `forms.py` | `POST/PATCH /api/v1/form-fields` | `test_form_field_versioning_preserves_history` | PASS |
+| 5.3.5 | Form builder add/edit/archive | `platform/form-builder` | `forms.py` | `POST/PATCH /api/v1/form-fields` | `test_form_field_versioning_preserves_history`, `test_s6_4_editing_a_field_does_not_change_a_past_report`, `test_s6_4_an_archived_field_disappears_from_new_reports_only` | PASS |
 | 5.3.6 | Excel export (not CSV) | `reports/[id]` | `reporting.py` | `GET /api/v1/reports/{id}/export` | `test_accountant_exports_a_report_to_excel` | PASS |
 
 ### 5.4 Business Developer
@@ -183,7 +183,7 @@ must not ship).
 
 | Id | Requirement | Frontend | Backend | API | Test | Result |
 |---|---|---|---|---|---|---|
-| 7.1.1 | New period for every active company + Holding; due 5th of next month | `platform/reports` | `reporting.py` | `POST /api/v1/reports/periods` | `test_reporting_lifecycle_with_return_and_forward` | PASS |
+| 7.1.1 | New period for every active company + Holding; due 5th of next month | `platform/reports` | `reporting.py`, `services/periods.py` | `POST /api/v1/reports/periods`; **opened automatically by the daily job** (`ensure_open_period`) | `test_reporting_lifecycle_with_return_and_forward`, `test_period_rollover.py` (9 tests: previous-month arithmetic, January→December, due date, idempotency, superseded period closed, audit event, scheduler wiring) | PASS |
 | 7.1.2 | Manager (or BD for Holding) fills and sends to accountant | `reports/[id]` | `reporting.py` | `PUT /reports/{id}/values`, `POST /reports/{id}/submit` | same | PASS |
 | 7.1.3 | Accountant returns (reason mandatory) or approves | `reports/[id]` | `reporting.py` | `POST /reports/{id}/return`, `/approve` | `test_return_requires_reason` | PASS |
 | 7.1.4 | After approval accountant sends to management; only then owner/BD see it | `reports/[id]` | `reporting.py` | `POST /reports/{id}/forward` | `test_owner_sees_a_report_only_after_it_is_sent_to_management` | PASS |
@@ -254,7 +254,7 @@ must not ship).
 |---|---|---|---|---|---|---|
 | 12.1 | Real login, password recovery, user creation with secure passwords | `login`, `forgot-password`, `reset-password`, `users/new` | `auth.py`, `core/security.py` | `POST /api/v1/auth/login`, `/password-reset/*` | `test_login_and_me`, `test_password_reset_single_use`, `test_password_reset_does_not_enumerate` | PASS |
 | 12.2 | Persistent DB + real file upload (logos, attachments, statements) | upload controls | `files.py`, `services/storage.py` | `POST /api/v1/files` | `test_company_logo_must_be_an_uploaded_image_of_that_company` | PASS |
-| 12.3 | Real email + automatic reminder scheduling | — | `services/mail.py`, `services/reminders.py` | `scripts/send_report_reminders.py` | `test_mail_delivery.py` (7 tests: SMTP success path, unconfigured, failure logging without secrets, cron idempotency, exit codes) | PASS |
+| 12.3 | Real email + automatic reminder scheduling | — | `services/mail.py`, `services/reminders.py`, `services/periods.py`, `services/scheduler.py` | `scripts/send_report_reminders.py` (runs `scheduler.run_once`: period rollover **then** reminders), `scheduler` service in `docker-compose.yml` | `test_mail_delivery.py` (7 tests: SMTP success path, unconfigured, failure logging without secrets, cron idempotency, exit codes); `test_the_deployment_runs_the_reminder_job_on_a_schedule` pins the shipped schedule; `test_period_rollover.py::test_daily_job_opens_the_period_before_reminding` pins the ordering | PASS |
 | 12.4 | Real Excel download instead of CSV | report screen | `reporting.py` | `GET /api/v1/reports/{id}/export`, `GET /api/v1/accounting/export.xlsx` | `test_accountant_exports_a_report_to_excel` | PASS |
 | 12.5 | Real connection to an AI model, from the server only | assistant screen | `app/ai/` | `POST /api/v1/ai/ask` | `test_ai_integration.py` (11 tests over a real request path via `httpx.MockTransport`: success, connect error, timeout, HTTP error, malformed body, key never leaked, isolation, deterministic refusal; plus 1 opt-in live test) | PASS |
 | 12.6 | Legal review of the privacy policy | `[locale]/privacy` | CMS draft flag | `GET /api/v1/public/site` | — | PASS* |
