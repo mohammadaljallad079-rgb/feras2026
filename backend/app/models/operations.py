@@ -160,6 +160,45 @@ class Opportunity(Base, TimestampMixin):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # --- Opportunity file (owner request, additive and optional) -------------
+    # The brief fixes the table columns and the decision workflow but says
+    # nothing about the analysis behind a decision. These columns hold it
+    # without changing the six columns §5.1 prints, and every one is nullable
+    # so an opportunity created the spec's way is still complete.
+    # «تصنيف الفرصة»: commercial or investment (Table 3 names both).
+    category: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    # «المطلوب من المجموعة»: what the holding is asked to provide.
+    requested_from_group: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Financials: the forecast the outcome is later measured against.
+    investment_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    expected_return: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    # Whole percent, e.g. 12.5 for 12.5%.
+    expected_return_pct: Mapped[Decimal | None] = mapped_column(Numeric(9, 2), nullable=True)
+    cashflow_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Risk and its mitigation, stated in words rather than scored: a score would
+    # invent a rating scale the brief never defines.
+    risk_level: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    risk_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recommendation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # «المسؤول عن المتابعة والموعد القادم» — assigned by the owner with the
+    # decision; no new approval level, only an accountable person and a date.
+    next_step_owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    next_step_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # The realised outcome, entered after approval so the file can be compared
+    # with its forecast.
+    actual_return: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    actual_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    next_step_owner: Mapped["User | None"] = relationship(
+        "User", foreign_keys=[next_step_owner_id], lazy="joined"
+    )
+
+    @property
+    def next_step_owner_name(self) -> str | None:
+        if self.next_step_owner is None:
+            return None
+        return self.next_step_owner.full_name_ar or self.next_step_owner.full_name_en
+
     attachment: Mapped["StoredFile | None"] = relationship(
         "StoredFile", foreign_keys=[attachment_file_id], lazy="joined"
     )

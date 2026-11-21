@@ -26,18 +26,21 @@ none is copied from an earlier report.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend (full) | `pytest -q` | **322 passed, 1 skipped in 303.93s** |
-| Auth & RBAC | `pytest tests/test_auth_rbac.py` | **21 passed in 8.38s** |
-| Reporting workflow | `pytest tests/test_reporting_workflow.py` | **13 passed in 20.83s** |
-| Operations (incl. isolation, attachments, mail) | `pytest tests/test_operations.py` | **30 passed in 29.01s** |
-| End-to-end journeys (live HTTP) | `pytest tests/test_e2e_journeys.py` | **13 passed in 4.52s** |
-| Public-site CMS | `pytest tests/test_site_cms.py` | **8 passed in 4.73s** |
+| Backend (full) | `pytest -q` | **379 passed, 1 skipped in 262.59s** |
+| Auth & RBAC | `pytest tests/test_auth_rbac.py` | **22 passed in 9.20s** |
+| Reporting workflow | `pytest tests/test_reporting_workflow.py` | **13 passed** |
+| Operations (incl. isolation, attachments, mail) | `pytest tests/test_operations.py` | **33 passed** |
+| End-to-end journeys (live HTTP) | `pytest tests/test_e2e_journeys.py` | **13 passed** |
+| Public-site CMS | `pytest tests/test_site_cms.py` | **8 passed** |
+| Opportunity file (new) | `pytest tests/test_opportunity_file.py` | **13 passed** |
+| Scheduler (retry policy) | `pytest tests/test_scheduler.py` | **18 passed** |
 | TypeScript check | `npx tsc --noEmit` | **clean (exit 0)** |
-| Word-spec atomic suite | `pytest tests/test_word_spec_atomic.py` | **201 passed in 194.80s** |
+| Word-spec atomic suite | `pytest tests/test_word_spec_atomic.py` | **213 passed in 157.70s** |
 | Production build | `npm run build` | **35 routes built** |
 | Browser visual fixes | `scripts/check_visual_fixes.py` | **68/68 assertions passed** |
 | Route/viewport matrix | `scripts/check_matrix.py` | **85 combinations, 0 failures** |
-| Mobile overflow | `scripts/check_mobile.py` | **no horizontal overflow at 400px (11 routes)** |
+| Mobile overflow | `scripts/check_mobile.py` | **no horizontal overflow at 400px (12 routes)** |
+| Every control pressed | `scripts/check_all_buttons.py` | **530 controls: 529 ok, 1 disabled, 0 failing** |
 
 Environment for the run: PostgreSQL 17 (local, disposable `safir_test` +
 `safir_e2e` databases), FastAPI on `:8000`, Next.js production server on `:12000`.

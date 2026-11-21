@@ -311,6 +311,28 @@ must not ship).
 | FAIL | 0 |
 | **Total requirements tracked** | **130** |
 
+## Delivered beyond the brief (not counted in the totals)
+
+The brief's opportunity section (§5.1, Table 5, design page 12) fixes six table
+columns, six states and four decision buttons, and says nothing about
+classification, financials, risk or realised outcomes. The owner asked for those
+anyway, so they were added as optional fields beside the spec'd ones. Nothing in
+the table above changed behaviour: the six columns, the four buttons, the
+mandatory reason on reject/postpone and the "no automatic execution" rule all
+still hold, and `test_opportunity_file.py` asserts that an opportunity with no
+analysis at all still walks the brief's workflow.
+
+| Added | Surface |
+|---|---|
+| Classification, requested-from-group, investment amount, expected return and %, cash-flow note, risk level and note, recommendation | `Opportunity` model, `PATCH /api/v1/opportunities/{id}`, the "File" panel on `platform/opportunities` |
+| Follow-up owner and next date, recorded with the decision | `POST /api/v1/opportunities/{id}/decision`, the "Follow-up" panel |
+| Realised return and note, and the variance against the forecast | `PATCH /api/v1/opportunities/{id}`, shown inline per row |
+| Side-by-side comparison of chosen rows | `GET /api/v1/opportunities/compare?ids=` |
+| Draft-only editing; the realised outcome stays writable after a decision | `update_opportunity()` returns 409 for a non-draft edit |
+
+Migration `a8c4f19e6b72` adds the columns. Every field is nullable, so existing
+rows and the brief's own workflow are unaffected.
+
 ## Defects found and fixed in this pass
 
 Each one was a real product defect: the atomic test failed, the cause was in the

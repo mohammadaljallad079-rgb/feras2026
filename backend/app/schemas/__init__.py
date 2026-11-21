@@ -479,11 +479,47 @@ class OpportunityCreate(BaseModel):
     source: str | None = None
     estimated_value: Decimal | None = None
     currency: str = "SAR"
+    # The optional analysis file. None of it is required by the brief.
+    category: str | None = None
+    requested_from_group: str | None = None
+    investment_amount: Decimal | None = None
+    expected_return: Decimal | None = None
+    expected_return_pct: Decimal | None = None
+    cashflow_note: str | None = None
+    risk_level: str | None = None
+    risk_note: str | None = None
+    recommendation: str | None = None
+
+
+class OpportunityUpdate(BaseModel):
+    """The business developer's edits to a draft, plus the post-decision outcome."""
+
+    title: str | None = None
+    description: str | None = None
+    country: str | None = Field(default=None, min_length=1)
+    attachment_file_id: int | None = None
+    estimated_value: Decimal | None = None
+    currency: str | None = None
+    category: str | None = None
+    requested_from_group: str | None = None
+    investment_amount: Decimal | None = None
+    expected_return: Decimal | None = None
+    expected_return_pct: Decimal | None = None
+    cashflow_note: str | None = None
+    risk_level: str | None = None
+    risk_note: str | None = None
+    recommendation: str | None = None
+    actual_return: Decimal | None = None
+    actual_note: str | None = None
 
 
 class OpportunityDecision(BaseModel):
     decision: str
     note: str | None = None
+    # §5.1 asks who follows the opportunity up and when. Both stay optional so
+    # the four decision buttons keep working without them.
+    next_step_owner_id: int | None = None
+    next_step_on: date | None = None
 
 
 class OpportunityOut(ORMModel):
@@ -503,6 +539,20 @@ class OpportunityOut(ORMModel):
     decided_by_id: int | None
     decided_at: datetime | None
     decision_note: str | None
+    category: str | None = None
+    requested_from_group: str | None = None
+    investment_amount: Decimal | None = None
+    expected_return: Decimal | None = None
+    expected_return_pct: Decimal | None = None
+    cashflow_note: str | None = None
+    risk_level: str | None = None
+    risk_note: str | None = None
+    recommendation: str | None = None
+    next_step_owner_id: int | None = None
+    next_step_owner_name: str | None = None
+    next_step_on: date | None = None
+    actual_return: Decimal | None = None
+    actual_note: str | None = None
     created_at: datetime
 
 

@@ -98,7 +98,7 @@ def test_the_timezone_defaults_to_bahrain(monkeypatch):
 # --- retry ----------------------------------------------------------------
 
 
-def test_a_failed_run_is_retried_after_fifteen_minutes(monkeypatch):
+def test_a_failed_run_is_retried_after_fifteen_minutes(engine, monkeypatch):
     """One failure then a success: two attempts, one 15-minute sleep."""
     calls: list[str] = []
     sleeps: list[float] = []
@@ -117,7 +117,7 @@ def test_a_failed_run_is_retried_after_fifteen_minutes(monkeypatch):
     assert sleeps == [scheduler.RETRY_DELAY.total_seconds()] == [900.0]
 
 
-def test_retries_are_bounded_and_a_failure_is_never_a_success(monkeypatch):
+def test_retries_are_bounded_and_a_failure_is_never_a_success(engine, monkeypatch):
     """Every attempt fails: the run reports failure and stops at the cap."""
     attempts: list[int] = []
     sleeps: list[float] = []
