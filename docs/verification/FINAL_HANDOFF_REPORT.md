@@ -84,23 +84,37 @@ The test suite refuses to run against any database whose name does not end in
 
 - Base commit: `22b0d4c` on `feat/platform-foundation` (the latest complete
   commit before this handoff).
-- The review branch `review/final-word-compliance` is created from that commit and
-  carries only documentation and one test-harness fix (see §5).
+- The review branch `review/final-word-compliance` is created from that commit.
 - No secrets, `.env` files, build output or `node_modules` are committed.
 
-## 5. Changes made in this handoff (documentation + one harness fix)
+## 5. Changes made on this branch
+
+Two passes landed here. The first was documentation plus one harness fix; the
+second added the opportunity analysis file the owner asked for, kept strictly
+additive so nothing the brief fixes changed behaviour.
 
 | File | Change |
 |---|---|
-| `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` | New: 130-row requirement matrix with path, API, test and result per row |
+| `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` | New: 130-row requirement matrix with path, API, test and result per row; plus a beyond-spec section |
 | `docs/verification/final-spec-compliance.md` | Updated: F1/F2 confirmation, re-run evidence, new finding |
 | `docs/verification/FINAL_HANDOFF_REPORT.md` | New: this report |
 | `docs/verification/completion-matrix.md` | Updated: links the final verdict; adds the legal-review item |
 | `docs/verification/functional-acceptance.md` | Corrected the reproduction command and the assertion count |
-| `AGENTS.md` | Notes the new verification documents and check scripts |
+| `AGENTS.md` | Notes the verification documents, the check scripts, the unwired lint and the schema-fixture rule |
 | `scripts/check_visual_fixes.py` | Fixed the two website-summary payloads (missing `consent`/`service_type`/CV) so the assertions exercise the real path |
+| `scripts/check_mobile.py` | Added `/platform/opportunities`, the widest table, to the overflow sweep |
+| `backend/app/models/operations.py` | 13 nullable opportunity columns and the follow-up-owner relationship |
+| `backend/app/schemas/__init__.py` | `OpportunityUpdate`, the follow-up fields on the decision, the new fields on output |
+| `backend/app/api/v1/crm.py` | `PATCH /opportunities/{id}`, `GET /opportunities/compare`, follow-up capture on the decision |
+| `backend/alembic/versions/a8c4f19e6b72_…py` | New: additive migration, upgrade and downgrade round-trip verified |
+| `backend/tests/test_opportunity_file.py` | New: 13 tests, including that a bare opportunity still walks the brief's workflow |
+| `backend/tests/test_scheduler.py` | Two retry tests now request `engine`, so the file passes alone |
+| `frontend/.../opportunities/page.tsx` | File panel, follow-up line, forecast variance, comparison dialog |
 
-No application code was changed; no design or functionality was added.
+The six spec'd columns, the six states, the four decision buttons, the mandatory
+reason on reject/postpone and the rule that approval publishes nothing are all
+unchanged. Every new field is optional, so an opportunity created the brief's way
+is still complete.
 
 ## 6. Gaps and exceptions
 
