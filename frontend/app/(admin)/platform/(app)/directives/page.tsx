@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DataStates } from "@/components/DataStates";
+import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
+import { Toast } from "@/components/Toast";
 import { api, loadError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -35,8 +37,18 @@ export default function DirectivesPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [form, setForm] = useState({ title: "", body: "", recipient_id: "", follow_up_on: "" });
+  const [formOpen, setFormOpen] = useState(false);
+
+  const canView = can("directive:view");
 
   const load = useCallback(async () => {
+    // The tab is gated on directive:view. Opening the URL directly used to fire
+    // two requests that answered 403, so the page looked broken rather than
+    // explaining the rule.
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       setRows(await api.get<Directive[]>("/api/v1/directives"));
@@ -46,12 +58,13 @@ export default function DirectivesPage() {
     } finally {
       setLoading(false);
     }
-  }, [locale]);
+  }, [locale, canView]);
 
   useEffect(() => {
     void load();
+    if (!canView) return;
     api.get<Person[]>("/api/v1/users/directory").then(setPeople).catch(() => undefined);
-  }, [load]);
+  }, [load, canView]);
 
   // The AI assistant's source record links here as ?open=<id>; scroll that
   // directive into view so the link lands on the record it cites.
@@ -71,6 +84,7 @@ export default function DirectivesPage() {
         follow_up_on: form.follow_up_on || null,
       });
       setForm({ title: "", body: "", recipient_id: "", follow_up_on: "" });
+      setFormOpen(false);
       setMessage(locale === "ar" ? "تم إنشاء التوجيه." : "Directive created.");
       await load();
     } catch {
@@ -97,45 +111,74 @@ export default function DirectivesPage() {
     }
   }
 
+  if (!canView) {
+    return (
+      <section className="mx-auto max-w-4xl">
+        <header className="mb-6">
+          <h1 className="page-title">{locale === "ar" ? "التوجيهات التنفيذية" : "Executive directives"}</h1>
+        </header>
+        <p role="status" className="rounded-control border border-line bg-pearl p-4 text-secondary">
+          {locale === "ar"
+            ? "لا تملك صلاحية الوصول إلى التوجيهات التنفيذية."
+            : "You do not have access to executive directives."}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{locale === "ar" ? "التوجيهات التنفيذية" : "Executive directives"}</h1>
-        {overdue.length > 0 && (
-          <span className="chip-bad">
-            {locale === "ar" ? `متأخر: ${overdue.length}` : `Overdue: ${overdue.length}`}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {overdue.length > 0 && (
+            <span className="chip-bad">
+              {locale === "ar" ? `متأخر: ${overdue.length}` : `Overdue: ${overdue.length}`}
+            </span>
+          )}
+          {can("directive:create") && (
+            <button type="button" className="btn-primary" onClick={() => setFormOpen(true)}>
+              {locale === "ar" ? "توجيه جديد" : "New directive"}
+            </button>
+          )}
+        </div>
       </header>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
 
-      {can("directive:create") && (
-        <form onSubmit={create} className="card mb-4 grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="dir-title">{locale === "ar" ? "عنوان التوجيه" : "Directive title"}</label>
-            <input id="dir-title" className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          </div>
-          <div>
-            <label className="label" htmlFor="dir-recipient">{locale === "ar" ? "المستلم" : "Recipient"}</label>
-            <select id="dir-recipient" className="input" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
-              <option value="">—</option>
-              {people.map((u) => (
-                <option key={u.id} value={u.id}>{locale === "ar" ? u.full_name_ar : u.full_name_en}</option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label" htmlFor="dir-body">{locale === "ar" ? "النص" : "Text"}</label>
-            <textarea id="dir-body" className="input min-h-20" required value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
-          </div>
-          <div>
-            <label className="label" htmlFor="dir-follow">{locale === "ar" ? "تاريخ المتابعة" : "Follow-up date"}</label>
-            <input id="dir-follow" type="date" className="input" dir="ltr" value={form.follow_up_on} onChange={(e) => setForm({ ...form, follow_up_on: e.target.value })} />
-          </div>
-          <div className="flex items-end">
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إنشاء" : "Create"}</button>
-          </div>
-        </form>
+      {formOpen && (
+        <Modal
+          title={locale === "ar" ? "توجيه جديد" : "New directive"}
+          onClose={() => setFormOpen(false)}
+        >
+          <form onSubmit={create} className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="dir-title">{locale === "ar" ? "العنوان" : "Title"}</label>
+              <input id="dir-title" className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div>
+              <label className="label" htmlFor="dir-recipient">{locale === "ar" ? "المستلم (واحد)" : "Recipient (one)"}<span aria-hidden="true"> *</span></label>
+              <select id="dir-recipient" className="input" required value={form.recipient_id} onChange={(e) => setForm({ ...form, recipient_id: e.target.value })}>
+                <option value="">—</option>
+                {people.map((u) => (
+                  <option key={u.id} value={u.id}>{locale === "ar" ? u.full_name_ar : u.full_name_en}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label" htmlFor="dir-body">{locale === "ar" ? "النص" : "Text"}</label>
+              <textarea id="dir-body" className="input min-h-20" required value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+            </div>
+            <div>
+              <label className="label" htmlFor="dir-follow">{locale === "ar" ? "موعد المتابعة" : "Follow-up date"}<span aria-hidden="true"> *</span></label>
+              <input id="dir-follow" type="date" className="input" dir="ltr" required value={form.follow_up_on} onChange={(e) => setForm({ ...form, follow_up_on: e.target.value })} />
+            </div>
+            <div className="flex items-end justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="submit" className="btn-primary">{locale === "ar" ? "إنشاء" : "Create"}</button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       <DataStates loading={loading} error={error} empty={rows.length === 0}>
@@ -145,7 +188,7 @@ export default function DirectivesPage() {
               <tr className="border-b border-line bg-pearl">
                 <th className="p-3 text-start">{locale === "ar" ? "العنوان" : "Title"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "المستلم" : "Recipient"}</th>
-                <th className="p-3 text-start">{locale === "ar" ? "تاريخ المتابعة" : "Follow-up"}</th>
+                <th className="p-3 text-start">{locale === "ar" ? "المتابعة" : "Follow-up"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "الحالة" : "Status"}</th>
                 <th className="p-3 text-start">{locale === "ar" ? "إجراءات" : "Actions"}</th>
               </tr>
@@ -177,12 +220,12 @@ export default function DirectivesPage() {
                         )}
                         {r.status === "sent" && isRecipient && (
                           <button type="button" className="btn-gold" onClick={() => void act(r.id, "receive")}>
-                            {locale === "ar" ? "إقرار الاستلام" : "Acknowledge receipt"}
+                            {locale === "ar" ? "تأكيد الاستلام" : "Acknowledge receipt"}
                           </button>
                         )}
                         {r.status === "received" && isRecipient && (
                           <button type="button" className="btn-primary" onClick={() => void act(r.id, "complete")}>
-                            {locale === "ar" ? "إنجاز" : "Complete"}
+                            {locale === "ar" ? "تم الإنجاز" : "Completed"}
                           </button>
                         )}
                       </div>
@@ -194,6 +237,7 @@ export default function DirectivesPage() {
           </table>
         </div>
       </DataStates>
+      <Toast message={message} />
     </section>
   );
 }

@@ -51,6 +51,8 @@ class SiteSlide(Base, TimestampMixin):
     __tablename__ = "site_slides"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    eyebrow_ar: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    eyebrow_en: Mapped[str | None] = mapped_column(String(120), nullable=True)
     title_ar: Mapped[str] = mapped_column(Text)
     title_en: Mapped[str] = mapped_column(Text)
     body_ar: Mapped[str | None] = mapped_column(Text, nullable=True)

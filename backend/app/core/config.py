@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     access_token_minutes: int = 30
     refresh_token_days: int = 14
     password_reset_minutes: int = 60
+    # Returning a reset token in the HTTP response lets any anonymous caller
+    # take over an account, so it is off by default and only enabled for local
+    # testing where no mail transport exists.
+    expose_reset_token: bool = False
     algorithm: str = "HS256"
 
     # Storage
@@ -37,6 +41,15 @@ class Settings(BaseSettings):
     # Public base URL of the frontend, used to build the secure links in the
     # account emails (password reset, invitation).
     frontend_base_url: str = "http://localhost:3000"
+
+    # Operating timezone for the deadline reminders. The due dates are Bahrain
+    # business dates, so the daily cron resolves "today" here rather than in the
+    # server's timezone.
+    reminders_timezone: str = "Asia/Bahrain"
+
+    # §12.3: the hour the daily reminder job runs, in REMINDERS_TIMEZONE. A fixed
+    # local hour does not drift with the run duration, unlike a 24h sleep.
+    reminder_schedule_time: str = "07:00"
 
     # Outbound mail. When SMTP_HOST is empty the platform reports the mail
     # transport as unconfigured instead of pretending a message was delivered.

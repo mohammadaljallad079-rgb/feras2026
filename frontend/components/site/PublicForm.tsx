@@ -3,32 +3,41 @@
 import { useState } from "react";
 import type { Bi, Locale } from "@/lib/site";
 
-type Kind = "contact" | "service_request" | "opportunity" | "job_application";
+type Kind = "service_request" | "opportunity" | "job_application";
 
 const T: Record<string, { ar: string; en: string }> = {
   name: { ar: "الاسم", en: "Name" },
   email: { ar: "البريد الإلكتروني", en: "Email" },
   phone: { ar: "رقم التواصل", en: "Contact number" },
   service_type: { ar: "نوع الخدمة", en: "Service type" },
-  country: { ar: "الدولة", en: "Country" },
-  subject: { ar: "موضوع الفرصة", en: "Opportunity subject" },
-  expertise: { ar: "مجال الخبرة", en: "Area of expertise" },
-  message: { ar: "وصف مختصر", en: "Brief description" },
+  country: { ar: "دولة المشروع", en: "Project country" },
+  subject: { ar: "موضوع الفرصة", en: "Opportunity topic" },
+  expertise: { ar: "مجال الاهتمام أو الخبرة", en: "Area of interest or expertise" },
+  message: { ar: "وصف مختصر", en: "Short description" },
   cv: { ar: "السيرة الذاتية", en: "CV" },
-  study: { ar: "ملف الدراسة (اختياري)", en: "Study file (optional)" },
-  consent: {
-    ar: "أوافق على معالجة بياناتي وفق سياسة الخصوصية.",
-    en: "I agree to the processing of my data under the privacy policy.",
-  },
-  submit: { ar: "إرسال", en: "Submit" },
+  study: { ar: "ملف الدراسة أو المرفقات", en: "Study file or attachments" },
+  consent: { ar: "أوافق على سياسة الخصوصية", en: "I agree to the Privacy Policy" },
+  submit: { ar: "إرسال الطلب", en: "Submit" },
   sending: { ar: "جارٍ الإرسال…", en: "Sending…" },
+  cancel: { ar: "إلغاء", en: "Cancel" },
+  viewPolicy: { ar: "(عرض السياسة)", en: "(View policy)" },
   ok: {
-    ar: "تم استلام طلبك وتسجيله. رقم المرجع:",
-    en: "Your request was received and recorded. Reference number:",
+    ar: "تم استلام طلبك",
+    en: "We received your submission",
   },
-  err: { ar: "تعذّر إرسال الطلب. تحقق من الحقول وحاول مجددًا.", en: "Could not send the request. Check the fields and try again." },
-  required: { ar: "هذا الحقل مطلوب.", en: "This field is required." },
-  consent_required: { ar: "يجب الموافقة على سياسة الخصوصية.", en: "Consent to the privacy policy is required." },
+  ok_body: {
+    ar: "سيراجع فريق المجموعة طلبك ويتواصل معك عند الحاجة.",
+    en: "Our team will review your submission and contact you if needed.",
+  },
+  reference: { ar: "رقم المرجع:", en: "Reference number:" },
+  err: {
+    ar: "تعذر إرسال الطلب. حاول مرة أخرى أو راسلنا على info@sup-edu.com",
+    en: "We could not send your submission. Please try again or email info@sup-edu.com",
+  },
+  bad_email: { ar: "أدخل بريداً إلكترونياً صحيحاً", en: "Enter a valid email address" },
+  file_hint: { ar: "اختر ملفاً (الحجم والصيغ يحددها المبرمج)", en: "Choose a file (size and formats set by the developer)" },
+  required: { ar: "هذا الحقل مطلوب", en: "This field is required" },
+  consent_required: { ar: "يلزم الموافقة على سياسة الخصوصية", en: "You must agree to the Privacy Policy" },
 };
 
 export type PublicFormProps = {
@@ -50,17 +59,38 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const needsPhone = kind !== "contact";
   const needsService = kind === "service_request";
   const needsCountry = kind === "opportunity";
   const needsSubject = kind === "opportunity";
   const needsExpertise = kind === "job_application";
+  // §12: the service and opportunity forms carry «وصف مختصر»; careers does not.
+  const needsMessage = kind === "service_request" || kind === "opportunity";
+  // Table 13 names the field «رقم التواصل» on the service form and «الهاتف» on
+  // the other two.
+  const phoneLabel = needsService
+    ? { ar: "رقم التواصل", en: "Contact number" }
+    : { ar: "الهاتف", en: "Phone" };
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const form = e.currentTarget;
     const data = new FormData(form);
+
+    const required = ["name", "email", "phone"];
+    if (needsService) required.push("service_type", "message");
+    if (needsCountry) required.push("country", "subject", "message");
+    if (needsExpertise) required.push("expertise");
+    const missing = required.find((f) => !String(data.get(f) ?? "").trim());
+    if (missing) {
+      setError(t("required"));
+      return;
+    }
+    const email = String(data.get("email") ?? "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t("bad_email"));
+      return;
+    }
     const consent = data.get("consent") === "on";
     if (!consent) {
       setError(t("consent_required"));
@@ -119,8 +149,10 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
   if (done !== null) {
     return (
       <div className="site-card border-brand-deep/30 bg-brand-mist" role="status" aria-live="polite">
-        <p className="text-[15px] font-semibold text-brand-deep">
-          {t("ok")} <span dir="ltr" className="font-mono">{done}</span>
+        <p className="text-[15px] font-semibold text-brand-deep">{t("ok")}</p>
+        <p className="mt-2 text-[14px] text-brand-slate">{t("ok_body")}</p>
+        <p className="mt-3 text-[14px] text-brand-slate">
+          {t("reference")} <span dir="ltr" className="font-mono">{done}</span>
         </p>
       </div>
     );
@@ -128,6 +160,19 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
 
   return (
     <form className="site-card grid gap-4" onSubmit={onSubmit} noValidate>
+      {/* Table 13: every form page carries the «Start Up Sphere Gateway» brand
+          and a note that the data is used to process the request under the
+          privacy policy. */}
+      <div className="border-b border-brand-line pb-3">
+        <p className="text-[13px] font-bold uppercase tracking-widest text-brand-sand">
+          {ar ? "بوابة ستارت أب سفير" : "Start Up Sphere portal"}
+        </p>
+        <p className="mt-1 text-[13px] text-brand-slate">
+          {ar
+            ? "تُستخدم البيانات لمعالجة الطلب وفق سياسة الخصوصية."
+            : "Your data is used to process the request in line with the Privacy Policy."}
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="site-label" htmlFor="f-name">{t("name")} <span className="site-req">*</span></label>
@@ -139,12 +184,10 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         </div>
       </div>
 
-      {needsPhone && (
-        <div>
-          <label className="site-label" htmlFor="f-phone">{t("phone")} <span className="site-req">*</span></label>
-          <input id="f-phone" name="phone" className="site-field" required dir="ltr" autoComplete="tel" />
-        </div>
-      )}
+      <div>
+        <label className="site-label" htmlFor="f-phone">{phoneLabel[locale]} <span className="site-req">*</span></label>
+        <input id="f-phone" name="phone" className="site-field" required dir="ltr" autoComplete="tel" />
+      </div>
 
       {needsService && (
         <div>
@@ -187,10 +230,20 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         </div>
       )}
 
-      <div>
-        <label className="site-label" htmlFor="f-message">{t("message")}</label>
-        <textarea id="f-message" name="message" className="site-field min-h-[120px]" rows={5} />
-      </div>
+      {needsMessage && (
+        <div>
+          <label className="site-label" htmlFor="f-message">
+            {t("message")} <span className="site-req">*</span>
+          </label>
+          <textarea
+            id="f-message"
+            name="message"
+            className="site-field min-h-[120px]"
+            rows={5}
+            required
+          />
+        </div>
+      )}
 
       {file && (
         <div>
@@ -204,6 +257,7 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
             accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
             required={file.required}
           />
+          <p className="mt-1 text-[13px] text-brand-slate">{t("file_hint")}</p>
         </div>
       )}
 
@@ -212,7 +266,7 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         <span>
           {t("consent")}{" "}
           <a href={consentHref} className="text-brand-deep underline">
-            {ar ? "سياسة الخصوصية" : "Privacy policy"}
+            {t("viewPolicy")}
           </a>
         </span>
       </label>
@@ -223,9 +277,17 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         </p>
       )}
 
-      <button type="submit" className="site-btn site-btn-primary w-fit" disabled={busy}>
-        {busy ? t("sending") : t("submit")}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" className="site-btn site-btn-primary w-fit" disabled={busy}>
+          {busy ? t("sending") : t("submit")}
+        </button>
+        <a href={`/${locale}`} className="site-btn site-btn-outline w-fit">
+          {t("cancel")}
+        </a>
+        <a href={consentHref} className="text-[14px] text-brand-deep underline">
+          {t("viewPolicy")}
+        </a>
+      </div>
     </form>
   );
 }

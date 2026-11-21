@@ -49,10 +49,12 @@ against the rendered reference page is recorded in
 | 10 | Service requests | `/service-requests` | Done | Done |
 | 11 | Leads | `/leads` | Done | Done |
 | 12 | Opportunities | `/opportunities` | Done | Done |
+| 12 | The opportunities table showed topic, country, file, source, company, value, status and decision date, but the owner's brief lists the columns as topic, country, file, source, status and reason — the recorded `decision_note` was stored and returned by the API but never displayed | A «السبب» column now prints the decision reason beside the status |
 | 13 | Executive directives | `/directives` | Done | Done |
 | 13 | `/directives/overdue` returned every overdue directive system-wide, so a company manager holding `directive:view` could read directives addressed to other people — titles and bodies included | The endpoint now scopes to the actor as sender or recipient, matching the scoped list and the company filter (covered by `test_overdue_directives_stay_with_their_sender_and_recipient` and the p.13 browser assertion) |
 | 14 | Employees and HR | `/hr` | Done | Done |
 | 15 | Website management | `/website` | Done | Done |
+| 15 | The companies-shown table listed company, activity, sector, status and actions, while the brief lists company, logo, activity, country and action — the logo and country were missing | The table now shows the uploaded logo (or «بلا شعار») via `AuthImage` and the company country, replacing the sector column |
 | 15 | The form-inbox summary counted `kind === "service"` and `kind === "job"`, but the stored values are `service_request` and `job_application`, so two of the four counters always read zero; "awaiting conversion" also counted rejected items | The summary compares the real enum values and counts only `status === "new"` as awaiting conversion |
 | 16 | External advisor | `/advisor` | Done | Done |
 | 17 | AI assistant | `/assistant` | Done | Done |
@@ -61,7 +63,9 @@ against the rendered reference page is recorded in
 | 20 | New user | `/users/new` | Done | Done |
 | 21 | Activity log | `/audit` | Done | Done |
 | 22–29 | Role dashboards | `/dashboard` (role variants) | Done | Done |
+| 22 | §2 makes the manager's period reminder an alert — amber while the deadline approaches and red once it is late — but the banner was a single neutral strip with no tone, so a late period looked the same as an on-track one | `_period_banner()` now returns a `banner_tone` (`warn`/`bad`) derived from the days left and the endpoint passes it through `DashboardOut.banner_tone`; the dashboard renders the matching §2 alert colours (covered by `test_manager_deadline_reminder_alert_is_toned_by_urgency`) |
 | 23/25 | Report submission and review | `/reports/[id]` | Done | Done |
+| 23 | A report returned for correction carried `returned_reason` through the model, schema and API, but the report screen never rendered it, although the brief (Table 8, §7.2) requires the reason to «يظهر السبب في تنبيه أعلى الصفحة» | The report screen prints the accountant's reason in a warning alert at the top whenever the status is «أُعيد للتعديل» |
 | 30 | Mobile layouts | responsive shell | Done | n/a |
 | 31 | English LTR | `en` locale | Done | n/a |
 | 32 | Dark mode | theme toggle | Done | n/a |
@@ -116,23 +120,27 @@ so `onError` never fires for the first failure; `BrandMark` re-checks
 | Audit events for sensitive actions | Done | `services/audit.py` on every mutating route |
 | All 8 personas | Done | `ROLE_TEMPLATES`, `scripts/seed.py` |
 | Backend enforcement, not hidden buttons | Done | `require(...)` on every protected route |
+| Owner is view-only on accounting, HR and the external advisor (§5.1) | Done | The owner template drops `accounting:manage`, `hr:manage` and `advisor:submit`; `test_the_owner_views_accounting_hr_and_advisor_without_editing` asserts a 403 on each write |
+| Holding's own monthly report is authored by the business developer (§7.1) | Done | `allowed_company_ids` grants the Holding record to the accountant and the business developer; `_is_holding_author` and the list filter let the developer open and fill it, covered by `test_business_developer_fills_the_holdings_own_report` |
 
 ## 4. Business modules
 
 | Module | Status | Evidence |
 |---|---|---|
-| Companies + 4-step wizard, draft, activate, close | Done | `api/v1/companies.py`; `/companies/new` |
+| Companies + 3-step wizard, draft, activate, close | Done | `api/v1/companies.py`; `/companies/new` |
 | Monthly reporting state machine, locking, return-with-reason | Done | `api/v1/reporting.py`; `test_reporting_workflow.py` |
+| Holding's own report filled by the business developer (§7.1) | Done | `allowed_company_ids` adds the Holding to the accountant and developer scope; the developer creates, opens and fills it while a subsidiary draft stays hidden (`test_business_developer_fills_the_holdings_own_report`) |
 | Bank statement required before submit | Done | `submit_report`; attach via `PUT /reports/{id}/values` |
 | Currency never summed across currencies | Done | Report totals kept in company currency |
 | Holding accounting (expenses, invoices, commissions) | Done | `api/v1/accounting.py`; decimal columns |
 | Service requests with replies and thread | Done | `api/v1/service_requests.py` |
-| Leads and opportunities with decisions | Done | `api/v1/crm.py` |
+| Leads and opportunities with decisions | Done | `api/v1/crm.py`; «حفظ وتحويل» assigns the lead to the receiving company's manager (`test_lead_is_transferred_to_the_receiving_companys_manager`) |
 | Executive directives: send/receive/complete/overdue | Done | `api/v1/directives.py` |
 | HR records + confidential attachments | Done | `api/v1/hr.py`; `مرفق مقيد` when denied |
 | Website inbox + conversion + visibility | Done | `api/v1/website.py`; public endpoint rate-limited |
 | Advisor messaging | Done | `api/v1/advisor.py` |
-| AI assistant: provider abstraction, grounding, config status | Done | `app/ai/`, `api/v1/ai.py` |
+| AI assistant: provider abstraction, grounding, config status | Done | `app/ai/`, `api/v1/ai.py`; «أحلها لمطوّر الأعمال» creates a task the business developer's dashboard counts (`test_assistant_referral_becomes_a_task_on_the_developers_dashboard`) |
+| Public company logo served to the site | Done | gated `GET /api/v1/public/companies/{code}/logo`; only a published company exposes one (`test_published_company_logo_is_served_publicly_but_only_when_published`) |
 | Dynamic form builder with versioned definitions | Done | `api/v1/form_fields.py`; `test_owner_creates_dynamic_form_field` |
 | Users, roles, invitation with setup link | Done | `api/v1/users.py`; `/users/new` |
 | Read-only audit log | Done | `api/v1/audit.py`; `test_audit_log_is_read_only_and_scoped` |
@@ -171,7 +179,7 @@ Nine pages had a real mismatch; all nine are fixed:
 |---|---|---|
 | 6 | The official logo was a read-only field: the schema exposed `logo_file_id` but no screen or write path could set it, so every company showed «بلا شعار» | Added `logo_file_id` to `CompanyUpdate` with an ownership/type guard, an upload control on the company screen, and a token-aware `AuthImage` so the private logo renders from the authenticated endpoint (verified in `test_company_logo_must_be_an_uploaded_image_of_that_company`) |
 | 6 | The company manager and the activation information were listed fields, but the edit form offered neither and `activation_notes` was not even read back — a company could be activated with no manager recorded | `CompanyOut` now carries `activation_notes`; the edit form gained a populated manager picker and an activation note; `manager_user_id` and `activation_notes` are saved (covered by `test_company_manager_and_activation_information_are_settable`) |
-| 8 | Owner saw every draft instead of only reports sent to management | `reporting.py` restricts a `report:view_all` holder without `report:review` to approved/forwarded; the owner template no longer carries the accountant's duties |
+| 8 | Owner saw every draft, and then every approved report, instead of only the reports the accountant sent to management | `reporting.py` restricts a `report:view_all` holder without `report:review` to the `forwarded` state (§5.1/§7.1: «بعد الاعتماد يرسل المحاسب للإدارة. عندها فقط يراه المالك ومطوّر الأعمال»); Table 8 marks «معتمد» as the accountant's alone. The Holding's own report stays reachable by its author, the business developer. The owner template no longer carries the accountant's duties |
 | 9 | The accounting screen had no export control although `GET /accounting/export.xlsx` existed and was audited | The header carries a «تصدير Excel» button for any `accounting:view` holder; the workbook is scoped to the companies the caller may see (verified in `test_accounting_export_covers_exactly_the_visible_entries`) |
 | 10/11/13 | The recipient and assignee pickers rendered empty for a marketer, designer or advisor: they hold no `user:view`, so `/users` answered 403 | New `GET /users/directory` returns a minimal identity behind `require_any(directive:view, lead:view, service:view, advisor:view)`; the four screens read it (covered by `test_the_directory_serves_pickers_without_the_admin_listing`) |
 | 11 | The three narrowing controls were absent | Added company / status / source filters and a `filter` prop on `ResourceTable` |
@@ -191,9 +199,13 @@ rather than merely toggled. No row remains partial.
 ## 7. Test results
 
 ```
-backend:  63 passed  (13 end-to-end journeys over live HTTP + PostgreSQL,
-                       plus 7 tests for the public-site CMS)
-frontend: tsc --noEmit clean; next build lists 25 routes
+backend:  120 passed, 1 skipped  (13 end-to-end journeys over live HTTP + PostgreSQL,
+                       plus 8 tests for the public-site CMS, plus 3 tests for
+                       the lead hand-off, the assistant referral task and the
+                       public company logo, plus 6 tests for the business
+                       notification emails and the report reminders, plus the
+                       owner view-only and Holding-report §5/§7.1 acceptance)
+frontend: tsc --noEmit clean; next build lists 35 routes
 browser:  50 screens captured across 7 roles, 2 locales, light/dark, 400px and the public auth screens
 website:  85 route/viewport combinations inspected, 0 failures (scripts/check_matrix.py)
           23 public-site render checks, 3 form journeys, 4 CMS authorisation and
@@ -207,7 +219,37 @@ link and the mail transport: the reset and invitation messages carry exactly one
 by the confirm endpoint, an unconfigured sender reports `False` instead of a
 fabricated success, and an SMTP failure does not raise.
 
-## 7b. Public holding website and CMS
+## 7b. Business notification emails and report reminders (Tables 5, 6, 10; §7.5, §12)
+
+The brief draws a line between the simulation and the real platform at §12:
+«إرسال بريد فعلي بدل الصندوق المحاكى، وجدولة التذكيرات تلقائيًا بدل تاريخ
+المحاكاة». Both are now implemented. The mail service already carried the two
+account messages; it now also carries the workflow notifications the spec names,
+and a scheduled job sends the deadline reminders.
+
+The notification emails are wired into the events the spec names, each carrying a
+short subject and only the detail needed to act — never an amount, a currency or
+a report value:
+
+| Event | Word source | Recipients |
+|---|---|---|
+| Service request routed to a specialist | Table 5 «ويصله بريد» | the routed specialist |
+| Complaint from the marketer | Table 5 «ترسل للمالك وحده» | the owner only, no copy |
+| New executive directive | Table 5 «لمستلم واحد فقط دون نسخة لغيره» | the single recipient |
+| Assistant referral «أحلها لمطوّر الأعمال» | Table 5/10 «يصله بريد» | the business developer |
+| Public request converted to a service request | Table 6/10 «نسخة بريد لمدير الشركة والمختص» | the receiving company's manager and the routed specialist |
+
+The reminders (§7.5, §12) are sent by `app/services/reminders.py`, which
+`scripts/send_report_reminders.py` runs from cron once a day. They fire exactly on
+the offsets the brief names — three days before the due date, on the due date, and
+daily once the period is late — and stop for a company that has already sent its
+report. With no `SMTP_HOST` configured the sender still reports `False` rather
+than claiming a message, so an operator can tell "nothing to send" from "transport
+down". Six tests cover these paths: the four notifications above, the manager and
+specialist copy on conversion, and the reminder schedule including the stop-once-
+sent rule.
+
+## 7c. Public holding website and CMS
 
 The corporate website for **START UP SPHERE HOLDING CO W.L.L** is implemented and
 served at `/{locale}` (`ar` default, `en`), with the admin console moved to
@@ -223,6 +265,13 @@ the missing `content-ar.md` / `content-en.md` would have supplied is seeded with
 
 ## 8. What remains before final sign-off
 
+The section-by-section Word-spec verdict is
+`docs/verification/final-spec-compliance.md` (PASS, §1–13); the requirement-by-
+requirement table is `docs/verification/WORD_SPEC_100_PERCENT_MATRIX.md` (130
+rows, 0 FAIL); and the independent-review package is
+`docs/verification/FINAL_HANDOFF_REPORT.md`. The only items still
+open are the three the brief itself reserves for people, plus one deployment step:
+
 1. Obtain owner approval for the public holding website. The reference covers the
    management platform only, so no website screen is presented as visually
    faithful. The site is built and live as a preview; the administrative half of
@@ -232,3 +281,4 @@ the missing `content-ar.md` / `content-en.md` would have supplied is seeded with
    target environment. The abstraction, grounding and configuration-status
    handling are implemented and tested; with no key the assistant reports an
    unconfigured provider rather than fabricating an answer.
+3. Legal review of the privacy-policy text (§9, §12).

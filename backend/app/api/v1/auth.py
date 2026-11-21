@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -33,6 +34,8 @@ from app.schemas import (
     TokenPair,
 )
 from app.services import audit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -135,13 +138,26 @@ def request_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)) 
     )
     audit.record(db, action="auth.password_reset_requested", actor=user)
     db.commit()
-    # The link is emailed when a mail transport is configured. The token is also
-    # returned so the flow stays testable in an environment without SMTP; it is
-    # single-use and expiring either way.
+    # The link is emailed when a mail transport is configured. The token is only
+    # echoed back when an operator opted in for local testing; it is single-use
+    # and expiring either way.
     content = mail.password_reset_email(user.locale or "ar", token)
     delivered = mail.send(user.email, content)
+    # Handing the token back to an anonymous caller is a full account takeover:
+    # anyone who knows an email address could set its password. It is therefore
+    # only echoed when an operator has explicitly opted in for local testing.
+    echo = not delivered and settings.expose_reset_token
+    if not delivered:
+        # Without a transport the operator needs a way to reach the user, so the
+        # link is logged rather than returned to the caller.
+        logger.info(
+            "Password reset link for %s: %s/reset-password?token=%s",
+            user.email,
+            settings.frontend_base_url.rstrip("/"),
+            token,
+        )
     return PasswordResetIssued(
-        reset_token=token,
+        reset_token=token if echo else None,
         message=(
             "Reset link emailed. It is single-use and expires."
             if delivered

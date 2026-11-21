@@ -45,7 +45,7 @@ they are the intended input for that seed and nothing else changes.
 | Stack | Next.js 15 App Router + FastAPI + PostgreSQL + Alembic + Docker Compose + Nginx | `frontend/`, `backend/`, `docker-compose.yml`, `deploy/nginx.conf` |
 | Auth | JWT access/refresh, password hashing, reset links, server-side session enforcement | `backend/app/api/v1/auth.py`, `app/core/security.py` |
 | RBAC | 8 system roles, permission catalog, per-route `require(...)` / `require_any(...)` | `app/core/permissions.py`, `app/api/deps.py` |
-| Companies module | Full CRUD, 4-step wizard, status, `public_visible` flag, logo file | `app/api/v1/companies.py`, `models/business.py:Company` |
+| Companies module | Full CRUD, 3-step wizard, status, `public_visible` flag, logo file | `app/api/v1/companies.py`, `models/business.py:Company` |
 | Public API (partial) | `GET /public/companies` (visible+active only), `POST /public/submissions` with rate limit | `app/api/v1/public.py` |
 | Submissions store | `website_submissions` table (kind, name, email, phone, message, status, source_ip) | `models/operations.py:WebsiteSubmission` |
 | Website admin (partial) | Submission list, convert/reject, company visibility toggle | `app/api/v1/website.py`, `frontend/app/(app)/website/page.tsx` |

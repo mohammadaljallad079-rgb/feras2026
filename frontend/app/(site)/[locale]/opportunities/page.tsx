@@ -19,11 +19,11 @@ export default async function OpportunitiesPage({ params }: { params: Promise<{ 
       <div className="site-container grid gap-12 lg:grid-cols-[1fr_1.1fr]">
         <div>
           <span className="site-eyebrow">{ar ? "الفرص" : "Opportunities"}</span>
-          <h1 className="site-h2">{ar ? "أرسل فرصتك إلى المجموعة" : "Send your opportunity to the group"}</h1>
+          <h1 className="site-h2">{ar ? "قدّم فرصة تجارية أو استثمارية" : "Submit a commercial or investment opportunity"}</h1>
           <p className="site-lead">
             {ar
-              ? "شاركنا تفاصيل الفرصة التجارية أو الاستثمارية لدراستها."
-              : "Share the details of your commercial or investment opportunity for review."}
+              ? "أرسل وصفًا موجزًا وحدد دولة المشروع، ويمكنك إرفاق ملف الدراسة."
+              : "Send a short description, select the project country, and optionally attach the study file."}
           </p>
           {notice && (
             <p className="mt-6 flex gap-3 rounded-lg border border-[#ede2cc] border-s-4 border-s-brand-sand bg-[#fbf7ef] p-5 text-[14px] text-[#6a5731]">

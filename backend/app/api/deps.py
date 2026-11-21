@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.security import decode_token
 from app.models.identity import User, UserCompany, UserRole
+from app.services import audit
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
 
@@ -90,11 +91,29 @@ def require_any(*required: str) -> Callable[[User], User]:
     return _checker
 
 
+def holding_company_id(db: Session) -> int | None:
+    """The id of the Holding's own company record, if it exists.
+
+    §7.1: the Holding keeps its own monthly report alongside the subsidiaries,
+    and §7.4 gives it its own report fields. It is a company row so those fields
+    and the report can hang on it, but it is not a subsidiary.
+    """
+    from app.models.business import Company
+
+    return db.execute(select(Company.id).where(Company.is_holding.is_(True))).scalars().first()
+
+
 def allowed_company_ids(db: Session, user: User) -> set[int] | None:
     """Return the set of companies a user may access, or ``None`` for all.
 
     The owner role has holding-wide oversight; every other user is limited to
     the companies explicitly granted to them plus any company-scoped role.
+
+    The accountant and the business developer are holding-level roles: §7.1 makes
+    the developer the author of the Holding's own report and §5.3 makes the
+    accountant the reviewer of every report, the Holding's included. They are
+    therefore granted the Holding's record (if it exists) so the Holding report
+    flow works, without gaining access to any subsidiary they were not granted.
     """
     if "owner" in role_slugs(user):
         return None
@@ -102,8 +121,13 @@ def allowed_company_ids(db: Session, user: User) -> set[int] | None:
         select(UserCompany.company_id).where(UserCompany.user_id == user.id)
     ).scalars().all()
     scoped = {r.company_id for r in user.roles if r.company_id is not None}
-    ids = set(rows) | scoped
-    return ids
+    allowed = set(rows) | scoped
+    slugs = role_slugs(user)
+    if "accountant" in slugs or "business_developer" in slugs:
+        holding_id = holding_company_id(db)
+        if holding_id is not None:
+            allowed.add(holding_id)
+    return allowed
 
 
 def assert_company_access(db: Session, user: User, company_id: int) -> None:
@@ -111,6 +135,18 @@ def assert_company_access(db: Session, user: User, company_id: int) -> None:
     if allowed is None:
         return
     if company_id not in allowed:
+        # The brief (§11, Table 3) requires a refused cross-company access to be
+        # recorded: "opening an unauthorised link is refused and logged". The
+        # attempt is committed before the 404 is raised so the audit survives.
+        audit.record(
+            db,
+            action="security.access_denied",
+            actor=user,
+            target_type="company",
+            target_id=company_id,
+            company_id=company_id,
+        )
+        db.commit()
         # 404 rather than 403: do not confirm the existence of other companies.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 

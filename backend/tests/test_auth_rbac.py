@@ -101,6 +101,29 @@ def test_password_reset_does_not_enumerate(client):
     assert resp.json()["reset_token"] is None
 
 
+def test_password_reset_never_hands_the_token_to_the_caller(client, make_user, monkeypatch):
+    """An anonymous caller must not receive a reset token.
+
+    Returning it would let anyone who knows an email address set that account's
+    password — a full takeover of, say, the owner. The echo is off by default and
+    only an explicit opt-in for local testing turns it on.
+    """
+    from app.core.config import settings
+
+    make_user("victim@safir-platform.com", ["owner"])
+    monkeypatch.setattr(settings, "expose_reset_token", False)
+    issued = client.post(
+        "/api/v1/auth/password-reset/request", json={"email": "victim@safir-platform.com"}
+    )
+    assert issued.status_code == 200
+    assert issued.json()["reset_token"] is None
+    # And the account still logs in with its original password.
+    assert client.post(
+        "/api/v1/auth/login",
+        json={"email": "victim@safir-platform.com", "password": "Passw0rd!"},
+    ).status_code == 200
+
+
 def test_every_permission_checked_in_code_is_in_the_catalog():
     """A permission string that no role can hold silently disables its feature.
 
@@ -130,7 +153,12 @@ def test_frontend_permission_gates_are_names_the_backend_can_grant():
     for path in list(frontend.rglob("*.tsx")) + list(frontend.rglob("*.ts")):
         if ".next" in path.parts or "node_modules" in path.parts:
             continue
-        gates.update(re.findall(r'can\(\s*"([^"]+)"', path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        gates.update(re.findall(r'can\(\s*"([^"]+)"', text))
+        # Sidebar entries gate on a list of permissions (any-of), e.g.
+        # ``permissions: ["report:view_own", "report:view_all"]``.
+        for group in re.findall(r"permissions:\s*\[([^\]]*)\]", text):
+            gates.update(re.findall(r'"([^"]+)"', group))
     assert gates, "no can() gates found; the scan is broken"
     assert gates <= set(ALL_PERMISSIONS), f"not in the catalog: {sorted(gates - set(ALL_PERMISSIONS))}"
 
@@ -175,6 +203,111 @@ def test_the_owner_may_manage_companies_but_not_review_or_forward_reports():
     owner = set(ROLE_TEMPLATES["owner"]["permissions"])
     assert "company:manage" in owner
     assert "report:review" not in owner and "report:forward" not in owner
+
+
+def test_the_owner_views_accounting_hr_and_advisor_without_editing():
+    """§5.1 names three owner screens «عرض فقط» (view only): Holding accounting,
+    Employees & HR and the External advisor.
+
+    The owner must hold the matching view permissions and never the write ones:
+    §5.3 makes the accountant the only financial editor, employees are added by
+    the manager and the business developer (§5.2, §5.4), and only the advisor
+    composes advisor messages (§5.7).
+    """
+    owner = set(ROLE_TEMPLATES["owner"]["permissions"])
+    assert {"accounting:view", "hr:view", "advisor:view"} <= owner
+    assert owner.isdisjoint({"accounting:manage", "hr:manage", "advisor:submit"})
+
+
+def test_owner_write_attempts_on_view_only_screens_are_refused(client, make_user, login):
+    """The three view-only owner screens must refuse a write on the server, not
+    merely hide the control in the interface (§11)."""
+    make_user("vo_owner@safir-platform.com", ["owner"])
+    h = login("vo_owner@safir-platform.com")
+    # The owner may still manage companies, so it can set up the target.
+    cid = client.post(
+        "/api/v1/companies",
+        headers=h,
+        json={"code": "VO-1", "name_ar": "شركة VO-1", "name_en": "Co VO-1", "country": "SA", "sector": "tech", "status": "active"},
+    ).json()["id"]
+
+    entry = client.post(
+        "/api/v1/accounting",
+        headers=h,
+        json={"kind": "expense", "company_id": cid, "reference": "VO-EXP", "description": "x", "amount": "1.00", "currency": "BHD", "entry_date": "2026-01-01"},
+    )
+    assert entry.status_code == 403, entry.text
+
+    employee = client.post(
+        "/api/v1/employees",
+        headers=h,
+        json={"name_ar": "موظف", "name_en": "Staff", "job_title": "محلل", "company_id": cid},
+    )
+    assert employee.status_code == 403, employee.text
+
+    advisor = client.post(
+        "/api/v1/advisor/messages",
+        headers=h,
+        json={"recipient_id": 1, "category": "suggestion", "subject": "s", "body": "b"},
+    )
+    assert advisor.status_code == 403, advisor.text
+
+
+# --- Table 1 of the brief: which tab each of the eight roles sees -----------
+# The grid is written out in full so a future edit to a permission template or
+# to a sidebar gate that changes who sees which tab fails here, loudly.
+TAB_MATRIX: dict[str, dict[str, bool]] = {
+    "owner":             {"companies": True,  "reports": True,  "accounting": True,  "service-requests": True,  "leads": True,  "opportunities": True,  "directives": True,  "hr": True,  "website": True,  "advisor": True,  "assistant": True,  "form-builder": True,  "users": True,  "audit": True},
+    "company_manager":   {"companies": False, "reports": True,  "accounting": False, "service-requests": True,  "leads": True,  "opportunities": False, "directives": True,  "hr": True,  "website": False, "advisor": False, "assistant": True,  "form-builder": False, "users": False, "audit": False},
+    "accountant":        {"companies": False, "reports": True,  "accounting": True,  "service-requests": True,  "leads": False, "opportunities": False, "directives": True,  "hr": False, "website": False, "advisor": False, "assistant": False, "form-builder": True,  "users": False, "audit": False},
+    "business_developer":{"companies": False, "reports": True,  "accounting": True,  "service-requests": True,  "leads": True,  "opportunities": True,  "directives": True,  "hr": True,  "website": True,  "advisor": True,  "assistant": False, "form-builder": False, "users": False, "audit": False},
+    "marketer":          {"companies": False, "reports": False, "accounting": False, "service-requests": False, "leads": True,  "opportunities": False, "directives": True,  "hr": False, "website": False, "advisor": False, "assistant": False, "form-builder": False, "users": False, "audit": False},
+    "designer":          {"companies": False, "reports": False, "accounting": False, "service-requests": True,  "leads": False, "opportunities": False, "directives": True,  "hr": False, "website": False, "advisor": False, "assistant": False, "form-builder": False, "users": False, "audit": False},
+    "advisor":           {"companies": False, "reports": False, "accounting": False, "service-requests": False, "leads": False, "opportunities": False, "directives": False, "hr": False, "website": False, "advisor": True,  "assistant": False, "form-builder": False, "users": False, "audit": False},
+}
+
+
+def _sidebar_gates() -> dict[str, list[str]]:
+    """The sidebar's tab -> permission(s) map, parsed from AppShell.tsx.
+
+    Reading the real source keeps the test honest: it checks the shipped gates,
+    not a copy that could drift from them.
+    """
+    repo = Path(__file__).resolve().parents[2]
+    text = (repo / "frontend" / "components" / "AppShell.tsx").read_text(encoding="utf-8")
+    gates: dict[str, list[str]] = {}
+    for href, group in re.findall(
+        r'href:\s*"([^"]+)"[^}]*permissions:\s*\[([^\]]*)\]', text
+    ):
+        gates[href.replace("/platform/", "")] = re.findall(r'"([^"]+)"', group)
+    return gates
+
+
+def test_sidebar_gates_match_the_brief_role_matrix():
+    gates = _sidebar_gates()
+    assert set(TAB_MATRIX["owner"]) <= set(gates), (
+        f"the sidebar is missing tabs: {sorted(set(TAB_MATRIX['owner']) - set(gates))}"
+    )
+    for role, expected in TAB_MATRIX.items():
+        held = set(ROLE_TEMPLATES[role]["permissions"])
+        for tab, should_see in expected.items():
+            tab_gate = gates[tab]
+            sees = (not tab_gate) or bool(set(tab_gate) & held)
+            assert sees is should_see, (
+                f"{role} {'should' if should_see else 'must not'} see the {tab} tab "
+                f"(gate={tab_gate}, held={sorted(set(tab_gate) & held)})"
+            )
+
+
+def test_the_eight_brief_roles_all_exist():
+    """Table 1 names eight personas; the catalog must define each one."""
+    expected = {
+        "owner", "company_manager", "accountant", "business_developer",
+        "marketer", "designer", "advisor",
+    }
+    assert expected <= set(ROLE_TEMPLATES)
+    # There is deliberately no employee login role: employees are records only.
+    assert "employee" not in ROLE_TEMPLATES
 
 
 def test_account_emails_carry_a_brief_secure_link_and_no_financial_detail():

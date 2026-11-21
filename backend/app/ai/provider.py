@@ -16,6 +16,16 @@ import httpx
 from app.core.config import settings
 
 
+class AIProviderError(RuntimeError):
+    """The provider answered, but not with a usable completion.
+
+    Raised for a malformed body (not JSON, missing ``choices``) so the caller can
+    report a provider failure instead of inventing an answer. Transport and HTTP
+    status failures surface as ``httpx`` exceptions, which the caller treats the
+    same way.
+    """
+
+
 @dataclass
 class GroundedContext:
     """Everything the model is allowed to see, already permission-filtered."""
@@ -37,40 +47,59 @@ class AIProvider(Protocol):
 class OpenAIProvider:
     name = "openai"
 
-    def __init__(self, *, model: str | None = None, base_url: str | None = None, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        model: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
         self.model = model or settings.ai_model
         self.base_url = base_url or settings.ai_base_url
         self.api_key = api_key or settings.openai_api_key
+        # Tests inject an ``httpx.MockTransport`` here so the real request path —
+        # URL, auth header, payload and response parsing — runs end to end.
+        self._transport = transport
 
     def complete(self, system: str, user: str) -> str:
-        resp = httpx.post(
-            f"{self.base_url.rstrip('/')}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                "temperature": 0.1,
-            },
-            timeout=45,
-        )
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.1,
+        }
+        with httpx.Client(transport=self._transport, timeout=45) as client:
+            resp = client.post(
+                f"{self.base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=payload,
+            )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        try:
+            return resp.json()["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise AIProviderError("provider response was not a usable completion") from exc
 
 
 _PROVIDERS: dict[str, type] = {"openai": OpenAIProvider}
 
 
 def get_provider(
-    name: str | None = None, *, model: str | None = None, base_url: str | None = None, api_key: str | None = None
+    name: str | None = None,
+    *,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    transport: httpx.BaseTransport | None = None,
 ) -> AIProvider:
     provider_name = name or settings.ai_provider
     cls = _PROVIDERS.get(provider_name)
     if cls is None:
         raise ValueError(f"Unsupported AI provider: {provider_name}")
-    return cls(model=model, base_url=base_url, api_key=api_key)
+    return cls(model=model, base_url=base_url, api_key=api_key, transport=transport)
 
 
 SYSTEM_PROMPT = (

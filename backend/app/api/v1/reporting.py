@@ -9,10 +9,10 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import allowed_company_ids, assert_company_access, require, require_any
+from app.api.deps import allowed_company_ids, assert_company_access, holding_company_id, require, require_any
 from app.core.db import get_db
 from app.models.business import (
     Company,
@@ -22,7 +22,7 @@ from app.models.business import (
     ReportEvent,
     ReportValue,
 )
-from app.models.enums import ReportStatus
+from app.models.enums import CompanyStatus, ReportStatus
 from app.models.operations import StoredFile
 from app.models.identity import User
 from app.schemas import (
@@ -39,6 +39,11 @@ from app.services import audit
 router = APIRouter(tags=["reporting"])
 
 LOCKED = {ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value}
+
+
+def _due_on(year: int, month: int) -> date:
+    """§7.1: the fifth day of the month that follows the reporting month."""
+    return date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 5)
 
 
 # --- Periods ----------------------------------------------------------------
@@ -63,7 +68,12 @@ def open_period(
         )
     ).scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Period already exists")
-    period = ReportingPeriod(**payload.model_dump())
+    data = payload.model_dump()
+    # §7.1: «الاستحقاق هو اليوم الخامس من الشهر التالي» — derived, not supplied,
+    # so a period cannot be opened with a due date the reminders would follow
+    # into the wrong day.
+    data["due_on"] = _due_on(payload.year, payload.month)
+    period = ReportingPeriod(**data)
     db.add(period)
     db.flush()
     audit.record(db, action="period.open", actor=actor, target_type="period", target_id=period.id)
@@ -80,19 +90,35 @@ def _load(db: Session, report_id: int) -> MonthlyReport:
     return report
 
 
+def _is_holding_author(db: Session, user: User, report: MonthlyReport) -> bool:
+    """§7.1: the business developer fills the Holding's own report.
+
+    A holder of ``report:view_all`` without ``report:review`` — the owner and the
+    business developer — normally reads only the reports that were formally sent
+    to management. The Holding's report is the exception for the developer, who
+    authors it: it must open in its draft and returned states so it can be filled
+    and sent. A subsidiary draft is never reached this way.
+    """
+    if "report:submit" not in _perms(user):
+        return False
+    holding_id = holding_company_id(db)
+    return holding_id is not None and report.company_id == holding_id
+
+
 def _load_visible(db: Session, report_id: int, user: User) -> MonthlyReport:
     """Load a report the caller is entitled to read, or 404.
 
-    A reader who has only ``report:view_all`` — the owner, or a business
-    developer — may reach the reports that were formally sent to holding
-    management (design page 8). The list endpoint already hides drafts and
-    merely-submitted reports from them; this keeps the detail and history
-    routes consistent with it instead of exposing those states by id.
+    §5.1 / §7.1: the owner and the business developer see a report only once the
+    accountant has sent it to management («بعد الاعتماد يرسل المحاسب للإدارة.
+    عندها فقط يراه المالك ومطوّر الأعمال»), i.e. the ``forwarded`` state. The
+    list endpoint already hides the other states from them; this keeps the detail
+    and history routes consistent with it instead of exposing those states by id.
+    The Holding's report is the exception for its author (§7.1).
     """
     report = _load(db, report_id)
     perms = _perms(user)
     if "report:view_all" in perms and "report:review" not in perms:
-        if report.status not in {ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value}:
+        if report.status != ReportStatus.FORWARDED.value and not _is_holding_author(db, user, report):
             raise HTTPException(status_code=404, detail="Report not found")
     return report
 
@@ -104,6 +130,24 @@ def _applies(field: FormField, company: Company | None) -> bool:
     if field.sector_scope and (company is None or field.sector_scope != company.sector):
         return False
     return True
+
+
+def _assert_report_company_access(db: Session, user: User, report: MonthlyReport) -> None:
+    """Company isolation for a report read or review, mirroring ``list_reports``.
+
+    A holder of ``report:view_all`` — the owner, the accountant, the business
+    developer — reaches every company's reports (the accountant is the holding's
+    reviewer and the owner/developer read what was sent to management), so the
+    list, the detail and the export must agree. A manager holding only
+    ``report:view_own`` stays inside the companies granted to them.
+    """
+    _assert_report_scope(db, user, report.company_id)
+
+
+def _assert_report_scope(db: Session, user: User, company_id: int) -> None:
+    if "report:view_all" in _perms(user):
+        return
+    assert_company_access(db, user, company_id)
 
 
 def _is_empty(value: ReportValue) -> bool:
@@ -142,11 +186,27 @@ def list_reports(
         if allowed is not None:
             stmt = stmt.where(MonthlyReport.company_id.in_(allowed or {-1}))
     elif "report:review" not in perms:
-        # PDF p.8: the owner and the business developer see only the reports that
-        # were formally sent to holding management, not every draft.
-        stmt = stmt.where(MonthlyReport.status.in_([ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value]))
+        # §5.1 / §7.1: the owner and the business developer see only the reports
+        # the accountant has sent to management («عندها فقط يراه المالك ومطوّر
+        # الأعمال»), i.e. the forwarded state — not drafts and not merely approved
+        # ones (Table 8 marks «معتمد» as the accountant's). The Holding's report is
+        # the exception for its author (§7.1): the developer sees its own Holding
+        # report in every state so it can be filled and sent.
+        holding_id = holding_company_id(db)
+        if holding_id is not None and "report:submit" in perms:
+            stmt = stmt.where(
+                or_(
+                    MonthlyReport.status == ReportStatus.FORWARDED.value,
+                    and_(
+                        MonthlyReport.company_id == holding_id,
+                        MonthlyReport.status != ReportStatus.FORWARDED.value,
+                    ),
+                )
+            )
+        else:
+            stmt = stmt.where(MonthlyReport.status == ReportStatus.FORWARDED.value)
     if company_id is not None:
-        assert_company_access(db, user, company_id)
+        _assert_report_scope(db, user, company_id)
         stmt = stmt.where(MonthlyReport.company_id == company_id)
     if period_id is not None:
         stmt = stmt.where(MonthlyReport.period_id == period_id)
@@ -169,6 +229,10 @@ def create_report(
         raise HTTPException(status_code=404, detail="Company or period not found")
     if period.status != "open":
         raise HTTPException(status_code=409, detail="Reporting period is closed")
+    # §6.2: «الشركة المحفوظة مسودة لا تظهر في القوائم ولا التقارير حتى تُفعَّل» —
+    # a draft has no reporting obligation, so no report may be opened against it.
+    if company.status != CompanyStatus.ACTIVE.value:
+        raise HTTPException(status_code=409, detail="Company is not active")
     if db.execute(
         select(MonthlyReport).where(
             MonthlyReport.company_id == payload.company_id, MonthlyReport.period_id == payload.period_id
@@ -196,7 +260,7 @@ def get_report(
     db: Session = Depends(get_db),
 ) -> ReportOut:
     report = _load_visible(db, report_id, user)
-    assert_company_access(db, user, report.company_id)
+    _assert_report_company_access(db, user, report)
     return ReportOut.model_validate(report)
 
 
@@ -207,7 +271,7 @@ def report_history(
     db: Session = Depends(get_db),
 ) -> list[ReportEventOut]:
     report = _load_visible(db, report_id, user)
-    assert_company_access(db, user, report.company_id)
+    _assert_report_company_access(db, user, report)
     rows = db.execute(
         select(ReportEvent).where(ReportEvent.report_id == report_id).order_by(ReportEvent.id)
     ).scalars().all()
@@ -236,6 +300,13 @@ def save_values(
     }
     if len(fields) != len({v.field_id for v in payload.values}):
         raise HTTPException(status_code=422, detail="Unknown form field")
+    # Table 5 R15: a company-scoped field belongs to its own company's reports
+    # only, so a value for a field outside this report's company/sector scope is
+    # refused rather than stored.
+    report_company = db.get(Company, report.company_id)
+    out_of_scope = [f.id for f in fields.values() if not _applies(f, report_company)]
+    if out_of_scope:
+        raise HTTPException(status_code=422, detail={"error": "field_out_of_scope", "field_ids": out_of_scope})
 
     existing = {v.field_id: v for v in report.values}
     for item in payload.values:
@@ -246,6 +317,8 @@ def save_values(
             db.add(value)
         # Snapshot the definition version so a later schema change cannot rewrite history.
         value.field_version = field.version
+        value.field_name_ar = field.name_ar
+        value.field_name_en = field.name_en
         if field.field_type in {"number", "amount"}:
             value.value_number = item.value_number
             value.value_text = None
@@ -316,6 +389,7 @@ def return_report(
     db: Session = Depends(get_db),
 ) -> ReportOut:
     report = _load(db, report_id)
+    _assert_report_company_access(db, actor, report)
     if report.status != ReportStatus.SUBMITTED.value:
         raise HTTPException(status_code=409, detail="Only submitted reports can be returned")
     _transition(db, report, ReportStatus.RETURNED.value, actor, reason=payload.reason)
@@ -335,6 +409,7 @@ def approve_report(
     db: Session = Depends(get_db),
 ) -> ReportOut:
     report = _load(db, report_id)
+    _assert_report_company_access(db, actor, report)
     if report.status != ReportStatus.SUBMITTED.value:
         raise HTTPException(status_code=409, detail="Only submitted reports can be approved")
     _transition(db, report, ReportStatus.APPROVED.value, actor)
@@ -354,6 +429,7 @@ def forward_report(
     db: Session = Depends(get_db),
 ) -> ReportOut:
     report = _load(db, report_id)
+    _assert_report_company_access(db, actor, report)
     if report.status != ReportStatus.APPROVED.value:
         raise HTTPException(status_code=409, detail="Only approved reports can be forwarded")
     _transition(db, report, ReportStatus.FORWARDED.value, actor)
@@ -377,8 +453,8 @@ def export_report(
     from fastapi.responses import StreamingResponse
     from openpyxl import Workbook
 
-    report = _load(db, report_id)
-    assert_company_access(db, actor, report.company_id)
+    report = _load_visible(db, report_id, actor)
+    _assert_report_company_access(db, actor, report)
     fields = {f.id: f for f in db.execute(select(FormField)).scalars().all()}
 
     wb = Workbook()
@@ -395,8 +471,8 @@ def export_report(
         field = fields.get(v.field_id)
         ws.append(
             [
-                field.name_ar if field else v.field_id,
-                field.name_en if field else "",
+                v.field_name_ar or (field.name_ar if field else v.field_id),
+                v.field_name_en or (field.name_en if field else ""),
                 v.field_version,
                 v.value_text,
                 float(v.value_number) if v.value_number is not None else None,

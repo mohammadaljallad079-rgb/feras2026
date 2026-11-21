@@ -18,7 +18,7 @@ export function loadError(
   const status = (e as ApiError | undefined)?.status;
   const ar = locale === "ar";
   if (status === 403) {
-    return ar ? "لا تملك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
+    return ar ? "ليست لديك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
   }
   if (status === 404 && notFound) {
     return ar ? notFound.ar : notFound.en;
@@ -150,7 +150,11 @@ export type Company = {
   activated_at: string | null;
   closed_at: string | null;
   activation_notes: string | null;
+  is_holding: boolean;
   public_visible: boolean;
+  public_activity_ar: string | null;
+  public_activity_en: string | null;
+  website_url: string | null;
   created_at: string;
 };
 
@@ -172,7 +176,8 @@ export type Dashboard = {
   sections: Record<string, unknown>[];
   banner_ar: string | null;
   banner_en: string | null;
-  actions: { label_ar: string; label_en: string; href: string }[];
+  banner_tone: string | null;
+  actions: { label_ar: string; label_en: string; href: string; group?: string | null }[];
 };
 
 export type MonthlyReport = {
@@ -189,7 +194,7 @@ export type MonthlyReport = {
   forwarded_at: string | null;
   locked_at: string | null;
   created_at: string;
-  values: { field_id: number; field_version: number; value_text: string | null; value_number: string | null }[];
+  values: { field_id: number; field_version: number; field_name_ar?: string | null; field_name_en?: string | null; value_text: string | null; value_number: string | null }[];
 };
 
 export type ReportingPeriod = {
@@ -223,6 +228,7 @@ export type Role = {
   slug: string;
   name_ar: string;
   name_en: string;
+  description: string | null;
   is_system: boolean;
   permission_codes: string[];
 };

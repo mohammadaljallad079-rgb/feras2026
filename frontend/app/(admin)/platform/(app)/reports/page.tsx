@@ -1,15 +1,16 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ResourceTable, Column } from "@/components/ResourceTable";
-import { StatusChip } from "@/components/StatusChip";
+import { ReportStatusChip } from "@/components/StatusChip";
 import { api, Company, MonthlyReport, ReportingPeriod } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export default function ReportsPage() {
   const { locale, can } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [periods, setPeriods] = useState<ReportingPeriod[]>([]);
   const [companyId, setCompanyId] = useState("");
@@ -18,9 +19,18 @@ export default function ReportsPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
+    // §7.1: the reports screen works on the subsidiaries and on the Holding's
+    // own report, so the Holding record is included. §6.2 keeps drafts out of
+    // every list until they are activated, so the picker asks for active rows.
+    api.get<Company[]>("/api/v1/companies?include_holding=true&status=active").then(setCompanies).catch(() => undefined);
     api.get<ReportingPeriod[]>("/api/v1/periods").then(setPeriods).catch(() => undefined);
   }, []);
+
+  // Table 4: a closed company's «التقارير المؤرشفة» link arrives as ?company=<id>.
+  useEffect(() => {
+    const preset = searchParams.get("company");
+    if (preset) setCompanyId(preset);
+  }, [searchParams]);
 
   async function createReport() {
     if (!companyId || !periodId) return;
@@ -66,7 +76,7 @@ export default function ReportsPage() {
       render: (r) => companies.find((c) => c.id === r.company_id)?.[locale === "ar" ? "name_ar" : "name_en"] ?? r.company_id,
     },
     { key: "currency", headerAr: "العملة", headerEn: "Currency", render: (r) => <span dir="ltr">{r.currency}</span> },
-    { key: "status", headerAr: "الحالة", headerEn: "Status", render: (r) => <StatusChip value={r.status} /> },
+    { key: "status", headerAr: "الحالة", headerEn: "Status", render: (r) => <ReportStatusChip value={r.status} /> },
     {
       key: "due",
       headerAr: "الاستحقاق",
@@ -113,14 +123,14 @@ export default function ReportsPage() {
             </select>
           </div>
           <button type="button" className="btn-primary" onClick={() => void createReport()} disabled={creating || !companyId || !periodId}>
-            {locale === "ar" ? "فتح فترة التقرير" : "Open reporting period"}
+            {locale === "ar" ? "تقرير جديد" : "New report"}
           </button>
         </div>
       )}
       <ResourceTable<MonthlyReport>
         titleAr="التقارير الشهرية"
         titleEn="Monthly reports"
-        endpoint="/api/v1/reports"
+        endpoint={`/api/v1/reports${companyId ? `?company_id=${companyId}` : ""}`}
         columns={columns}
         permission="report:view_own"
         actions={(row) => (

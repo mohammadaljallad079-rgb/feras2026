@@ -91,6 +91,12 @@ def main() -> int:
                     )
                 else:
                     row.label_ar, row.label_en, row.sort_order = ar, en, i
+            # The brief's menu is a fixed set, so a link the seed no longer names
+            # is removed rather than left behind from an earlier revision.
+            wanted = {href for _, _, href in links}
+            for href, row in existing.items():
+                if href not in wanted:
+                    db.delete(row)
 
         db.commit()
         print("Seeded website CMS content (settings, slides, sections, services, nav).")

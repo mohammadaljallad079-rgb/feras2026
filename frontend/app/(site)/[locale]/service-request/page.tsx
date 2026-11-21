@@ -19,13 +19,11 @@ export default async function ServiceRequestPage({ params }: { params: Promise<{
       <div className="site-container grid gap-12 lg:grid-cols-[1fr_1.1fr]">
         <div>
           <span className="site-eyebrow">{ar ? "طلب خدمة" : "Service request"}</span>
-          <h1 className="site-h2">
-            {pick(locale, section?.title_ar, section?.title_en) || (ar ? "اطلب خدمات المجموعة" : "Request the group's services")}
-          </h1>
+          <h1 className="site-h2">{ar ? "اطلب خدمة من المجموعة" : "Request a service from the group"}</h1>
           <p className="site-lead">
             {ar
-              ? "يُحفظ الطلب في قاعدة البيانات ويصل مباشرة إلى فريق المجموعة."
-              : "Your request is saved in the database and reaches the group's team directly."}
+              ? "أرسل بياناتك الأساسية، وسيراجع الفريق طلبك ويوجهه للجهة المناسبة."
+              : "Send your basic details; the team will review your request and route it to the right party."}
           </p>
           <ul className="mt-8 grid gap-3">
             {site.services.map((s) => (

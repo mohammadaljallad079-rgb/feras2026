@@ -67,7 +67,7 @@ export default async function LocaleLayout({
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:m-3 focus:rounded focus:bg-brand-deep focus:px-4 focus:py-2 focus:text-white"
         >
-          {locale === "ar" ? "تخطَّ إلى المحتوى" : "Skip to content"}
+          {locale === "ar" ? "انتقل إلى المحتوى" : "Skip to content"}
         </a>
         <SiteHeader locale={locale} site={site} />
         <main id="main">{children}</main>
@@ -85,9 +85,9 @@ function UnknownLocale({ segment }: { segment: string }) {
       <body className="site-root">
         <main className="site-container flex min-h-screen flex-col items-center justify-center text-center">
           <p className="text-[13px] font-bold uppercase tracking-widest text-brand-sand">404</p>
-          <h1 className="mt-4 text-[28px] font-bold">الصفحة غير موجودة / Page not found</h1>
+          <h1 className="mt-4 text-[28px] font-bold">الصفحة غير موجودة</h1>
           <p className="mt-3 max-w-[520px] text-brand-slate">
-            الرابط الذي طلبته غير صحيح. / The address you requested is not valid.
+            ربما نُقلت الصفحة أو تغيّر رابطها. عد إلى الصفحة الرئيسية. / The page may have moved or its address changed. Return to the home page.
             {segment ? <span dir="ltr" className="mt-2 block font-mono text-[13px]">/{segment}</span> : null}
           </p>
           <div className="mt-7 flex gap-3">

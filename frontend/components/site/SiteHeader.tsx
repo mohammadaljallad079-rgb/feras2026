@@ -20,7 +20,17 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
   const brand =
     setting(site, "brand_short", locale) ||
     (ar ? "ستارت أب سفير القابضة" : "Start Up Sphere Holding");
+  // §9: the full legal name in the top strip, distinct from the short header brand.
+  const legalName =
+    setting(site, "brand_name", locale) ||
+    (ar ? "شركة ستارت أب سفير القابضة ذ.م.م" : "START UP SPHERE HOLDING CO W.L.L");
   const country = setting(site, "country", locale);
+  const topBarSetting = site.settings.top_bar;
+  const topBar = topBarSetting
+    ? pick(locale, topBarSetting.ar, topBarSetting.en)
+    : country
+      ? `${country} · ${legalName}`
+      : "";
   const isActive = (href: string) => {
     const full = `/${locale}${href === "/" ? "" : href}`;
     return pathname === full || (href !== "/" && pathname.startsWith(full));
@@ -30,6 +40,14 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
 
   return (
     <header className="site-header">
+      {/* §2: the top strip is one deck string, so it is read whole from the CMS. */}
+      {topBar && (
+        <div className="border-b border-brand-line bg-brand-mist">
+          <div className="site-container flex h-8 items-center justify-center text-[12.5px] text-brand-slate">
+            <span>{topBar}</span>
+          </div>
+        </div>
+      )}
       <div className="site-container flex h-[74px] items-center gap-6">
         <Link href={`/${locale}`} className="flex items-center gap-3 no-underline" aria-label={brand}>
           <BrandMark name={brand} size={40} tone="onCard" plate="none" />
@@ -56,21 +74,29 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
             href={swapped}
             className="site-btn site-btn-outline !px-3 !py-2 text-[13px]"
             hrefLang={other}
-            aria-label={ar ? "Switch to English" : "التبديل إلى العربية"}
+            aria-label={ar ? "التبديل إلى الإنجليزية" : "Switch to Arabic"}
           >
-            {ar ? "English" : "العربية"}
+            {ar ? "EN" : "ع"}
           </Link>
           <Link
             href={`/${locale}/service-request`}
             className="site-btn site-btn-primary hidden sm:inline-flex"
           >
-            {ar ? "طلب خدمة" : "Request a service"}
+            {ar ? "اطلب خدمة" : "Request a service"}
+          </Link>
+          {/* §9: the top menu carries two buttons — «اطلب خدمة» and «قدّم فرصة». */}
+          <Link
+            href={`/${locale}/opportunities`}
+            className="site-btn site-btn-outline hidden lg:inline-flex"
+          >
+            {ar ? "قدّم فرصة" : "Submit an opportunity"}
           </Link>
           <button
             type="button"
             className="site-btn site-btn-outline !px-3 !py-2 nav:hidden"
             aria-expanded={open}
             aria-controls="site-mobile-nav"
+            aria-label={ar ? (open ? "إغلاق القائمة" : "فتح القائمة") : open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((v) => !v)}
           >
             <span className="sr-only">{ar ? "القائمة" : "Menu"}</span>
@@ -102,6 +128,13 @@ export function SiteHeader({ locale, site }: { locale: Locale; site: SiteBootstr
               onClick={() => setOpen(false)}
             >
               {ar ? "طلب خدمة" : "Request a service"}
+            </Link>
+            <Link
+              href={`/${locale}/opportunities`}
+              className="site-btn site-btn-outline mt-2"
+              onClick={() => setOpen(false)}
+            >
+              {ar ? "تقديم فرصة" : "Submit an opportunity"}
             </Link>
             {country && <p className="py-3 text-[13px] text-brand-slate">{country}</p>}
           </div>

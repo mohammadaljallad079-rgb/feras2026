@@ -140,6 +140,10 @@ table,
   .btn-gold {
     @apply btn bg-gold text-goldink hover:opacity-90;
   }
+  /* Destructive confirmation (closing a company). */
+  .btn-bad {
+    @apply btn bg-bad text-white hover:opacity-90 disabled:opacity-50;
+  }
   .input {
     @apply w-full rounded-control border border-line bg-card px-3 py-2 text-base text-ink;
   }
@@ -202,6 +206,10 @@ table,
   --brand-line: #dbe4e8;
   --brand-font: "Tajawal", system-ui, "Segoe UI", Tahoma, sans-serif;
   --brand-font-latin: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* §2: «وخط ذو زخارف (Georgia) لعناوين الموقع العام» — the public site's
+     headings are set in a decorative serif; the interface keeps the system
+     stack. Georgia leads, with the closest local serifs behind it. */
+  --brand-font-display: Georgia, "Times New Roman", "Amiri", serif;
 }
 
 /* --- Public site base --------------------------------------------------- */
@@ -320,6 +328,12 @@ table,
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.01em;
+  font-family: var(--brand-font-display);
+}
+/* §2: the decorative serif covers the public site's headings, not its body. */
+.site-root h1,
+.site-root h2 {
+  font-family: var(--brand-font-display);
 }
 .site-lead {
   margin-top: 14px;

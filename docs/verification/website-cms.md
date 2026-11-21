@@ -10,10 +10,10 @@ PostgreSQL `safir_e2e`, Next.js on `:12000`, Chromium via Playwright.
 
 ```
 TEST_DATABASE_URL=postgresql+psycopg://safir:safir@127.0.0.1:5432/safir_test pytest
-63 passed
+120 passed, 1 skipped
 ```
 
-New file `backend/tests/test_site_cms.py` (7 tests) covers:
+New file `backend/tests/test_site_cms.py` (8 tests) covers:
 
 | Test | What it proves |
 |---|---|
@@ -24,6 +24,15 @@ New file `backend/tests/test_site_cms.py` (7 tests) covers:
 | `test_hidden_section_is_not_published` | `is_visible=false` removes the section from the public payload |
 | `test_site_management_requires_the_permission` | `marketer` gets 403 on every CMS read and write; anonymous gets 401 |
 | `test_cms_writes_are_audited` | A CMS write lands in the audit log under a `site.*` action |
+| `test_published_company_logo_is_served_publicly_but_only_when_published` | The logo the portfolio card and the preview modal need is reachable anonymously for a published company and 404 for an unpublished one |
+
+`test_operations.py` gained two tests for the referral hand-offs the Word spec
+lists in Table 6:
+
+| Test | What it proves |
+|---|---|
+| `test_lead_is_transferred_to_the_receiving_companys_manager` | «حفظ وتحويل» assigns the lead to the receiving company's manager and the manager's dashboard counts it; an explicit assignee still wins |
+| `test_assistant_referral_becomes_a_task_on_the_developers_dashboard` | «أحلها لمطوّر الأعمال» creates a directive that the business developer's «مهام من المساعد» card counts |
 
 Three pre-existing tests were updated to the current contract, not weakened:
 

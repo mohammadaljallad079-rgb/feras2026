@@ -6,6 +6,8 @@ import { api, loadError, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
+import { Toast } from "@/components/Toast";
+import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
 
 export default function CompanyDetailPage() {
@@ -16,6 +18,10 @@ export default function CompanyDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [edit, setEdit] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  // Table 4: «الشعار — نافذة تغيير شعار الشركة: اختيار ملف صورة، إلغاء/حفظ».
+  const [logoOpen, setLogoOpen] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [form, setForm] = useState<Partial<Company>>({});
   const [people, setPeople] = useState<{ id: number; full_name_ar: string; full_name_en: string }[]>([]);
 
@@ -74,11 +80,17 @@ export default function CompanyDetailPage() {
     }
   }
 
-  async function act(verb: "activate" | "close") {
+  async function act(verb: "activate" | "close" | "reactivate") {
     setMessage(null);
     try {
       await api.post(`/api/v1/companies/${params.id}/${verb}`);
-      setMessage(verb === "activate" ? (locale === "ar" ? "تم تفعيل الشركة." : "Company activated.") : locale === "ar" ? "تم إغلاق الشركة." : "Company closed.");
+      setMessage(
+        verb === "activate"
+          ? locale === "ar" ? "تم تفعيل الشركة." : "Company activated."
+          : verb === "close"
+            ? locale === "ar" ? "تم إغلاق الشركة." : "Company closed."
+            : locale === "ar" ? "أُعيد تفعيل الشركة." : "Company reactivated.",
+      );
       await load();
     } catch {
       setMessage(locale === "ar" ? "فشل الإجراء." : "The action failed.");
@@ -112,18 +124,16 @@ export default function CompanyDetailPage() {
             <AuthImage path={company.logo_url} alt="" className="h-9 w-9 rounded object-contain" />
           )}
           {company && can("company:manage") && company.status !== "closed" && (
-            <label className="btn-ghost cursor-pointer">
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                setLogoFile(null);
+                setLogoOpen(true);
+              }}
+            >
               {locale === "ar" ? "الشعار" : "Logo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void uploadLogo(file);
-                }}
-              />
-            </label>
+            </button>
           )}
           {can("company:manage") && (
             <button type="button" className="btn-ghost" onClick={() => setEdit((v) => !v)}>
@@ -136,13 +146,22 @@ export default function CompanyDetailPage() {
             </button>
           )}
           {company?.status === "active" && can("company:manage") && (
-            <button type="button" className="btn-ghost" onClick={() => void act("close")}>
+            <button type="button" className="btn-ghost" onClick={() => setConfirmClose(true)}>
               {locale === "ar" ? "إغلاق" : "Close"}
             </button>
           )}
+          {company?.status === "closed" && can("company:manage") && (
+            <button type="button" className="btn-gold" onClick={() => void act("reactivate")}>
+              {locale === "ar" ? "إعادة تفعيل" : "Reactivate"}
+            </button>
+          )}
+          {/* Table 4: a closed company's previous reports stay viewable in the archive. */}
+          <a className="btn-ghost" href={`/platform/reports?company=${params.id}`}>
+            {locale === "ar" ? "التقارير المؤرشفة" : "Archived reports"}
+          </a>
         </div>
       </header>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
+
 
       <DataStates loading={loading} error={error} empty={!company}>
         {company && (
@@ -243,6 +262,66 @@ export default function CompanyDetailPage() {
           </div>
         )}
       </DataStates>
+
+      {/* §6.3: «إغلاق الشركة؟» — confirm before archiving. */}
+      {confirmClose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="card w-full max-w-md space-y-4">
+            <h2 className="section-title">{locale === "ar" ? "إغلاق الشركة؟" : "Close the company?"}</h2>
+            <p className="muted">
+              {locale === "ar"
+                ? "تختفي من القوائم والتقارير والتنبيهات، ويبقى سجلها في الأرشيف، دون تصفية قانونية أو محاسبية."
+                : "It disappears from the lists, reports and alerts, while its record stays in the archive — with no legal or accounting liquidation."}
+            </p>
+            <div className="flex gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setConfirmClose(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="button" className="btn-bad" onClick={() => { setConfirmClose(false); void act("close"); }}>
+                {locale === "ar" ? "تأكيد الإغلاق" : "Confirm close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {logoOpen && (
+        <Modal
+          title={locale === "ar" ? "تغيير شعار الشركة" : "Change the company logo"}
+          onClose={() => setLogoOpen(false)}
+        >
+          <div className="grid gap-3">
+            <div>
+              <label className="label" htmlFor="company-logo-file">{locale === "ar" ? "ملف صورة" : "Image file"}</label>
+              <input
+                id="company-logo-file"
+                type="file"
+                accept="image/*"
+                className="input"
+                onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              />
+              {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setLogoOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!logoFile}
+                onClick={() => {
+                  const file = logoFile;
+                  setLogoOpen(false);
+                  if (file) void uploadLogo(file);
+                }}
+              >
+                {locale === "ar" ? "حفظ" : "Save"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      <Toast message={message} />
     </section>
   );
 }
