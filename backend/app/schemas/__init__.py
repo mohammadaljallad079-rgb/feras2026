@@ -6,7 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class ORMModel(BaseModel):
@@ -276,6 +276,15 @@ class ReportValuesUpdate(BaseModel):
 
 class ReportReturn(BaseModel):
     reason: str = Field(min_length=3)
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_must_carry_meaning(cls, value: str) -> str:
+        """§11: a returned report needs a reason. `min_length` alone accepts "   "."""
+        cleaned = value.strip()
+        if len(cleaned) < 3:
+            raise ValueError("reason_required")
+        return cleaned
 
 
 class ReportValueOut(ORMModel):

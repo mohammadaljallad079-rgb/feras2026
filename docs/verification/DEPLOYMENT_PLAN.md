@@ -176,7 +176,7 @@ commit `cf21cf6`:
 
 | Check | Result |
 |---|---|
-| Backend suite | **389 passed, 0 failed, 0 errors, 1 skipped** (262 s) |
+| Backend suite | **392 passed, 0 failed, 0 errors, 1 skipped** (261 s) |
 | Frontend lint (`lint:ci`, zero warnings) | **0 errors, 0 warnings** |
 | Frontend typecheck (`tsc --noEmit`) | **clean** |
 | Frontend production build | **succeeded**, all `/platform/*` routes present |
