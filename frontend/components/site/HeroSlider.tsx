@@ -32,8 +32,6 @@ export function HeroSlider({ locale, slides }: { locale: Locale; slides: SiteSli
     );
   }
 
-  const slide = slides[Math.min(index, slides.length - 1)];
-
   return (
     <section
       className="relative overflow-hidden bg-brand-deep text-white"
@@ -54,39 +52,46 @@ export function HeroSlider({ locale, slides }: { locale: Locale; slides: SiteSli
       />
 
       <div className="site-container relative py-24">
-        {slide.eyebrow_ar || slide.eyebrow_en ? (
-          <p className="site-eyebrow">{pick(locale, slide.eyebrow_ar, slide.eyebrow_en)}</p>
-        ) : null}
-        <h1
-          key={slide.id}
-          className="mt-5 max-w-[820px] text-[38px] font-bold leading-tight tracking-tight sm:text-[46px]"
-        >
-          {pick(locale, slide.title_ar, slide.title_en)}
-        </h1>
-        {(slide.body_ar || slide.body_en) && (
-          <p className="mt-5 max-w-[620px] text-[17px] text-[#c9dbe2]">
-            {pick(locale, slide.body_ar, slide.body_en)}
-          </p>
-        )}
+        {/* Every slide stays in the DOM so all deck headlines are crawlable;
+            only the active one is shown. */}
+        {slides.map((s, i) => {
+          const active = i === Math.min(index, slides.length - 1);
+          const Heading = active ? "h1" : "p";
+          return (
+            <div key={s.id} hidden={!active} aria-hidden={!active}>
+              {s.eyebrow_ar || s.eyebrow_en ? (
+                <p className="site-eyebrow">{pick(locale, s.eyebrow_ar, s.eyebrow_en)}</p>
+              ) : null}
+              <Heading className="mt-5 max-w-[820px] text-[38px] font-bold leading-tight tracking-tight sm:text-[46px]">
+                {pick(locale, s.title_ar, s.title_en)}
+              </Heading>
+              {(s.body_ar || s.body_en) && (
+                <p className="mt-5 max-w-[620px] text-[17px] text-[#c9dbe2]">
+                  {pick(locale, s.body_ar, s.body_en)}
+                </p>
+              )}
 
-        <div className="mt-9 flex flex-wrap gap-3">
-          {slide.cta_primary_label_ar || slide.cta_primary_label_en ? (
-            <Link
-              href={`/${locale}${slide.cta_primary_href || "/service-request"}`}
-              className="site-btn site-btn-sand"
-            >
-              {pick(locale, slide.cta_primary_label_ar, slide.cta_primary_label_en)}
-            </Link>
-          ) : null}
-          {slide.cta_secondary_label_ar || slide.cta_secondary_label_en ? (
-            <Link
-              href={`/${locale}${slide.cta_secondary_href || "/opportunities"}`}
-              className="site-btn site-btn-ghost"
-            >
-              {pick(locale, slide.cta_secondary_label_ar, slide.cta_secondary_label_en)}
-            </Link>
-          ) : null}
-        </div>
+              <div className="mt-9 flex flex-wrap gap-3">
+                {s.cta_primary_label_ar || s.cta_primary_label_en ? (
+                  <Link
+                    href={`/${locale}${s.cta_primary_href || "/service-request"}`}
+                    className="site-btn site-btn-sand"
+                  >
+                    {pick(locale, s.cta_primary_label_ar, s.cta_primary_label_en)}
+                  </Link>
+                ) : null}
+                {s.cta_secondary_label_ar || s.cta_secondary_label_en ? (
+                  <Link
+                    href={`/${locale}${s.cta_secondary_href || "/opportunities"}`}
+                    className="site-btn site-btn-ghost"
+                  >
+                    {pick(locale, s.cta_secondary_label_ar, s.cta_secondary_label_en)}
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
 
         {slides.length > 1 && (
           <div className="mt-12 flex items-center gap-3" role="tablist" aria-label={ar ? "الشرائح" : "Slides"}>

@@ -19,7 +19,7 @@ export default async function SolutionsPage({ params }: { params: Promise<{ loca
       <div className="site-container">
         <span className="site-eyebrow">{pick(locale, solutions?.title_ar, solutions?.title_en) || (ar ? "منظومة الحلول" : "Solutions")}</span>
         <h1 className="site-h2">
-          {ar ? "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو." : "Business solutions that start from your need and extend to growth."}
+          {ar ? "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو." : "Business solutions shaped around your needs and growth opportunities"}
         </h1>
         <p className="site-lead">
           {ar ? "خدمات مترابطة لاحتياجات الأعمال." : "Connected services for business needs."}
@@ -27,7 +27,7 @@ export default async function SolutionsPage({ params }: { params: Promise<{ loca
         <p className="site-lead">
           {ar
             ? "اختر ما يحتاجه مشروعك من خدمات المجموعة، وسنوجّه طلبك إلى الجهة المختصة."
-            : "Choose what your project needs from the group's services, and we will route your request to the right entity."}
+            : "Choose the support your business needs and we will route your request to the relevant team."}
         </p>
 
         <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

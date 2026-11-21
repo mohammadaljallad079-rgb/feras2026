@@ -16,7 +16,7 @@ export default function NotFound() {
             ربما نُقلت الصفحة أو تغيّر رابطها. عد إلى الصفحة الرئيسية.
           </p>
           <p className="mt-2 text-brand-slate" dir="ltr">
-            The page may have moved or its address changed. Return to the home page.
+            The page may have moved. Return to the home page.
           </p>
           <div className="mt-7 flex gap-3">
             <Link href="/ar" className="site-btn site-btn-primary">الصفحة الرئيسية</Link>

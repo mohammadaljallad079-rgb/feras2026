@@ -23,7 +23,7 @@ export default async function ServiceRequestPage({ params }: { params: Promise<{
           <p className="site-lead">
             {ar
               ? "أرسل بياناتك الأساسية، وسيراجع الفريق طلبك ويوجهه للجهة المناسبة."
-              : "Send your basic details; the team will review your request and route it to the right entity."}
+              : "Send your basic details; the team will review your request and route it to the right party."}
           </p>
           <ul className="mt-8 grid gap-3">
             {site.services.map((s) => (

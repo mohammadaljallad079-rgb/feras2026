@@ -11,7 +11,7 @@ const FILTERS: { value: string; ar: string; en: string }[] = [
   { value: "تقنية", ar: "تقنية", en: "Technology" },
   { value: "صناعي", ar: "صناعي", en: "Industrial" },
   { value: "تجاري", ar: "تجاري", en: "Commercial" },
-  { value: "خدمي", ar: "خدمي", en: "Services" },
+  { value: "خدمي", ar: "خدمي", en: "Service" },
 ];
 
 // §9: the card and the preview modal both carry the company logo when one is
@@ -69,11 +69,11 @@ export function CompanyPortfolio({
       {showHeading && (
         <>
           <span className="site-eyebrow">{ar ? "شركات المجموعة" : "Group companies"}</span>
-          <h2 id="h-companies" className="site-h2">{ar ? "محفظة الشركات" : "Our portfolio"}</h2>
+          <h2 id="h-companies" className="site-h2">{ar ? "محفظة المجموعة" : "Our portfolio"}</h2>
           <p className="site-lead">
             {ar
               ? "شركات متخصصة تعمل في قطاعات وأسواق مختلفة ضمن محفظة واحدة."
-              : "Specialised companies operating across different sectors and markets within one portfolio."}
+              : "Specialist companies across different sectors and markets, within one portfolio."}
           </p>
         </>
       )}
@@ -100,7 +100,7 @@ export function CompanyPortfolio({
 
       {rows.length === 0 ? (
         <p className="mt-8 rounded-xl border border-dashed border-brand-line bg-white p-9 text-center text-brand-slate">
-          {ar ? "لا توجد شركات معروضة حالياً." : "No companies are shown at the moment."}
+          {ar ? "لا توجد شركات معروضة حالياً." : "No companies are displayed at the moment."}
         </p>
       ) : (
         <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -137,7 +137,7 @@ export function CompanyPortfolio({
                   onClick={() => setPreview(c)}
                   className="mt-5 block w-fit border-b-[1.5px] border-brand-sand pb-1 text-[14px] font-semibold text-brand-deep"
                 >
-                  {ar ? "معاينة الشركة" : "Company preview"} →
+                  {ar ? "معاينة الشركة" : "Preview company"} →
                 </button>
               </li>
             );
@@ -155,7 +155,7 @@ export function CompanyPortfolio({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label={ar ? "معاينة الشركة" : "Company preview"}
+          aria-label={ar ? "معاينة الشركة" : "Preview company"}
           onClick={() => setPreview(null)}
         >
           <div className="w-full max-w-lg rounded-xl bg-white p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>

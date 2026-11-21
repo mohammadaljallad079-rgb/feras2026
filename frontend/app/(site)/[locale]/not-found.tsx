@@ -20,7 +20,7 @@ export default function LocaleNotFound() {
         <p className="mt-3 text-brand-slate">
           {ar
             ? "ربما نُقلت الصفحة أو تغيّر رابطها. عد إلى الصفحة الرئيسية."
-            : "The page may have moved or its address changed. Return to the home page."}
+            : "The page may have moved. Return to the home page."}
         </p>
         <div className="mt-7 flex justify-center gap-3">
           <Link href={ar ? "/ar" : "/en"} className="site-btn site-btn-primary">

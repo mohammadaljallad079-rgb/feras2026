@@ -28,36 +28,25 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               className="absolute inset-0 opacity-40 [background:repeating-linear-gradient(135deg,rgba(255,255,255,.06)_0_2px,transparent_2px_22px),radial-gradient(420px_260px_at_70%_20%,rgba(12,143,173,.5),transparent_60%)]"
             />
             <div className="absolute bottom-6 start-6 rounded-lg bg-white/95 px-4 py-3 shadow-lg">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-sand">
-                {ar ? "مجموعة واحدة" : "One group"}
-              </span>
-              <span className="text-[13px] font-semibold text-brand-deep">
-                {ar ? "خبرات متكاملة ضمن رؤية موحدة" : "Integrated expertise under one vision"}
+              <span className="block text-[13px] font-semibold text-brand-deep">
+                {ar ? "قابضة تجمع الخبرة وتحوّلها إلى فرص نمو." : "A holding company that connects expertise with growth opportunities."}
               </span>
             </div>
           </div>
           <div>
-            <span className="site-eyebrow">{pick(locale, about?.title_ar, about?.title_en) || (ar ? "من نحن" : "About us")}</span>
-            <h2 id="h-about" className="site-h2">
-              {ar ? "نطوّر شركات المجموعة وننسّق خبراتها." : "We develop the group's companies and coordinate their expertise."}
-            </h2>
+            <span className="site-eyebrow">{pick(locale, about?.title_ar, about?.title_en) || (ar ? "من نحن" : "About")}</span>
             {about && (
-              <p className="site-lead">{pick(locale, about.body_ar, about.body_en)}</p>
+              <div className="mt-4 grid gap-4">
+                {pick(locale, about.body_ar, about.body_en)
+                  .split("\n\n")
+                  .filter(Boolean)
+                  .map((paragraph, i) => (
+                    <p key={i} className={i === 0 ? "site-lead" : "text-[15.5px] leading-8 text-brand-slate"}>
+                      {paragraph}
+                    </p>
+                  ))}
+              </div>
             )}
-            <ul className="mt-6 grid gap-3">
-              {(ar
-                ? ["تطوير شركات المجموعة", "تنسيق الخبرات", "ربط العملاء بالخدمات والفرص"]
-                : ["Developing the group's companies", "Coordinating expertise", "Connecting clients with services and opportunities"]
-              ).map((item) => (
-                <li key={item} className="flex items-start gap-3 text-[15px] text-brand-ink">
-                  <span aria-hidden="true" className="mt-2 h-2 w-2 shrink-0 rotate-45 bg-brand-sand" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href={l("/about")} className="site-btn site-btn-outline mt-7">
-              {ar ? "المزيد عن القابضة" : "More about the holding"}
-            </Link>
           </div>
         </div>
       </section>
@@ -72,11 +61,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {/* Solutions — the six approved services */}
       <section className="site-section bg-white" aria-labelledby="h-solutions">
         <div className="site-container">
-          <span className="site-eyebrow">{pick(locale, solutions?.title_ar, solutions?.title_en) || (ar ? "منظومة الحلول" : "Solutions ecosystem")}</span>
+          <span className="site-eyebrow">{pick(locale, solutions?.title_ar, solutions?.title_en) || (ar ? "منظومة الحلول" : "Solutions")}</span>
           <h2 id="h-solutions" className="site-h2">
             {ar
-              ? "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو."
-              : "Business solutions that start from your need and extend to growth."}
+              ? "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو"
+              : "Business solutions shaped around your needs and growth opportunities"}
           </h2>
           <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {site.services.map((s) => (
@@ -103,17 +92,17 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           <div>
             <span className="site-eyebrow">{ar ? "اطلب خدمة" : "Request a service"}</span>
             <h2 id="h-sr" className="site-h2 text-white">
-              {ar ? "نافذة واحدة لاحتياجات الأعمال" : "One window for your business needs"}
+              {ar ? "نافذة واحدة لاحتياجات الأعمال" : "One point of contact for business needs"}
             </h2>
             <p className="mt-4 max-w-[560px] text-[#c9dbe2]">
               {ar
                 ? "أخبرنا بما يحتاجه مشروعك، وسنوجّه طلبك إلى الفريق المناسب."
-                : "Tell us what your project needs, and we will route your request to the right team."}
+                : "Tell us what your business needs, and we will route your request to the right team."}
             </p>
             <p className="mt-3 max-w-[560px] text-[#a9b6c9]">
               {ar
                 ? "نموذج واضح يجمع المعلومات الأساسية فقط، ثم يتولى فريق المجموعة مراجعة الطلب والتواصل معك."
-                : "A clear form that collects only the essential information; the group's team then reviews the request and contacts you."}
+                : "A clear form collects only the essential details; our team reviews the request and follows up."}
             </p>
             <Link href={l("/service-request")} className="site-btn site-btn-sand mt-7">
               {ar ? "ابدأ طلب الخدمة" : "Start a service request"}
@@ -121,8 +110,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </div>
           <ul className="rounded-xl border border-white/15 bg-white/[0.06] p-7 text-[14.5px]">
             {(ar
-              ? ["الاسم", "البريد الإلكتروني", "رقم التواصل", "نوع الخدمة", "وصف مختصر", "الموافقة على سياسة الخصوصية"]
-              : ["Name", "Email", "Contact number", "Service type", "Brief description", "Privacy-policy consent"]
+              ? ["الاسم", "البريد الإلكتروني", "رقم التواصل", "نوع الخدمة", "وصف مختصر"]
+              : ["Name", "Email", "Contact number", "Service type", "Short description"]
             ).map((row) => (
               <li key={row} className="flex justify-between border-b border-white/10 py-3 last:border-0">
                 <span className="text-[#a9b6c9]">{row}</span>
@@ -143,24 +132,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           <div className="mt-9 grid gap-6 md:grid-cols-2">
             <div className="site-card">
               <h3 className="text-[19px] font-bold">
-                {ar ? "هل لديك مشروع أو فرصة للنمو؟" : "Do you have a project or a growth opportunity?"}
+                {ar ? "هل لديك مشروع أو فرصة للنمو؟" : "Do you have a project or growth opportunity?"}
               </h3>
               <p className="mt-3 text-[15px] text-brand-slate">
                 {ar
                   ? "أرسل موجز الفرصة والدولة التي يوجد بها المشروع. يراجع فريقنا المعلومات ويتواصل معك عند الحاجة إلى تفاصيل إضافية."
-                  : "Send the opportunity brief and the country where the project is located. Our team reviews the information and contacts you if further details are needed."}
+                  : "Send a short overview and the country where the project is located. Our team will review it and contact you if more details are needed."}
               </p>
               <Link href={l("/opportunities")} className="site-btn site-btn-primary mt-5">
                 {ar ? "أرسل فرصة" : "Submit an opportunity"}
               </Link>
-            </div>
-            <div className="site-card">
-              <h3 className="text-[19px] font-bold">{ar ? "كيف تُدرس الفرص؟" : "How are opportunities reviewed?"}</h3>
-              <p className="mt-3 text-[15px] text-brand-slate">
-                {ar
-                  ? "تُراجع الفرص من الفريق المختص، ويُتواصل معك عند الحاجة إلى تفاصيل إضافية."
-                  : "Opportunities are reviewed by the relevant team, and you are contacted if further details are needed."}
-              </p>
             </div>
           </div>
           {notice && (
@@ -186,10 +167,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <p className="mt-3 text-brand-slate">
               {ar
                 ? "أرسل سيرتك الذاتية ومجال اهتمامك. سنتواصل معك إذا توفرت فرصة مناسبة."
-                : "Send your CV and your area of interest. We will contact you if a suitable opportunity becomes available."}
+                : "Send your CV and area of interest. We will contact you if a suitable opportunity becomes available."}
             </p>
             <Link href={l("/careers")} className="site-btn site-btn-sand mt-6">
-              {ar ? "قدّم طلب انضمام" : "Submit an application"}
+              {ar ? "قدّم طلب انضمام" : "Apply to join"}
             </Link>
           </div>
         </div>

@@ -18,15 +18,15 @@ export default async function CareersPage({ params }: { params: Promise<{ locale
     <section className="site-section">
       <div className="site-container grid gap-12 lg:grid-cols-[1fr_1.1fr]">
         <div>
-          <span className="site-eyebrow">{ar ? "الوظائف" : "Careers"}</span>
+          <span className="site-eyebrow">{pick(locale, section?.title_ar, section?.title_en) || (ar ? "الوظائف" : "Careers")}</span>
           <h1 className="site-h2">
-            {pick(locale, section?.title_ar, section?.title_en) ||
+            {pick(locale, section?.body_ar, section?.body_en) ||
               (ar ? "هل ترغب في الانضمام إلى فريقنا؟" : "Would you like to join our team?")}
           </h1>
           <p className="site-lead">
             {ar
               ? "أرسل سيرتك الذاتية ومجال اهتمامك. سنتواصل معك إذا توفرت فرصة مناسبة."
-              : "Send your CV and your area of interest. We will contact you if a suitable opportunity becomes available."}
+              : "Send your CV and area of interest. We will contact you if a suitable opportunity becomes available."}
           </p>
         </div>
         <PublicForm

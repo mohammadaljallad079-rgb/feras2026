@@ -11,33 +11,33 @@ const T: Record<string, { ar: string; en: string }> = {
   phone: { ar: "رقم التواصل", en: "Contact number" },
   service_type: { ar: "نوع الخدمة", en: "Service type" },
   country: { ar: "دولة المشروع", en: "Project country" },
-  subject: { ar: "موضوع الفرصة", en: "Opportunity subject" },
+  subject: { ar: "موضوع الفرصة", en: "Opportunity topic" },
   expertise: { ar: "مجال الاهتمام أو الخبرة", en: "Area of interest or expertise" },
-  message: { ar: "وصف مختصر", en: "Brief description" },
+  message: { ar: "وصف مختصر", en: "Short description" },
   cv: { ar: "السيرة الذاتية", en: "CV" },
   study: { ar: "ملف الدراسة أو المرفقات", en: "Study file or attachments" },
-  consent: { ar: "أوافق على سياسة الخصوصية", en: "I agree to the privacy policy" },
-  submit: { ar: "إرسال الطلب", en: "Send request" },
+  consent: { ar: "أوافق على سياسة الخصوصية", en: "I agree to the Privacy Policy" },
+  submit: { ar: "إرسال الطلب", en: "Submit" },
   sending: { ar: "جارٍ الإرسال…", en: "Sending…" },
   cancel: { ar: "إلغاء", en: "Cancel" },
   viewPolicy: { ar: "(عرض السياسة)", en: "(View policy)" },
   ok: {
     ar: "تم استلام طلبك",
-    en: "We received your request",
+    en: "We received your submission",
   },
   ok_body: {
     ar: "سيراجع فريق المجموعة طلبك ويتواصل معك عند الحاجة.",
-    en: "The group's team will review your request and contact you if needed.",
+    en: "Our team will review your submission and contact you if needed.",
   },
   reference: { ar: "رقم المرجع:", en: "Reference number:" },
   err: {
     ar: "تعذر إرسال الطلب. حاول مرة أخرى أو راسلنا على info@sup-edu.com",
-    en: "Could not send the request. Try again or email us at info@sup-edu.com",
+    en: "We could not send your submission. Please try again or email info@sup-edu.com",
   },
   bad_email: { ar: "أدخل بريداً إلكترونياً صحيحاً", en: "Enter a valid email address" },
-  file_hint: { ar: "اختر ملفاً (PDF أو Word أو صورة، بحد أقصى 20 ميغابايت)", en: "Choose a file (PDF, Word or image, up to 20 MB)" },
+  file_hint: { ar: "اختر ملفاً (الحجم والصيغ يحددها المبرمج)", en: "Choose a file (size and formats set by the developer)" },
   required: { ar: "هذا الحقل مطلوب", en: "This field is required" },
-  consent_required: { ar: "يلزم الموافقة على سياسة الخصوصية", en: "Consent to the privacy policy is required" },
+  consent_required: { ar: "يلزم الموافقة على سياسة الخصوصية", en: "You must agree to the Privacy Policy" },
 };
 
 export type PublicFormProps = {
@@ -166,12 +166,12 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
           privacy policy. */}
       <div className="border-b border-brand-line pb-3">
         <p className="text-[13px] font-bold uppercase tracking-widest text-brand-sand">
-          {ar ? "بوابة ستارت أب سفير" : "Start Up Sphere Gateway"}
+          {ar ? "بوابة ستارت أب سفير" : "Start Up Sphere portal"}
         </p>
         <p className="mt-1 text-[13px] text-brand-slate">
           {ar
             ? "تُستخدم البيانات لمعالجة الطلب وفق سياسة الخصوصية."
-            : "The data is used to process the request under the privacy policy."}
+            : "Your data is used to process the request in line with the Privacy Policy."}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

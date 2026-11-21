@@ -23,7 +23,7 @@ export default async function OpportunitiesPage({ params }: { params: Promise<{ 
           <p className="site-lead">
             {ar
               ? "أرسل وصفًا موجزًا وحدد دولة المشروع، ويمكنك إرفاق ملف الدراسة."
-              : "Send a brief description, specify the project country, and you may attach a study file."}
+              : "Send a short description, select the project country, and optionally attach the study file."}
           </p>
           {notice && (
             <p className="mt-6 flex gap-3 rounded-lg border border-[#ede2cc] border-s-4 border-s-brand-sand bg-[#fbf7ef] p-5 text-[14px] text-[#6a5731]">

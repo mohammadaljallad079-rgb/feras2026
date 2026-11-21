@@ -87,6 +87,13 @@ export type PublicCompany = {
   website_url: string | null;
 };
 
+/** §13 privacy policy, served from the approved deck so copy cannot drift. */
+export type SitePrivacy = {
+  intro: Bi;
+  review_note: Bi;
+  sections: { title: Bi; body: Bi }[];
+};
+
 export type SiteBootstrap = {
   settings: Record<string, Bi>;
   sections: SiteSection[];
@@ -95,6 +102,7 @@ export type SiteBootstrap = {
   header_nav: SiteNavLink[];
   footer_nav: SiteNavLink[];
   opportunity_countries: Bi[];
+  privacy: SitePrivacy;
 };
 
 /** Pick the current locale's value, falling back to the other language. */
@@ -116,6 +124,7 @@ const EMPTY: SiteBootstrap = {
   header_nav: [],
   footer_nav: [],
   opportunity_countries: [],
+  privacy: { intro: { ar: null, en: null }, review_note: { ar: null, en: null }, sections: [] },
 };
 
 /**

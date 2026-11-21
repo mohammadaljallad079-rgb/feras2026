@@ -5,7 +5,7 @@ import { getSite, pick, sectionByKey, setting, type Locale } from "@/lib/site";
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   const ar = locale === "ar";
-  return { title: ar ? "عن القابضة" : "About the holding" };
+  return { title: ar ? "عن القابضة" : "About" };
 }
 
 export default async function AboutPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -20,18 +20,19 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
   return (
     <section className="site-section">
       <div className="site-container">
-        <span className="site-eyebrow">{ar ? "من نحن" : "About us"}</span>
-        <h1 className="site-h2">
-          {ar ? "قابضة تجمع الخبرة وتحوّلها إلى فرص نمو." : "A holding company that gathers expertise and turns it into growth."}
-        </h1>
-        <p className="site-lead">
-          {ar
-            ? "تعمل ستارت أب سفير القابضة على إدارة وتطوير شركات المجموعة، وتنسيق خبراتها، وفتح مسارات عملية للأعمال والفرص الاستثمارية. تتولى كل شركة أعمالها ضمن نشاطها، بينما تعمل القابضة على تعزيز التكامل بينها وتوجيه المجموعة نحو نمو مدروس."
-            : "Start Up Sphere Holding manages and develops the group's companies, coordinates their expertise, and opens practical paths for business and investment opportunities. Each company runs its own activity, while the holding strengthens integration between them and steers the group toward measured growth."}
-        </p>
-        <p className="site-lead">
-          {`${brand} · ${country}`}
-        </p>
+        <span className="site-eyebrow">{pick(locale, about?.title_ar, about?.title_en) || (ar ? "من نحن" : "About")}</span>
+        {about && (
+          <div className="grid gap-4">
+            {pick(locale, about.body_ar, about.body_en)
+              .split("\n\n")
+              .filter(Boolean)
+              .map((paragraph, i) => (
+                <p key={i} className={i <= 1 ? "site-lead" : "text-[16px] leading-8 text-brand-slate"}>
+                  {paragraph}
+                </p>
+              ))}
+          </div>
+        )}
 
         <dl className="mt-10 grid gap-6 sm:grid-cols-3">
           <div className="site-card">
