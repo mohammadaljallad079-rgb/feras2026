@@ -470,7 +470,7 @@ def build() -> int:
             "public submission",
             public.post(
                 "/api/v1/public/submissions",
-                json={"kind": "contact", "name": f"{TAG} زائر", "email": f"visitor-{uuid.uuid4().hex[:6]}@example.com", "message": "أرغب بالتواصل.", "company_id": alfa, "consent": True},
+                json={"kind": "opportunity", "name": f"{TAG} زائر", "email": f"visitor-{uuid.uuid4().hex[:6]}@example.com", "phone": "+973 17000000", "country": "البحرين", "subject": "فرصة استثمارية", "message": "أرغب بمناقشة فرصة استثمارية.", "company_id": alfa, "consent": True},
             ),
             201,
         )

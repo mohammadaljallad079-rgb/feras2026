@@ -20,7 +20,7 @@ from app.models.enums import (
     SubmissionStatus,
 )
 from app.models.identity import Role, User, UserRole
-from app.models.operations import Lead, Opportunity, ServiceRequest, WebsiteSubmission, WebsiteSubmissionEvent
+from app.models.operations import Opportunity, ServiceRequest, WebsiteSubmission, WebsiteSubmissionEvent
 from app.models.site import SiteNavLink, SiteSection, SiteService, SiteSetting, SiteSlide
 from app.schemas import (
     CompanyProfileUpdate,
@@ -57,7 +57,6 @@ _DEFAULT_TARGET = {
     SubmissionKind.SERVICE_REQUEST.value: "service_request",
     SubmissionKind.OPPORTUNITY.value: "opportunity",
     SubmissionKind.JOB_APPLICATION.value: "job_application",
-    SubmissionKind.CONTACT.value: "lead",
 }
 
 # §6.5: the public «اطلب خدمة» service labels map onto the internal four
@@ -216,20 +215,7 @@ def convert_submission(
     # public submission that names no company is received by the Holding itself
     # (the platform's own entity) rather than being refused.
     received_company_id = sub.company_id or holding_company_id(db)
-    if target == "lead":
-        if received_company_id is None or db.get(Company, received_company_id) is None:
-            raise HTTPException(status_code=422, detail="A registered company is required to convert to a lead")
-        record = Lead(
-            name=sub.name,
-            contact_email=sub.email,
-            contact_phone=sub.phone,
-            requested_service=sub.service_type or sub.kind,
-            source="website",
-            company_id=received_company_id,
-            notes=sub.message,
-            status="new",
-        )
-    elif target == "opportunity":
+    if target == "opportunity":
         if received_company_id is None or db.get(Company, received_company_id) is None:
             raise HTTPException(status_code=422, detail="A registered company is required to convert to an opportunity")
         record = Opportunity(
@@ -303,7 +289,6 @@ def convert_submission(
 
 
 _TARGET_LABEL = {
-    "lead": ("عميل محتمل", "lead"),
     "opportunity": ("فرصة", "opportunity"),
     "service_request": ("طلب خدمة", "service request"),
     "job_application": ("طلب توظيف", "job application"),

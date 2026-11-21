@@ -1750,6 +1750,15 @@ def test_s9_job_application_requires_a_cv_attachment(client: TestClient):
     assert resp.json()["detail"]["error"] == "cv_required"
 
 
+def test_s9_the_public_site_carries_exactly_three_submission_forms(client: TestClient):
+    """Table 12 lists three forms; there is no free-text «تواصل» form to submit."""
+    resp = client.post("/api/v1/public/submissions",
+                       json={"kind": "contact", "name": "ن", "email": "a@b.com",
+                             "message": "مرحبا", "consent": True})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["error"] == "unknown_kind"
+
+
 def test_s9_public_submission_lands_in_the_website_inbox_as_new(client: TestClient, make_user, login, db):
     """§9 «بعد الإرسال ... يصل السجل إلى «إدارة الموقع» بحالة جديد»."""
     make_user("o@s.com", ["owner"])

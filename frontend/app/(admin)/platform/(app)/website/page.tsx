@@ -34,7 +34,6 @@ const KIND_LABELS: Record<string, { ar: string; en: string }> = {
   service_request: { ar: "طلب خدمة", en: "Service request" },
   opportunity: { ar: "فرصة", en: "Opportunity" },
   job_application: { ar: "طلب انضمام", en: "Job application" },
-  contact: { ar: "تواصل", en: "Contact" },
 };
 
 // §6.5: the four internal service types used to route a converted request.
@@ -82,14 +81,13 @@ export default function WebsitePage() {
     service_request: { ar: "تم توجيه طلب الخدمة إلى الشركة والمختص.", en: "The service request was routed to the company and specialist." },
     opportunity: { ar: "حُولت الفرصة للمراجعة الداخلية مع إرفاقها.", en: "The opportunity was routed to internal review with its attachment." },
     job_application: { ar: "سُجل الطلب للمراجعة البشرية.", en: "The request was recorded for human review." },
-    lead: { ar: "تم التحويل إلى سجل داخلي.", en: "Converted to an internal record." },
   };
 
   async function convert(id: number, target: string, extra: Record<string, unknown> = {}) {
     setMessage(null);
     try {
       await api.post(`/api/v1/website/submissions/${id}/convert`, { target, ...extra });
-      const toast = CONVERT_TOAST[target] ?? CONVERT_TOAST.lead;
+      const toast = CONVERT_TOAST[target];
       setMessage(locale === "ar" ? toast.ar : toast.en);
       await load();
     } catch (e) {
@@ -119,9 +117,7 @@ export default function WebsitePage() {
     }
     if (r.kind === "job_application") {
       void convert(r.id, "job_application");
-      return;
     }
-    void convert(r.id, "lead");
   }
 
   async function routeSubmit(e: React.FormEvent) {

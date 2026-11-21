@@ -33,7 +33,6 @@ router = APIRouter(prefix="/public", tags=["public"])
 # «دولة المشروع *» and «وصف مختصر *» for an opportunity, and the CV for a job
 # application. «موضوع الفرصة» and «مجال الاهتمام أو الخبرة» carry no star.
 _KIND_REQUIRED: dict[str, tuple[str, ...]] = {
-    SubmissionKind.CONTACT.value: (),
     SubmissionKind.SERVICE_REQUEST.value: ("phone", "service_type"),
     SubmissionKind.OPPORTUNITY.value: ("phone", "country", "message"),
     SubmissionKind.JOB_APPLICATION.value: ("phone",),
@@ -138,7 +137,7 @@ def _reference_no(kind: str) -> str:
         SubmissionKind.SERVICE_REQUEST.value: "SR",
         SubmissionKind.OPPORTUNITY.value: "OP",
         SubmissionKind.JOB_APPLICATION.value: "JB",
-    }.get(kind, "CT")
+    }[kind]
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     return f"{prefix}-{stamp}-{secrets.token_hex(3).upper()}"
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Bi, Locale } from "@/lib/site";
 
-type Kind = "contact" | "service_request" | "opportunity" | "job_application";
+type Kind = "service_request" | "opportunity" | "job_application";
 
 const T: Record<string, { ar: string; en: string }> = {
   name: { ar: "الاسم", en: "Name" },
@@ -59,7 +59,6 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const needsPhone = kind !== "contact";
   const needsService = kind === "service_request";
   const needsCountry = kind === "opportunity";
   const needsSubject = kind === "opportunity";
@@ -185,12 +184,10 @@ export function PublicForm({ kind, locale, services = [], countries = [], file, 
         </div>
       </div>
 
-      {needsPhone && (
-        <div>
-          <label className="site-label" htmlFor="f-phone">{phoneLabel[locale]} <span className="site-req">*</span></label>
-          <input id="f-phone" name="phone" className="site-field" required dir="ltr" autoComplete="tel" />
-        </div>
-      )}
+      <div>
+        <label className="site-label" htmlFor="f-phone">{phoneLabel[locale]} <span className="site-req">*</span></label>
+        <input id="f-phone" name="phone" className="site-field" required dir="ltr" autoComplete="tel" />
+      </div>
 
       {needsService && (
         <div>

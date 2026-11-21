@@ -7,7 +7,10 @@ reviewer sees; the unit and journey suites cover the API side.
 
     python3 scripts/check_visual_fixes.py
 
-Needs a seeded backend on :8000 and a frontend on :12000.
+Needs a seeded backend on :8000 and a frontend on :12000. The password-reset
+checks read the issued token from the screen, so the backend must run with
+`EXPOSE_RESET_TOKEN=true`; it is off by default because echoing a reset token to
+an anonymous caller is an account takeover.
 """
 
 from __future__ import annotations
@@ -417,7 +420,7 @@ def check_website_admin(browser) -> None:
             await fetch('/api/backend/api/v1/public/submissions', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({kind: 'contact', name: 'زائر تجربة', email: 'zz@example.com', message: 'مرحبا'}),
+                body: JSON.stringify({kind: 'opportunity', name: 'زائر تجربة', email: 'zz@example.com', phone: '1', country: 'البحرين', message: 'مرحبا', consent: true}),
             });
         }"""
     )

@@ -276,28 +276,28 @@ def test_public_submission_rate_limit_and_conversion(client, make_user, login, d
 
     sub = client.post(
         "/api/v1/public/submissions",
-        json={"kind": "contact", "name": "زائر", "email": "v@example.com", "message": "مرحبا", "company_id": cid, "consent": True},
+        json={"kind": "opportunity", "name": "زائر", "email": "v@example.com", "phone": "123", "country": "البحرين", "message": "مرحبا", "company_id": cid, "consent": True},
     )
     assert sub.status_code == 201, sub.text
     sid = sub.json()["id"]
 
-    converted = client.post(f"/api/v1/website/submissions/{sid}/convert", headers=h_owner, json={"target": "lead"})
+    converted = client.post(f"/api/v1/website/submissions/{sid}/convert", headers=h_owner, json={"target": "opportunity"})
     assert converted.status_code == 200, converted.text
     assert converted.json()["status"] == "converted"
-    assert converted.json()["converted_type"] == "lead"
+    assert converted.json()["converted_type"] == "opportunity"
 
     # Cannot convert twice.
-    assert client.post(f"/api/v1/website/submissions/{sid}/convert", headers=h_owner, json={"target": "lead"}).status_code == 409
+    assert client.post(f"/api/v1/website/submissions/{sid}/convert", headers=h_owner, json={"target": "opportunity"}).status_code == 409
 
 
 def test_website_conversion_defaults_to_the_holding_when_no_company_named(client, make_user, login, db):
-    """§6.5 / Table 7: «قدّم فرصة» and «تواصل» carry no receiving company, so the
-    conversion has nothing to route to. The opportunity and contact forms have no
-    routing window (unlike the service request), so the Holding receives them
-    rather than the action failing with a 422.
+    """§6.5 / Table 7: «قدّم فرصة» carries no receiving company, so the
+    conversion has nothing to route to. The opportunity form has no routing
+    window (unlike the service request), so the Holding receives it rather than
+    the action failing with a 422.
     """
     from app.models.enums import OpportunityStatus
-    from app.models.operations import Lead, Opportunity
+    from app.models.operations import Opportunity
     from app.services.bootstrap import ensure_holding_company
 
     holding = ensure_holding_company(db)
@@ -320,17 +320,6 @@ def test_website_conversion_defaults_to_the_holding_when_no_company_named(client
     assert opp is not None
     assert opp.company_id == holding.id, "the opportunity is received by the Holding"
     assert opp.status == OpportunityStatus.DRAFT.value, "it arrives as a draft for internal review"
-
-    # The contact form converts to a lead the same way.
-    lead_sub = client.post(
-        "/api/v1/public/submissions",
-        json={"kind": "contact", "name": "زائر", "email": "c@example.com", "message": "مرحبا", "consent": True},
-    )
-    assert lead_sub.status_code == 201, lead_sub.text
-    lead_conv = client.post(f"/api/v1/website/submissions/{lead_sub.json()['id']}/convert", headers=h_owner, json={"target": "lead"})
-    assert lead_conv.status_code == 200, lead_conv.text
-    lead = db.get(Lead, lead_conv.json()["converted_id"])
-    assert lead is not None and lead.company_id == holding.id
 
 
 def test_conversion_target_is_optional(client, make_user, login, db):
@@ -393,7 +382,7 @@ def test_website_visibility_accepts_a_json_body_and_rejects(client, make_user, l
 
     sub = client.post(
         "/api/v1/public/submissions",
-        json={"kind": "contact", "name": "زائر", "email": "r@example.com", "message": "x", "company_id": cid, "consent": True},
+        json={"kind": "opportunity", "name": "زائر", "email": "r@example.com", "phone": "123", "country": "البحرين", "message": "x", "company_id": cid, "consent": True},
     )
     assert sub.status_code == 201, sub.text
     rejected = client.post(f"/api/v1/website/submissions/{sub.json()['id']}/reject", headers=h_owner)

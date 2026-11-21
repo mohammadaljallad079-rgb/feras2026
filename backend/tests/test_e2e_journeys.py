@@ -343,16 +343,16 @@ def test_public_submission_converted_to_internal_record(scoped, company_id):
     public = httpx.Client(base_url=BASE, timeout=30)
     created = public.post(
         "/api/v1/public/submissions",
-        json={"kind": "contact", "name": "زائر", "email": f"{_unique('visitor')}@example.com", "message": "مرحباً", "company_id": company_id, "consent": True},
+        json={"kind": "opportunity", "name": "زائر", "email": f"{_unique('visitor')}@example.com", "phone": "123", "country": "البحرين", "message": "مرحباً", "company_id": company_id, "consent": True},
     )
     assert created.status_code == 201, created.text
     submission_id = created.json()["id"]
 
-    converted = scoped["bd"].post(f"/api/v1/website/submissions/{submission_id}/convert", json={"target": "lead"})
+    converted = scoped["bd"].post(f"/api/v1/website/submissions/{submission_id}/convert", json={"target": "opportunity"})
     assert converted.status_code == 200, converted.text
     body = converted.json()
     assert body["status"] == "converted"
-    assert body["converted_type"] == "lead"
+    assert body["converted_type"] == "opportunity"
     assert body["converted_id"]
 
 

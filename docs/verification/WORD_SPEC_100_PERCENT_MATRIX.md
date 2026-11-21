@@ -8,11 +8,11 @@ proves it and the observed result.
 
 Ground truth for this pass (re-run, not trusted from a prior report):
 
-- backend `pytest` → **365 tests: 364 passed, 1 skipped** (the skip is the
+- backend `pytest` → **366 tests: 365 passed, 1 skipped** (the skip is the
   opt-in live-provider check). `test_e2e_journeys.py` needs a running server and
   a seeded `safir_e2e`; the 13 end-to-end journeys were also run standalone
   against `safir_e2e` and all passed.
-- `test_word_spec_atomic.py` — 208 atomic checks, one per brief clause, numbered
+- `test_word_spec_atomic.py` — 213 atomic checks, one per brief clause, numbered
   by section (§1–§12, Tables 1–13).
 - frontend `npx tsc --noEmit` → clean (exit 0).
 - frontend `npm run build` → build clean.
@@ -20,8 +20,8 @@ Ground truth for this pass (re-run, not trusted from a prior report):
   report in the seeded data; the bank-statement control is deliberately hidden
   on a locked report, so a forwarded-only database reports one false failure).
 - `scripts/check_matrix.py` → **85 route/viewport combinations, 0 failures**.
-- `scripts/check_all_buttons.py` → **513 controls pressed across every screen and
-  all eight roles: 512 ok, 1 disabled by design, 0 failing**. Each control is
+- `scripts/check_all_buttons.py` → **390 controls pressed across 51 screens and
+  all eight roles: 389 ok, 1 disabled by design, 0 failing**. Each control is
   clicked in a real browser on a freshly loaded screen, and a failure means an
   uncaught JavaScript exception, a Next.js error overlay or a 5xx response — so
   §6 «الأزرار ووجهة كل منها» is proven by pressing, not by reading the code.
@@ -305,7 +305,7 @@ must not ship).
 | Result | Count |
 |---|---|
 | PASS (proven in code, by test or by an executed check) | 126 |
-| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 208 |
+| PASS (atomic clause-level checks, `test_word_spec_atomic.py`) | 213 |
 | PASS\* (**Pending human approval** — the spec defers the item to people) | 3 |
 | N/A (prototype-only) | 1 |
 | FAIL | 0 |
@@ -343,6 +343,7 @@ application, and the application was corrected rather than the test.
 | 23 | §5.5 / §11 «المسوّق يرسل الشكوى للمالك وحده» | a complaint sent by a marketer with no company scope failed `422 A company is required`, so the one route the spec gives the marketer was closed | `send_complaint()` falls back to the holding company when the caller has no scope (`app/api/v1/service_requests.py`); `test_s5_5_complaint_from_an_unscoped_marketer_still_reaches_the_owner` |
 | 24 | §6.4 Table 6 R1 «للمالك: المختص المستلم *» | the owner could omit the receiving specialist and the server silently auto-routed the request, although the modal marks it mandatory for the owner | `create_request()` refuses an owner request with no recipient (`422 The receiving specialist is required`) while a manager's request still routes by service type (`app/api/v1/service_requests.py`); `test_owner_must_name_the_receiving_specialist`, `test_a_manager_request_is_routed_by_service_type` |
 | 25 | §7.1 «الاستحقاق هو اليوم الخامس من الشهر التالي» | `POST /periods` accepted any `due_on`, so a period could be opened with a due date the reminders would follow into the wrong day (the seeded acceptance period carried `2026-01-31`) | the due date is now derived server-side (`_due_on()` in `app/api/v1/reporting.py`) and a caller-supplied value is overridden; `test_s7_1_a_wrong_due_date_supplied_by_the_caller_is_overridden` |
+| 26 | Table 12 / §6.5 «تواصل \| البريد والهاتف فقط \| —» | defect 13 removed the fourth public form, but the API still accepted `kind=contact` and converted it to a lead — a record the brief never defines and that no public form can produce | `SubmissionKind.CONTACT` removed, so the endpoint answers `422 unknown_kind`; the `contact→lead` conversion target, its toast and its label are gone (`app/models/enums.py`, `app/api/v1/public.py`, `app/api/v1/website.py`, `components/site/PublicForm.tsx`, `app/(admin)/platform/(app)/website/page.tsx`); `test_s9_the_public_site_carries_exactly_three_submission_forms` |
 
 ## Gaps and exceptions
 

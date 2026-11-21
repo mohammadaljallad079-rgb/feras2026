@@ -125,7 +125,8 @@ class FieldType(StrEnum):
 
 
 class SubmissionKind(StrEnum):
-    CONTACT = "contact"
+    """§1/§6.5/Table 12: the public site carries exactly three forms."""
+
     SERVICE_REQUEST = "service_request"
     OPPORTUNITY = "opportunity"
     JOB_APPLICATION = "job_application"
