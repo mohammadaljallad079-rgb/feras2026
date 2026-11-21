@@ -189,3 +189,21 @@ email starts with `visitor-` before running it after a sweep.
   `company:manage`. Do not "simplify" this to hide drafts from everyone — that
   makes «حفظ مسودة» a dead end, since the activate button lives on the row.
 
+- Two conflicts inside the source documents are **known and recorded**, not
+  open questions. §6.2 prose says «ثلاث خطوات … 1/3» but lists four blocks; the
+  design (p.7) says «من 1/4 إلى 4/4 … الخطوة الأخيرة مراجعة» and the prototype
+  formats `— ${step}/4`, so the wizard is four steps. §12 asks for a daily
+  reminder job; the scheduler uses a fixed hour plus bounded retry rather than a
+  drifting 24-hour sleep. Both are written up in
+  `docs/verification/FINAL_HANDOFF_REPORT.md` §9 — read it before "fixing" either.
+- Report values snapshot `field_name_ar` / `field_name_en` at save time
+  (§6.4 / Table 6). The snapshot is what a past report renders; the live field
+  name is only a fallback for rows written before migration `d5b8e2f61a37`.
+  Reverting to `field.name_ar` on read silently rewrites history when a field is
+  renamed, and `test_s6_4_editing_a_field_does_not_change_a_past_report` will
+  catch it.
+- The test suite refuses to run against a database whose name does not end in
+  `_test` (`tests/conftest.py`), so the destructive fixtures cannot touch
+  `safir_e2e`. To exercise the 13 live journeys, start the API on `safir_e2e` and
+  pass `SAFIR_BASE_URL=http://127.0.0.1:8011`; without a server they error with
+  `ConnectError`, which is an environment precondition, not a failure.
