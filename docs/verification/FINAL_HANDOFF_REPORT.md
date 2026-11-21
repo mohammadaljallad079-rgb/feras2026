@@ -26,7 +26,7 @@ none is copied from an earlier report.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend (full) | `pytest -q` | **379 passed, 1 skipped in 262.59s** |
+| Backend (full) | `pytest -q` | **378 passed, 1 skipped in 261.58s (379 collected)** |
 | Auth & RBAC | `pytest tests/test_auth_rbac.py` | **22 passed in 9.20s** |
 | Reporting workflow | `pytest tests/test_reporting_workflow.py` | **13 passed** |
 | Operations (incl. isolation, attachments, mail) | `pytest tests/test_operations.py` | **33 passed** |
