@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -866,6 +867,9 @@ class SiteBootstrap(BaseModel):
     header_nav: list[SiteNavLinkOut]
     footer_nav: list[SiteNavLinkOut]
     opportunity_countries: list[dict[str, str]]
+    # §13 privacy policy, from the approved deck so the page and the seed copy
+    # cannot drift apart.
+    privacy: dict[str, Any]
 
 
 # --- Advisor ----------------------------------------------------------------

@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.content.site_content import OPPORTUNITY_COUNTRIES
+from app.content import site_content as content
 from app.core.config import settings
 from app.core.db import get_db
 from app.models.business import Company
@@ -51,6 +51,17 @@ def site_bootstrap(db: Session = Depends(get_db)) -> SiteBootstrap:
         header_nav=site.nav_links(db, "header"),
         footer_nav=site.nav_links(db, "footer"),
         opportunity_countries=site.opportunity_countries(),
+        privacy={
+            "intro": {"ar": content.PRIVACY_INTRO_AR, "en": content.PRIVACY_INTRO_EN},
+            "review_note": {
+                "ar": content.PRIVACY_REVIEW_NOTE_AR,
+                "en": content.PRIVACY_REVIEW_NOTE_EN,
+            },
+            "sections": [
+                {"title": {"ar": ar_h, "en": en_h}, "body": {"ar": ar_p, "en": en_p}}
+                for ar_h, en_h, ar_p, en_p in content.PRIVACY_SECTIONS
+            ],
+        },
     )
 
 
@@ -204,7 +215,7 @@ def _persist(
     missing = [f for f in _KIND_REQUIRED.get(kind, ()) if not getattr(data, f, None)]
     if missing:
         raise HTTPException(status_code=422, detail={"error": "missing_fields", "fields": missing})
-    if kind == SubmissionKind.OPPORTUNITY.value and data.country not in OPPORTUNITY_COUNTRIES:
+    if kind == SubmissionKind.OPPORTUNITY.value and data.country not in content.OPPORTUNITY_COUNTRIES:
         raise HTTPException(status_code=422, detail={"error": "unsupported_country"})
     if kind == SubmissionKind.JOB_APPLICATION.value and attachment_file_id is None:
         raise HTTPException(status_code=422, detail={"error": "cv_required"})

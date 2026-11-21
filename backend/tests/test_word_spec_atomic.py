@@ -1664,7 +1664,13 @@ def test_s9_public_contact_shows_email_and_phone_only(client: TestClient, db):
 
 def test_s9_public_header_carries_the_six_named_links(client: TestClient, db):
     """§9 «القائمة العلوية: عن القابضة، شركات المجموعة، منظومة الحلول، الفرص
-    التجارية، الوظائف، تواصل» — those six labels, in that order."""
+    التجارية، الوظائف، تواصل» — those six labels, in that order.
+
+    The English column of §9 reads "About the holding, Group companies,
+    Solutions, Business opportunities, Careers, Contact". Both languages are
+    pinned because the shortened English labels ("About", "Opportunities") had
+    drifted from the spec while the Arabic column stayed correct.
+    """
     _seed_site(db)
     nav = client.get("/api/v1/public/site").json()["header_nav"]
     assert [link["label_ar"] for link in nav] == [
@@ -1674,6 +1680,14 @@ def test_s9_public_header_carries_the_six_named_links(client: TestClient, db):
         "الفرص التجارية",
         "الوظائف",
         "تواصل",
+    ]
+    assert [link["label_en"] for link in nav] == [
+        "About the holding",
+        "Group companies",
+        "Solutions",
+        "Business opportunities",
+        "Careers",
+        "Contact",
     ]
 
 
