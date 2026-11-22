@@ -238,3 +238,13 @@ email starts with `visitor-` before running it after a sweep.
   repeat the six header links, does not carry a separate Solutions column, and
   does not print the country inside Contact — `test_site_cms.py` pins the nav
   content, and the country lives in the bottom bar.
+- There is no PostgreSQL server installed in this container, and the workspace
+  is restarted between sessions, so a dead `127.0.0.1:5432` is the normal state,
+  not a broken repo. Bring it up with Docker: `sudo -n dockerd &`, then
+  `sudo -n docker run -d --name safir-db -e POSTGRES_USER=safir
+  -e POSTGRES_PASSWORD=safir -e POSTGRES_DB=safir -p 127.0.0.1:5432:5432
+  postgres:16-alpine`. After that: `.venv/bin/python -m alembic upgrade head`,
+  `.venv/bin/python scripts/seed.py`, `.venv/bin/python scripts/demo_data.py`
+  (the manager's company assignment lives in `demo_data.py`, not `seed.py`), and
+  create `safir_test` before running pytest. `scripts/demo_data.py` talks to the
+  running API, so start uvicorn first.
