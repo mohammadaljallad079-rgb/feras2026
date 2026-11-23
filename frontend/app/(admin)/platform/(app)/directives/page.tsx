@@ -6,7 +6,7 @@ import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
 import { Toast } from "@/components/Toast";
-import { api, loadError } from "@/lib/api";
+import { api, loadErrorState } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Person = { id: number; full_name_ar: string; full_name_en: string };
@@ -54,7 +54,7 @@ export default function DirectivesPage() {
       setRows(await api.get<Directive[]>("/api/v1/directives"));
       setOverdue(await api.get<Directive[]>("/api/v1/directives/overdue").catch(() => []));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -171,7 +171,7 @@ export default function DirectivesPage() {
               <label className="label" htmlFor="dir-follow">{locale === "ar" ? "موعد المتابعة" : "Follow-up date"}<span aria-hidden="true"> *</span></label>
               <input id="dir-follow" type="date" className="input" dir="ltr" required value={form.follow_up_on} onChange={(e) => setForm({ ...form, follow_up_on: e.target.value })} />
             </div>
-            <div className="flex items-end justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>

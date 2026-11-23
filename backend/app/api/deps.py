@@ -168,8 +168,13 @@ def assert_company_access(db: Session, user: User, company_id: int) -> None:
             company_id=company_id,
         )
         db.commit()
-        # 404 rather than 403: do not confirm the existence of other companies.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+        # 404 rather than 403 so the response does not confirm that another
+        # company exists. The body still says `denied` so the interface can show
+        # the 403 state (design p.4) instead of a generic "not found".
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_found", "reason": "denied"},
+        )
 
 
 def has_any_role(user: User, *slugs: str) -> bool:

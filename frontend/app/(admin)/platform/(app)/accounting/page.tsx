@@ -6,7 +6,7 @@ import { StatusChip } from "@/components/StatusChip";
 import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
 import { Toast } from "@/components/Toast";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Entry = {
@@ -79,7 +79,7 @@ export default function AccountingPage() {
     try {
       setEntries(await api.get<Entry[]>("/api/v1/accounting"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -397,7 +397,7 @@ export default function AccountingPage() {
               {documentFile && <p className="muted mt-1" dir="ltr">{documentFile.name}</p>}
             </div>
           )}
-          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+          <div className="actions sm:col-span-3">
             <button type="button" className="btn-ghost" onClick={() => setEntryOpen(false)}>
               {locale === "ar" ? "إلغاء" : "Cancel"}
             </button>

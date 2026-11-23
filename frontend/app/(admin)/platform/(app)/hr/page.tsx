@@ -5,7 +5,7 @@ import { StatusChip } from "@/components/StatusChip";
 import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
 import { Toast } from "@/components/Toast";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Employee = {
@@ -64,7 +64,7 @@ export default function HrPage() {
     try {
       setRows(await api.get<Employee[]>("/api/v1/employees"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -240,7 +240,7 @@ export default function HrPage() {
             <label className="label" htmlFor="emp-hired">{locale === "ar" ? "تاريخ التعيين" : "Hired on"}</label>
             <input id="emp-hired" type="date" className="input" dir="ltr" value={form.hired_on} onChange={(e) => setForm({ ...form, hired_on: e.target.value })} />
           </div>
-          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+          <div className="actions sm:col-span-3">
             <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
               {locale === "ar" ? "إلغاء" : "Cancel"}
             </button>
@@ -376,7 +376,7 @@ export default function HrPage() {
               <label className="label" htmlFor="ev-file">{locale === "ar" ? "المرفق" : "Attachment"}</label>
               <input id="ev-file" type="file" className="input" onChange={(e) => setEventFile(e.target.files?.[0] ?? null)} />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setEventOpen(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>

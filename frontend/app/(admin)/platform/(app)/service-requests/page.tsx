@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
@@ -78,7 +78,7 @@ export default function ServiceRequestsPage() {
     try {
       setRows(await api.get<ServiceRequest[]>("/api/v1/service-requests"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -230,7 +230,7 @@ export default function ServiceRequestsPage() {
               <label className="label" htmlFor="sr-deadline">{locale === "ar" ? "الموعد المطلوب" : "Required date"}</label>
               <input id="sr-deadline" type="date" className="input" dir="ltr" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
             </div>
-            <div className="flex items-end justify-end gap-2 sm:col-span-3">
+            <div className="actions sm:col-span-3">
               <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>
@@ -270,7 +270,7 @@ export default function ServiceRequestsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setReplyOpen(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>

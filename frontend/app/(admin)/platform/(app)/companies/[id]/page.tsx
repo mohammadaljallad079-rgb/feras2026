@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
@@ -34,7 +34,7 @@ export default function CompanyDetailPage() {
       setForm(c);
     } catch (e) {
       setError(
-        loadError(e, locale, {
+        loadErrorState(e, locale, {
           ar: "الشركة غير موجودة أو غير مصرّح بالوصول إليها.",
           en: "The company does not exist or you are not permitted to view it.",
         }),
@@ -301,7 +301,7 @@ export default function CompanyDetailPage() {
               />
               {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setLogoOpen(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>

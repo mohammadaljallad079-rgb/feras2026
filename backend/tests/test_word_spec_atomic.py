@@ -2595,3 +2595,47 @@ def test_s8_notification_events_are_raised_for_the_named_transitions(client: Tes
     actions = [r["action"] for r in client.get("/api/v1/audit", headers=ho).json()]
     for action in ("report.submit", "report.return", "report.approve", "report.forward"):
         assert action in actions, (action, actions)
+
+
+# ===========================================================================
+# Design reference p.4 — refusals, and the 3-second toast
+# ===========================================================================
+def test_design_p4_refusal_body_names_the_reason(client: TestClient, make_user, login, db):
+    """Design p.4 asks for a «403» state, not a bare "not found".
+
+    A cross-company read still answers 404 so the response never confirms that
+    another company exists, but the body has to say the read was refused; the
+    interface turns that into the 403 state.
+    """
+    a = _company(db, "DA")
+    b = _company(db, "DB")
+    make_user("dm@s.com", ["company_manager"], companies=[a.id])
+    resp = client.get(f"/api/v1/companies/{b.id}", headers=login("dm@s.com"))
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == {"error": "not_found", "reason": "denied"}, resp.json()
+
+
+def test_design_p4_refusal_is_audited_even_when_hidden_as_404(
+    client: TestClient, make_user, login, db
+):
+    """§11 «فتح رابط غير مصرح به يرفض ويسجل» — the hidden 404 still logs."""
+    a = _company(db, "DA")
+    b = _company(db, "DB")
+    make_user("dm@s.com", ["company_manager"], companies=[a.id])
+    make_user("do@s.com", ["owner"])
+    client.get(f"/api/v1/companies/{b.id}", headers=login("dm@s.com"))
+    rows = client.get("/api/v1/audit", headers=login("do@s.com")).json()
+    denied = [r for r in rows if r["action"] == "security.access_denied"]
+    assert denied, [r["action"] for r in rows]
+    assert str(b.id) in str(denied[0].get("target_id")), denied[0]
+
+
+def test_design_p4_missing_permission_is_403_and_audited(client: TestClient, make_user, login, db):
+    """A refusal on a permission the caller lacks is a plain 403 and is logged."""
+    make_user("dh@s.com", ["company_manager"])
+    make_user("do@s.com", ["owner"])
+    resp = client.get("/api/v1/accounting", headers=login("dh@s.com"))
+    assert resp.status_code == 403, resp.text
+    assert "missing_permissions" in resp.json()["detail"]
+    actions = [r["action"] for r in client.get("/api/v1/audit", headers=login("do@s.com")).json()]
+    assert "security.access_denied" in actions, actions

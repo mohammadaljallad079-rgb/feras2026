@@ -5,7 +5,7 @@ import { DataStates } from "@/components/DataStates";
 import { InviteUserForm } from "@/components/InviteUserForm";
 import { Modal } from "@/components/Modal";
 import { Toast } from "@/components/Toast";
-import { api, loadError, Role, UserOut } from "@/lib/api";
+import { api, loadErrorState, Role, UserOut } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 // Table 5, «دور مخصص»: the dialog picks modules (the platform tabs) and, under
@@ -124,7 +124,7 @@ export default function UsersPage() {
       setUsers(await api.get<UserOut[]>("/api/v1/users"));
       setRoles(await api.get<Role[]>("/api/v1/roles").catch(() => []));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }

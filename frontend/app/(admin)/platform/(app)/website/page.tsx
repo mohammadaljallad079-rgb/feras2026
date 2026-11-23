@@ -7,7 +7,7 @@ import { Toast } from "@/components/Toast";
 import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
 import { AuthImage } from "@/components/AuthImage";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Submission = {
@@ -64,7 +64,7 @@ export default function WebsitePage() {
     try {
       setRows(await api.get<Submission[]>("/api/v1/website/submissions"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -447,7 +447,7 @@ export default function WebsitePage() {
               />
               {logoFile && <p className="muted mt-1" dir="ltr">{logoFile.name}</p>}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setLogoFor(null)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>

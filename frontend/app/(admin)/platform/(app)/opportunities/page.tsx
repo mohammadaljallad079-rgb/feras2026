@@ -5,7 +5,7 @@ import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
 import { StatusChip } from "@/components/StatusChip";
 import { Toast } from "@/components/Toast";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Opportunity = {
@@ -110,7 +110,7 @@ export default function OpportunitiesPage() {
     try {
       setRows(await api.get<Opportunity[]>("/api/v1/opportunities"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -358,7 +358,7 @@ export default function OpportunitiesPage() {
               <label className="label" htmlFor="opp-file">{ar ? "ملف الدراسة" : "Study file"}</label>
               <input id="opp-file" type="file" className="input" onChange={(e) => setStudyFile(e.target.files?.[0] ?? null)} />
             </div>
-            <div className="flex items-end justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
                 {ar ? "إلغاء" : "Cancel"}
               </button>
@@ -461,7 +461,7 @@ export default function OpportunitiesPage() {
               <label className="label" htmlFor="follow-date">{ar ? "الموعد القادم" : "Next date"}</label>
               <input id="follow-date" type="date" className="input" value={followForm.next_step_on} onChange={(e) => setFollowForm({ ...followForm, next_step_on: e.target.value })} />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setFollowUp(null)}>
                 {ar ? "إلغاء" : "Cancel"}
               </button>
@@ -493,7 +493,7 @@ export default function OpportunitiesPage() {
                 <p className="muted mt-1">{ar ? "السبب إلزامي." : "A reason is required."}</p>
               )}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setDecision(null)}>
                 {ar ? "إلغاء" : "Cancel"}
               </button>

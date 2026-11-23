@@ -144,6 +144,18 @@ table,
   .btn-bad {
     @apply btn bg-bad text-white hover:opacity-90 disabled:opacity-50;
   }
+  /* Design p.4 «أزرار الإجراء على اليسار» — the action row sits at the left edge
+     in both directions: end-of-line in RTL, start-of-line in LTR. Using
+     `justify-end` alone would put it on the right when the interface is English. */
+  .actions {
+    @apply mt-4 flex flex-wrap gap-2;
+  }
+  html[dir="rtl"] .actions {
+    justify-content: flex-end;
+  }
+  html[dir="ltr"] .actions {
+    justify-content: flex-start;
+  }
   .input {
     @apply w-full rounded-control border border-line bg-card px-3 py-2 text-base text-ink;
   }

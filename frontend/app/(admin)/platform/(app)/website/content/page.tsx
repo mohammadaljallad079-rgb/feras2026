@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
 import { Toast } from "@/components/Toast";
-import { api, loadError } from "@/lib/api";
+import { api, loadErrorState } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 /**
@@ -108,7 +108,7 @@ export default function SiteContentPage() {
       setNav(nv);
       setError(null);
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }

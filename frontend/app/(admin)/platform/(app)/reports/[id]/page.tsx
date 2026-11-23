@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { api, loadError, Company, FormField, MonthlyReport } from "@/lib/api";
+import { api, loadErrorState, Company, FormField, MonthlyReport } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
 import { ReportStatusChip } from "@/components/StatusChip";
@@ -50,7 +50,7 @@ export default function ReportDetailPage() {
       setCompanies(cs);
     } catch (e) {
       setError(
-        loadError(e, locale, {
+        loadErrorState(e, locale, {
           ar: "التقرير غير موجود أو غير مصرّح بالوصول إليه.",
           en: "The report does not exist or you are not permitted to view it.",
         }),

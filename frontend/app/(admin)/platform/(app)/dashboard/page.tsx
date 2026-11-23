@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, loadError, Dashboard } from "@/lib/api";
+import { api, loadErrorState, Dashboard } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
 import { StatusChip } from "@/components/StatusChip";
@@ -26,7 +26,7 @@ export default function DashboardPage() {
     api
       .get<Dashboard>("/api/v1/dashboard")
       .then(setData)
-      .catch((e) => setError(loadError(e, locale)))
+      .catch((e) => setError(loadErrorState(e, locale)))
       .finally(() => setLoading(false));
     api
       .get<{ period: { label: string; due: string | null } | null }>("/api/v1/dashboard/period")

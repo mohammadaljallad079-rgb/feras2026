@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
 import { Toast } from "@/components/Toast";
-import { api, loadError, Company, FormField } from "@/lib/api";
+import { api, loadErrorState, Company, FormField } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 // Table 5 names two field types — «رقم / مبلغ» and «سؤال وإجابة» — plus the
@@ -52,7 +52,7 @@ export default function FormBuilderPage() {
     try {
       setFields(await api.get<FormField[]>("/api/v1/form-fields"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -202,7 +202,7 @@ export default function FormBuilderPage() {
             <input id="ff-required" type="checkbox" checked={form.is_required} onChange={(e) => setForm({ ...form, is_required: e.target.checked })} />
             <label htmlFor="ff-required">{locale === "ar" ? "إلزامي" : "Required"}</label>
           </div>
-          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+          <div className="actions sm:col-span-3">
             <button type="button" className="btn-ghost" onClick={() => setFormOpen(false)}>
               {locale === "ar" ? "إلغاء" : "Cancel"}
             </button>

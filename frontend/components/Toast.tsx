@@ -1,9 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+/** Design p.4: the toast is visible for 3 seconds, then it goes away on its own. */
+const TOAST_MS = 3000;
+
 /**
  * §2 «الرسالة العابرة (Toast): تأكيد قصير أسفل الشاشة بعد الإجراء» — the
  * confirmation of an action is a short message pinned to the bottom of the
- * screen rather than a block in the page flow. The next action replaces it.
+ * screen rather than a block in the page flow.
+ *
+ * The message hides itself after 3 seconds (design reference page 4). The timer
+ * is keyed on the message text so that repeating the same action restarts it
+ * instead of leaving the second confirmation without a deadline.
  */
 export function Toast({
   message,
@@ -12,7 +21,16 @@ export function Toast({
   message: string | null;
   tone?: "ok" | "bad";
 }) {
-  if (!message) return null;
+  const [shown, setShown] = useState<string | null>(message);
+
+  useEffect(() => {
+    setShown(message);
+    if (!message) return;
+    const id = window.setTimeout(() => setShown(null), TOAST_MS);
+    return () => window.clearTimeout(id);
+  }, [message]);
+
+  if (!shown) return null;
   return (
     <p
       role="status"

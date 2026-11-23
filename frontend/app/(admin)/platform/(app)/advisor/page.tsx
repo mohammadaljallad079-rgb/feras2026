@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { DataStates } from "@/components/DataStates";
 import { Modal } from "@/components/Modal";
 import { Toast } from "@/components/Toast";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 type Person = { id: number; full_name_ar: string; full_name_en: string };
@@ -57,7 +57,7 @@ export default function AdvisorPage() {
     try {
       setRows(await api.get<AdvisorMessage[]>("/api/v1/advisor/messages"));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }

@@ -358,8 +358,10 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             _card("submissions", "طلبات من الموقع", "Website submissions", submissions, href="/website"),
             _card("advisor", "رسائل المستشار", "Advisor messages", advisor, href="/advisor"),
             # The tasks are directives addressed to the developer, and Table 1
-            # gives that role no «المساعد الذكي» tab, so the card opens the
-            # directives screen where the tasks actually are.
+            # gives that role no «المساعد الذكي» tab: the server refuses
+            # `/api/v1/ai/*` with 403 for a business developer, so pointing the
+            # card at the assistant screen would send the user into a refusal.
+            # The card opens the directives screen, where the tasks actually are.
             _card("assistant", "مهام من المساعد", "Assistant tasks", assistant_tasks, href="/directives"),
         ]
     elif role == "marketer":

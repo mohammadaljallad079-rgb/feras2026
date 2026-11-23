@@ -206,7 +206,7 @@ export default function LeadsPage() {
               value={complaint}
               onChange={(e) => setComplaint(e.target.value)}
             />
-            <div className="flex justify-end gap-2">
+            <div className="actions">
               <button type="button" className="btn-ghost" onClick={() => setComplaintOpen(false)}>
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </button>
@@ -267,7 +267,7 @@ export default function LeadsPage() {
             <label className="label" htmlFor="lead-notes">{locale === "ar" ? "ملاحظة مختصرة" : "Brief note"}</label>
             <input id="lead-notes" className="input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
-          <div className="flex items-end justify-end gap-2 sm:col-span-3">
+          <div className="actions sm:col-span-3">
             <button type="button" className="btn-ghost" onClick={() => setLeadFormOpen(false)}>
               {locale === "ar" ? "إلغاء" : "Cancel"}
             </button>

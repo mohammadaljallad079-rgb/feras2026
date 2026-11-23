@@ -8,21 +8,23 @@ import { Modal } from "@/components/Modal";
 type Draft = Partial<Company> & { [key: string]: unknown };
 
 /**
- * §6.2 «معالج إضافة شركة» — four steps in one window.
+ * §6.2 «معالج إضافة شركة» — three numbered steps, then a review screen.
  *
- * The Word section opens by calling it «ثلاث خطوات» and then lists four blocks,
- * the fourth being «مراجعة بيانات الشركة» with «حفظ مسودة» and «حفظ وتفعيل».
- * Design p.7 is unambiguous: «نافذة بخطوات (من 1/4 إلى 4/4) مع زر حفظ كمسودة
- * والخروج. الخطوة الأخيرة مراجعة قبل الحفظ، ثم تفعيل.» The design is the
- * authoritative reference for the platform (AGENTS.md), so the review is its own
- * step and the counter reads 1/4 … 4/4.
+ * The Word section calls it «ثلاث خطوات» and numbers them «1/3» … «3/3», then
+ * lists the four blocks; the fourth is «مراجعة بيانات الشركة», which is the
+ * review screen rather than a numbered step. The prototype behind design p.7
+ * does exactly that: the title reads «إضافة شركة تابعة · 1/3» … «3/3», and the
+ * review opens as «مراجعة بيانات الشركة» with no counter, offering «تعديل» /
+ * «حفظ مسودة» / «حفظ وتفعيل».
  */
 const STEPS = [
   { ar: "البيانات الأساسية", en: "Basic data" },
   { ar: "التواصل والإدارة", en: "Contact and management" },
   { ar: "العلاقة بالقابضة", en: "Relationship with the holding" },
-  { ar: "مراجعة البيانات", en: "Review and save" },
 ];
+
+/** The review screen follows the last numbered step and carries no number. */
+const REVIEW = STEPS.length;
 
 // §6.2: the fields the brief marks as required with a star. A step cannot be
 // left while one of its required fields is empty, so the user never reaches the
@@ -36,7 +38,7 @@ const REQUIRED_BY_STEP: Record<number, { key: string; ar: string; en: string }[]
   ],
   1: [{ key: "currency", ar: "العملة المحلية", en: "Local currency" }],
   2: [{ key: "relationship", ar: "نوع العلاقة", en: "Relationship type" }],
-  3: [],
+  [REVIEW]: [],
 };
 
 // §6.2: the country, currency and sector choices named in the brief.
@@ -66,9 +68,10 @@ const RELATIONSHIPS = [
 type Person = { id: number; full_name_ar: string; full_name_en: string };
 
 /**
- * §6.2: «معالج إضافة شركة» — four steps inside one window over the companies
- * screen, titled «إضافة شركة تابعة · 1/4» … «4/4», with «التالي» and «السابق»
- * between the steps, «إلغاء» closing the window, and the review on step 4.
+ * §6.2: «معالج إضافة شركة» — three numbered steps inside one window over the
+ * companies screen, titled «إضافة شركة تابعة · 1/3» … «3/3», with «التالي» and
+ * «السابق» between them and «إلغاء» closing the window; the review follows as
+ * its own screen. The company manager is a required choice (§6.2 step 2).
  */
 export function CompanyWizard({
   onClose,
@@ -137,7 +140,7 @@ export function CompanyWizard({
   function goNext() {
     if (!validateStep(step)) return;
     setError(null);
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+    setStep((s) => Math.min(REVIEW, s + 1));
   }
 
   function goBack() {
@@ -147,7 +150,7 @@ export function CompanyWizard({
 
   /** Jump from the review back to the first step that still has a gap. */
   function goEdit() {
-    const firstIncomplete = [0, 1, 2].find((i) => missingOn(i).length > 0) ?? 0;
+    const firstIncomplete = STEPS.map((_, i) => i).find((i) => missingOn(i).length > 0) ?? 0;
     setError(null);
     setStep(firstIncomplete);
   }
@@ -250,16 +253,24 @@ export function CompanyWizard({
   return (
     <Modal
       title={
-        locale === "ar"
-          ? `إضافة شركة تابعة · ${step + 1}/${STEPS.length}`
-          : `Add subsidiary company · ${step + 1}/${STEPS.length}`
+        step === REVIEW
+          ? locale === "ar"
+            ? "مراجعة بيانات الشركة"
+            : "Review company data"
+          : locale === "ar"
+            ? `إضافة شركة تابعة · ${step + 1}/${STEPS.length}`
+            : `Add subsidiary company · ${step + 1}/${STEPS.length}`
       }
       onClose={onClose}
       wide
     >
         <ol className="mb-6 flex flex-wrap gap-3">
           {STEPS.map((s, i) => (
-            <li key={s.en} className={`chip ${i === step ? "chip-ok" : "chip-neutral"}`} aria-current={i === step ? "step" : undefined}>
+            <li
+              key={s.en}
+              className={`chip ${i === step ? "chip-ok" : "chip-neutral opacity-60"}`}
+              aria-current={i === step ? "step" : undefined}
+            >
               {i + 1}. {locale === "ar" ? s.ar : s.en}
             </li>
           ))}
@@ -378,7 +389,7 @@ export function CompanyWizard({
             </>
           )}
 
-          {step === 3 && (
+          {step === REVIEW && (
             <div>
               <h2 className="section-title mb-3">{locale === "ar" ? "مراجعة بيانات الشركة" : "Review the company data"}</h2>
               <dl className="grid gap-3 sm:grid-cols-2">
@@ -398,44 +409,37 @@ export function CompanyWizard({
           )}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-ghost" onClick={onClose}>
-              {locale === "ar" ? "إلغاء" : "Cancel"}
-            </button>
-            {/* §6.2: «تعديل» on the review step returns to the data. */}
-            {step === STEPS.length - 1 && (
+        {/* §6.2 / design p.7: one action row, aligned left. The numbered steps
+            carry «إلغاء» / «السابق» / «التالي»; the review carries «تعديل» /
+            «حفظ مسودة» / «حفظ وتفعيل». «السابق» is absent on the first step. */}
+        <div className="actions mt-6 border-t border-line pt-4">
+          {step === REVIEW ? (
+            <>
               <button type="button" className="btn-ghost" onClick={goEdit}>
                 {locale === "ar" ? "تعديل" : "Edit"}
               </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Design p.7: «مع زر حفظ كمسودة والخروج» — available on every step,
-                so a half-filled company can be kept without finishing the wizard. */}
-            {step > 0 && step < STEPS.length - 1 && (
               <button type="button" className="btn-ghost" onClick={() => void saveDraft()} disabled={busy}>
                 {locale === "ar" ? "حفظ مسودة" : "Save draft"}
               </button>
-            )}
-            <button type="button" className="btn-ghost" onClick={goBack} disabled={step === 0}>
-              {locale === "ar" ? "السابق" : "Back"}
-            </button>
-            {step < STEPS.length - 1 ? (
+              <button type="button" className="btn-primary" onClick={() => void saveAndActivate()} disabled={busy}>
+                {locale === "ar" ? "حفظ وتفعيل" : "Save and activate"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn-ghost" onClick={onClose}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              {step > 0 && (
+                <button type="button" className="btn-ghost" onClick={goBack}>
+                  {locale === "ar" ? "السابق" : "Back"}
+                </button>
+              )}
               <button type="button" className="btn-primary" onClick={goNext}>
                 {locale === "ar" ? "التالي" : "Next"}
               </button>
-            ) : (
-              <>
-                <button type="button" className="btn-ghost" onClick={() => void saveDraft()} disabled={busy}>
-                  {locale === "ar" ? "حفظ مسودة" : "Save draft"}
-                </button>
-                <button type="button" className="btn-primary" onClick={() => void saveAndActivate()} disabled={busy}>
-                  {locale === "ar" ? "حفظ وتفعيل" : "Save and activate"}
-                </button>
-              </>
-            )}
-          </div>
+            </>
+          )}
         </div>
     </Modal>
   );

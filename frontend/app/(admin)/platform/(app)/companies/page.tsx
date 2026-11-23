@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, loadError, Company } from "@/lib/api";
+import { api, loadErrorState, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthImage } from "@/components/AuthImage";
 import { DataStates } from "@/components/DataStates";
@@ -32,7 +32,7 @@ export default function CompaniesPage() {
       const query = closedOnly ? "?status=closed" : "";
       setRows(await api.get<Company[]>(`/api/v1/companies${query}`));
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
