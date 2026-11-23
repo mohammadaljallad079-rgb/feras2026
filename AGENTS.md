@@ -248,3 +248,33 @@ email starts with `visitor-` before running it after a sweep.
   (the manager's company assignment lives in `demo_data.py`, not `seed.py`), and
   create `safir_test` before running pytest. `scripts/demo_data.py` talks to the
   running API, so start uvicorn first.
+
+- `pytest-timeout` is not installed, so `--timeout=…` is rejected as an unknown
+  argument. Run `pytest -q` bare. The 13 `test_e2e_journeys.py` cases then error
+  with `httpx.ConnectError: Cannot assign requested address` — that is the
+  missing live server, not a regression. The in-process suite is 385 tests and
+  runs without it: `pytest -q --ignore=tests/test_e2e_journeys.py`.
+- To run the journeys locally, mirror CI: migrate and seed `safir_e2e`, start
+  uvicorn on a spare port with `DATABASE_URL` pointing at it, then
+  `SAFIR_BASE_URL=http://127.0.0.1:8001 pytest tests/test_e2e_journeys.py -q`.
+  Never point the server at `safir_test` — the fixtures truncate it mid-run.
+- Seeded demo emails are `@safir-platform.com` (`owner@`, `manager@`,
+  `accountant@`, `bd@`, `marketer@`, `designer@`, `advisor@`, `specialist@`),
+  not `@safir.demo`. A wrong address fails login silently and every later
+  selector times out.
+- Playwright needs `executable_path="/usr/bin/chromium"` and
+  `args=["--no-sandbox"]`; the bundled browser is not downloaded. The scripts in
+  `scripts/` already do this, but a throwaway script does not.
+- `scripts/check_matrix.py` drives `http://localhost:12000/platform/login`, so it
+  needs both uvicorn (8000) and `next start -p 12000` running. It reports
+  `85 route/viewport combinations inspected / 0 failures` when healthy.
+
+## Design p.4 refusal contract
+
+A cross-company read must not confirm the other company exists, so
+`assert_company_access` answers **404** with `{"error": "not_found", "reason":
+"denied"}` rather than 403. The interface still has to show the 403 state the
+design asks for, so `lib/api.ts` treats either a 403 status or `reason:
+"denied"` as a refusal (`isRefusal`), marks the message with `DENIED_MARKER`,
+and `DataStates` renders `DeniedState` instead of a bare error line. Do not
+"simplify" the 404 back to a plain string — that breaks the 403 screen.
