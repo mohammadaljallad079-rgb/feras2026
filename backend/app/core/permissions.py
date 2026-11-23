@@ -104,67 +104,109 @@ ROLE_TEMPLATES: dict[str, dict[str, object]] = {
         # (design reference page 8), rather than every draft. Confidential HR
         # attachments are withheld from the owner too: page 14 says leave
         # attachments read «مرفق مقيد» to the owner.
+        #
+        # §5.1 names three of the owner's screens «عرض فقط» (view only): Holding
+        # accounting, Employees & HR and the External advisor. Financial editing
+        # belongs to the accountant alone (§5.3), employees are added by the
+        # manager and the business developer (§5.2, §5.4), and the advisor is the
+        # only role that composes advisor messages. The owner therefore holds the
+        # matching *view* permissions, never `accounting:manage`, `hr:manage` or
+        # `advisor:submit`.
         "permissions": [
             p
             for p in ALL_PERMISSIONS
-            if p not in (REPORT_REVIEW, REPORT_FORWARD, HR_VIEW_CONFIDENTIAL)
+            if p
+            not in (
+                REPORT_REVIEW,
+                REPORT_FORWARD,
+                REPORT_SUBMIT,
+                HR_VIEW_CONFIDENTIAL,
+                ACCOUNTING_MANAGE,
+                HR_MANAGE,
+                ADVISOR_SUBMIT,
+            )
         ],
     },
+    # Table 1 of the owner's brief (the Word file «شرح منصة ستارت أب سفير»):
+    # the manager sees Dashboard, Monthly reports, Service requests, Leads,
+    # Directives, Employees & HR and the AI assistant — and nothing else. It
+    # keeps `company:view` only so company pickers and isolation checks work;
+    # the Companies tab is gated on `company:manage`, which the manager lacks.
     COMPANY_MANAGER: {
         "name_ar": "مدير شركة",
         "name_en": "Company Manager",
         "permissions": [
-            COMPANY_VIEW, USER_VIEW, REPORT_VIEW_OWN, REPORT_SUBMIT, FORM_MANAGE,
-            SERVICE_VIEW, SERVICE_CREATE, SERVICE_REPLY, LEAD_VIEW,
-            DIRECTIVE_VIEW, DIRECTIVE_UPDATE, HR_VIEW, HR_MANAGE,
-            HR_VIEW_CONFIDENTIAL, HR_VIEW_SALARY,
-            ACCOUNTING_VIEW, WEBSITE_VIEW, AI_USE,
+            COMPANY_VIEW, REPORT_VIEW_OWN, REPORT_SUBMIT, REPORT_EXPORT,
+            SERVICE_VIEW, SERVICE_CREATE, SERVICE_REPLY,
+            LEAD_VIEW, LEAD_MANAGE,
+            DIRECTIVE_VIEW, DIRECTIVE_UPDATE,
+            HR_VIEW, HR_MANAGE, HR_VIEW_CONFIDENTIAL, HR_VIEW_SALARY,
+            AI_USE,
         ],
     },
+    # The accountant: reports, holding accounting (edit), service requests,
+    # directives and the form builder. No AI assistant (Table 1).
     ACCOUNTANT: {
         "name_ar": "محاسب",
         "name_en": "Accountant",
         "permissions": [
             COMPANY_VIEW, REPORT_VIEW_ALL, REPORT_REVIEW, REPORT_FORWARD, REPORT_EXPORT, REPORT_PERIOD_MANAGE,
-            ACCOUNTING_VIEW, ACCOUNTING_MANAGE, SERVICE_VIEW, SERVICE_REPLY, AI_USE,
+            ACCOUNTING_VIEW, ACCOUNTING_MANAGE,
+            SERVICE_VIEW, SERVICE_REPLY,
+            DIRECTIVE_VIEW,
+            FORM_MANAGE,
         ],
     },
+    # The business developer: reports (and works on the Holding's own report),
+    # holding accounting (view), service requests, leads, opportunities,
+    # directives, employees, website management and the external advisor.
     BUSINESS_DEVELOPER: {
         "name_ar": "مطوّر أعمال",
         "name_en": "Business Developer",
         "permissions": [
-            COMPANY_VIEW, REPORT_VIEW_ALL, LEAD_VIEW, LEAD_MANAGE,
-            OPP_VIEW, OPP_CREATE, SERVICE_VIEW, SERVICE_CREATE,
-            ADVISOR_VIEW, ADVISOR_SUBMIT, WEBSITE_VIEW, WEBSITE_MANAGE,
-            SITE_SUBMISSIONS, SITE_ASSIGN, AI_USE,
+            COMPANY_VIEW, REPORT_VIEW_ALL, REPORT_SUBMIT, REPORT_EXPORT,
+            ACCOUNTING_VIEW,
+            SERVICE_VIEW,
+            LEAD_VIEW, LEAD_MANAGE,
+            OPP_VIEW, OPP_CREATE,
+            DIRECTIVE_VIEW,
+            HR_VIEW, HR_MANAGE,
+            WEBSITE_VIEW, WEBSITE_MANAGE,
+            ADVISOR_VIEW, ADVISOR_SUBMIT,
+            SITE_SUBMISSIONS, SITE_ASSIGN,
         ],
     },
+    # The marketer: leads and a read-only directives tab, plus the "send a
+    # complaint to the owner" action (which needs service:create but no
+    # service:view, so no Service requests tab appears).
     MARKETER: {
         "name_ar": "مسوّق",
         "name_en": "Marketer",
         "permissions": [
-            COMPANY_VIEW, LEAD_VIEW, LEAD_MANAGE, SERVICE_VIEW, SERVICE_CREATE, AI_USE,
+            COMPANY_VIEW, LEAD_VIEW, LEAD_MANAGE, DIRECTIVE_VIEW, SERVICE_CREATE,
         ],
     },
+    # The designer: service requests (reply / update status) and directives.
     DESIGNER: {
         "name_ar": "مصمّم",
         "name_en": "Designer",
         "permissions": [
-            COMPANY_VIEW, SERVICE_VIEW, SERVICE_REPLY, AI_USE,
+            COMPANY_VIEW, SERVICE_VIEW, SERVICE_REPLY, DIRECTIVE_VIEW,
         ],
     },
+    # The external advisor: the advisor tab only (no AI assistant).
     ADVISOR: {
         "name_ar": "مستشار خارجي",
         "name_en": "External Advisor",
         "permissions": [
-            COMPANY_VIEW, ADVISOR_VIEW, ADVISOR_SUBMIT, AI_USE,
+            COMPANY_VIEW, ADVISOR_VIEW, ADVISOR_SUBMIT,
         ],
     },
     SERVICE_SPECIALIST: {
         "name_ar": "أخصائي خدمات",
         "name_en": "Service Specialist",
         "permissions": [
-            COMPANY_VIEW, SERVICE_VIEW, SERVICE_REPLY, AI_USE,
+            COMPANY_VIEW, SERVICE_VIEW, SERVICE_REPLY,
         ],
     },
 }

@@ -21,6 +21,7 @@ from app.core.db import SessionLocal
 from app.core.permissions import ROLE_TEMPLATES
 from app.core.security import hash_password
 from app.models.identity import Role, User, UserRole
+from app.services.bootstrap import ensure_report_fields
 
 DEMO_PASSWORD = "Safir!2026"
 DEMO_USERS = [
@@ -39,6 +40,9 @@ def main() -> int:
     db = SessionLocal()
     try:
         ensure_system_roles(db)
+        # §7.4: the report fields the brief names and the Holding's own company
+        # record are structural, not demo data, so they are seeded here.
+        ensure_report_fields(db)
         for email, name_ar, name_en, slugs in DEMO_USERS:
             user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
             if user is None:

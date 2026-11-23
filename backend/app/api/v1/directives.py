@@ -14,7 +14,7 @@ from app.models.enums import DirectiveStatus
 from app.models.identity import User
 from app.models.operations import ExecutiveDirective
 from app.schemas import DirectiveCreate, DirectiveOut
-from app.services import audit
+from app.services import audit, mail
 
 router = APIRouter(prefix="/directives", tags=["directives"])
 
@@ -62,6 +62,14 @@ def create_directive(
     audit.record(db, action="directive.create", actor=actor, target_type="directive", target_id=d.id, company_id=d.company_id)
     db.commit()
     db.refresh(d)
+    # Table 5: «توجيه جديد … لمستلم واحد فقط دون نسخة لغيره». The single
+    # recipient is notified; no copy reaches anyone else.
+    recipient = db.get(User, d.recipient_id)
+    if recipient is not None:
+        mail.notify(
+            [recipient.email],
+            mail.directive_email(recipient.locale or "ar", title=d.title, body=d.body or ""),
+        )
     return _decorate(d)
 
 
@@ -108,12 +116,15 @@ def receive_directive(
 @router.post("/{directive_id}/complete", response_model=DirectiveOut)
 def complete_directive(
     directive_id: int,
-    actor: User = Depends(require("directive:update")),
+    actor: User = Depends(require("directive:view")),
     db: Session = Depends(get_db),
 ) -> DirectiveOut:
     d = db.get(ExecutiveDirective, directive_id)
     if d is None:
         raise HTTPException(status_code=404, detail="Directive not found")
+    # Table 5 and Table 10: the recipient acknowledges receipt and then records
+    # completion. Any recipient may, whatever their role, so the guard is
+    # «is this the recipient» rather than a write grant.
     if d.recipient_id != actor.id and "directive:create" not in _perms(actor):
         raise HTTPException(status_code=403, detail="Not permitted")
     if d.status not in {DirectiveStatus.SENT.value, DirectiveStatus.RECEIVED.value}:

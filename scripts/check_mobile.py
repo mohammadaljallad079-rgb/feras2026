@@ -1,6 +1,6 @@
 from playwright.sync_api import sync_playwright
 B="http://localhost:12000"
-ROUTES=["/platform/dashboard","/platform/companies","/platform/leads","/platform/reports","/platform/hr","/platform/users","/platform/audit","/platform/accounting","/platform/service-requests","/platform/website","/platform/website/content"]
+ROUTES=["/platform/dashboard","/platform/companies","/platform/leads","/platform/opportunities","/platform/reports","/platform/hr","/platform/users","/platform/audit","/platform/accounting","/platform/service-requests","/platform/website","/platform/website/content"]
 with sync_playwright() as p:
     br=p.chromium.launch(executable_path="/usr/bin/chromium",args=["--no-sandbox"])
     ctx=br.new_context(viewport={"width":400,"height":900})

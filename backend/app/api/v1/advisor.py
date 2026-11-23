@@ -46,8 +46,19 @@ def create_message(
 ) -> AdvisorMessageOut:
     if payload.category not in {c.value for c in AdvisorCategory}:
         raise HTTPException(status_code=422, detail="Unknown category")
-    if db.get(User, payload.recipient_id) is None:
+    recipient = db.get(User, payload.recipient_id)
+    if recipient is None:
         raise HTTPException(status_code=422, detail="Recipient not found")
+    # Table 5: a recommendation and a suggestion go to the Business Developer; a
+    # report goes to the Owner or the Business Developer. Nobody else.
+    recipient_roles = {ur.role.slug for ur in recipient.roles if ur.role}
+    allowed = (
+        {"business_developer"}
+        if payload.category in {AdvisorCategory.RECOMMENDATION.value, AdvisorCategory.SUGGESTION.value}
+        else {"owner", "business_developer"}
+    )
+    if not (recipient_roles & allowed):
+        raise HTTPException(status_code=422, detail="Recipient not allowed for this category")
     msg = AdvisorMessage(**payload.model_dump(), author_id=actor.id)
     db.add(msg)
     db.flush()

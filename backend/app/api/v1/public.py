@@ -12,27 +12,30 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.content.site_content import OPPORTUNITY_COUNTRIES
+from app.content import site_content as content
 from app.core.config import settings
 from app.core.db import get_db
 from app.models.business import Company
 from app.models.enums import CompanyStatus, SubmissionKind, SubmissionStatus
-from app.models.operations import WebsiteSubmission, WebsiteSubmissionEvent
+from app.models.operations import StoredFile, WebsiteSubmission, WebsiteSubmissionEvent
 from app.schemas import PublicCompanyOut, PublicSubmission, SiteBootstrap, SubmissionOut
 from app.services import audit, site
-from app.services.files import save_upload
+from app.services.files import path_for, save_upload
 
 router = APIRouter(prefix="/public", tags=["public"])
 
-# Fields each form requires, beyond name/email/consent (brief §8).
+# Fields each form requires, beyond name/email/consent (Table 12). Only the
+# starred fields are mandatory: «نوع الخدمة *» for a service request,
+# «دولة المشروع *» and «وصف مختصر *» for an opportunity, and the CV for a job
+# application. «موضوع الفرصة» and «مجال الاهتمام أو الخبرة» carry no star.
 _KIND_REQUIRED: dict[str, tuple[str, ...]] = {
-    SubmissionKind.CONTACT.value: (),
     SubmissionKind.SERVICE_REQUEST.value: ("phone", "service_type"),
-    SubmissionKind.OPPORTUNITY.value: ("phone", "country", "subject"),
-    SubmissionKind.JOB_APPLICATION.value: ("phone", "expertise"),
+    SubmissionKind.OPPORTUNITY.value: ("phone", "country", "message"),
+    SubmissionKind.JOB_APPLICATION.value: ("phone",),
 }
 
 
@@ -47,6 +50,17 @@ def site_bootstrap(db: Session = Depends(get_db)) -> SiteBootstrap:
         header_nav=site.nav_links(db, "header"),
         footer_nav=site.nav_links(db, "footer"),
         opportunity_countries=site.opportunity_countries(),
+        privacy={
+            "intro": {"ar": content.PRIVACY_INTRO_AR, "en": content.PRIVACY_INTRO_EN},
+            "review_note": {
+                "ar": content.PRIVACY_REVIEW_NOTE_AR,
+                "en": content.PRIVACY_REVIEW_NOTE_EN,
+            },
+            "sections": [
+                {"title": {"ar": ar_h, "en": en_h}, "body": {"ar": ar_p, "en": en_p}}
+                for ar_h, en_h, ar_p, en_p in content.PRIVACY_SECTIONS
+            ],
+        },
     )
 
 
@@ -69,10 +83,40 @@ def public_companies(
             name_en=c.name_en,
             sector=c.sector,
             country=c.country,
-            logo_url=c.logo_url,
+            logo_url=f"/api/v1/public/companies/{c.code}/logo" if c.logo_file_id else None,
+            activity_ar=c.public_activity_ar,
+            activity_en=c.public_activity_en,
+            website_url=c.website_url,
         )
         for c in rows
     ]
+
+
+@router.get("/companies/{code}/logo")
+def public_company_logo(code: str, db: Session = Depends(get_db)) -> FileResponse:
+    """The logo of a published company, served inline for the public site.
+
+    Only a company that is both active and flagged ``public_visible`` exposes
+    its logo here; the file is served inline as an image so the portfolio card
+    and the preview modal can render it. No other file is reachable this way.
+    """
+    company = db.execute(
+        select(Company).where(
+            Company.code == code,
+            Company.public_visible.is_(True),
+            Company.status == CompanyStatus.ACTIVE.value,
+        )
+    ).scalars().first()
+    if company is None or company.logo_file_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No public logo")
+    record = db.get(StoredFile, company.logo_file_id)
+    if record is None or not record.content_type.startswith("image/"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No public logo")
+    return FileResponse(
+        path_for(record),
+        media_type=record.content_type,
+        content_disposition_type="inline",
+    )
 
 
 def _check_rate_limit(db: Session, ip: str) -> None:
@@ -93,7 +137,7 @@ def _reference_no(kind: str) -> str:
         SubmissionKind.SERVICE_REQUEST.value: "SR",
         SubmissionKind.OPPORTUNITY.value: "OP",
         SubmissionKind.JOB_APPLICATION.value: "JB",
-    }.get(kind, "CT")
+    }[kind]
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     return f"{prefix}-{stamp}-{secrets.token_hex(3).upper()}"
 
@@ -170,7 +214,7 @@ def _persist(
     missing = [f for f in _KIND_REQUIRED.get(kind, ()) if not getattr(data, f, None)]
     if missing:
         raise HTTPException(status_code=422, detail={"error": "missing_fields", "fields": missing})
-    if kind == SubmissionKind.OPPORTUNITY.value and data.country not in OPPORTUNITY_COUNTRIES:
+    if kind == SubmissionKind.OPPORTUNITY.value and data.country not in content.OPPORTUNITY_COUNTRIES:
         raise HTTPException(status_code=422, detail={"error": "unsupported_country"})
     if kind == SubmissionKind.JOB_APPLICATION.value and attachment_file_id is None:
         raise HTTPException(status_code=422, detail={"error": "cv_required"})

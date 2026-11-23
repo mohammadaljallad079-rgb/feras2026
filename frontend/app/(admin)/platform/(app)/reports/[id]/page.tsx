@@ -1,19 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { api, loadError, FormField, MonthlyReport } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { api, loadErrorState, Company, FormField, MonthlyReport } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { DataStates } from "@/components/DataStates";
-import { StatusChip } from "@/components/StatusChip";
+import { ReportStatusChip } from "@/components/StatusChip";
+import { Toast } from "@/components/Toast";
 
 type ReportEvent = { from_status: string | null; to_status: string; reason: string | null; created_at: string };
 
 export default function ReportDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const { locale, can } = useAuth();
   const [report, setReport] = useState<MonthlyReport | null>(null);
   const [fields, setFields] = useState<FormField[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [history, setHistory] = useState<ReportEvent[]>([]);
   const [values, setValues] = useState<Record<number, string>>({});
   const [commentary, setCommentary] = useState("");
@@ -24,6 +27,8 @@ export default function ReportDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // §7.3: the return-for-correction modal.
+  const [returning, setReturning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,9 +46,11 @@ export default function ReportDetailPage() {
       setHistory(h);
       const f = await api.get<FormField[]>("/api/v1/form-fields").catch(() => []);
       setFields(f);
+      const cs = await api.get<Company[]>("/api/v1/companies?include_holding=true&include_closed=true").catch(() => []);
+      setCompanies(cs);
     } catch (e) {
       setError(
-        loadError(e, locale, {
+        loadErrorState(e, locale, {
           ar: "التقرير غير موجود أو غير مصرّح بالوصول إليه.",
           en: "The report does not exist or you are not permitted to view it.",
         }),
@@ -86,6 +93,41 @@ export default function ReportDetailPage() {
 
   const locked = report ? ["approved", "forwarded"].includes(report.status) : false;
   const editable = report ? ["draft", "returned"].includes(report.status) : false;
+
+  // §7.4: a field appears in a company's report only within its scope — a
+  // sector field only for that sector, a company field only for that company,
+  // an unscoped field for every company. Mirrors the backend's `_applies`, which
+  // validates the same rule on submit. Until the company is known the list is
+  // left unfiltered rather than blanked.
+  const reportCompany = report ? companies.find((c) => c.id === report.company_id) : undefined;
+  const scopedFields = reportCompany
+    ? fields.filter(
+        (f) =>
+          (f.company_id === null || f.company_id === reportCompany.id) &&
+          (!f.sector_scope || f.sector_scope === reportCompany.sector),
+      )
+    : fields;
+
+  // §7.3: the «التقرير الإداري» table — one row per field that carries a value,
+  // shown as label and value in the company's own currency. Rows follow the
+  // report's saved values, so a field removed from the builder still appears.
+  const managementRows = (report?.values ?? []).flatMap((v) => {
+    const field = fields.find((f) => f.id === v.field_id);
+    const raw = v.value_number ?? v.value_text;
+    if (raw === null || raw === undefined || raw === "") return [];
+    const numeric = v.value_number !== null && v.value_number !== undefined;
+    return [
+      {
+        id: v.field_id,
+        name_ar: v.field_name_ar ?? field?.name_ar ?? `#${v.field_id}`,
+        name_en: v.field_name_en ?? field?.name_en ?? `#${v.field_id}`,
+        numeric,
+        display: numeric
+          ? `${Number(v.value_number).toLocaleString("en-US", { maximumFractionDigits: 2 })} ${report?.currency ?? ""}`.trim()
+          : String(v.value_text),
+      },
+    ];
+  });
 
   async function uploadStatement(file: File) {
     setUploading(true);
@@ -130,17 +172,26 @@ export default function ReportDetailPage() {
         <h1 className="page-title">
           {locale === "ar" ? "التقرير الشهري" : "Monthly report"} #{params.id}
         </h1>
-        {report && <StatusChip value={report.status} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {report && <ReportStatusChip value={report.status} />}
+          {/* Table 3 / Table 9: «رجوع» returns to the reports list for every role. */}
+          <button type="button" className="btn-ghost" onClick={() => router.push("/platform/reports")}>
+            {locale === "ar" ? "رجوع" : "Back"}
+          </button>
+        </div>
       </header>
 
-      {message && (
-        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
-          {message}
-        </p>
-      )}
       {locked && (
         <p className="mb-4 rounded-control border border-warn bg-warnbg p-3 text-warn">
           {locale === "ar" ? "التقرير معتمد ومقفل." : "The report is approved and locked."}
+        </p>
+      )}
+      {/* Table 8: a report returned for edit shows the accountant's reason in an
+          alert at the top of the page, and the manager edits and resubmits. */}
+      {report?.status === "returned" && report.returned_reason && (
+        <p role="alert" className="mb-4 rounded-control border border-warn bg-warnbg p-3 text-warn">
+          <span className="font-semibold">{locale === "ar" ? "أُعيد للتعديل: " : "Returned for edit: "}</span>
+          {report.returned_reason}
         </p>
       )}
       <p className="muted mb-4">
@@ -154,11 +205,11 @@ export default function ReportDetailPage() {
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="card space-y-4 lg:col-span-2">
               <h2 className="section-title">{locale === "ar" ? "قيم التقرير" : "Report values"}</h2>
-              {fields
+              {scopedFields
                 .filter((f) => f.is_active)
                 .sort((a, b) => Number(Boolean(a.parent_id)) - Number(Boolean(b.parent_id)) || a.display_order - b.display_order)
                 .map((f) => {
-                  const parent = f.parent_id ? fields.find((p) => p.id === f.parent_id) : undefined;
+                  const parent = f.parent_id ? scopedFields.find((p) => p.id === f.parent_id) : undefined;
                   return (
                   <div key={f.id} className={parent ? "ps-6" : undefined}>
                     <label className="label" htmlFor={`field-${f.id}`}>
@@ -231,7 +282,7 @@ export default function ReportDetailPage() {
                 {editable && can("report:submit") && (
                   <>
                     <button type="button" className="btn-ghost" onClick={() => void saveValues()} disabled={busy}>
-                      {locale === "ar" ? "حفظ" : "Save"}
+                      {locale === "ar" ? "حفظ المسودة" : "Save draft"}
                     </button>
                     <button
                       type="button"
@@ -239,7 +290,7 @@ export default function ReportDetailPage() {
                       disabled={busy}
                       onClick={() => void run(() => api.post(`/api/v1/reports/${params.id}/submit`), "تم الإرسال إلى المحاسبة.", "Submitted to accounting.")}
                     >
-                      {locale === "ar" ? "إرسال إلى المحاسبة" : "Submit to accounting"}
+                      {locale === "ar" ? "إرسال للمحاسبة" : "Submit to accounting"}
                     </button>
                   </>
                 )}
@@ -253,19 +304,13 @@ export default function ReportDetailPage() {
                     >
                       {locale === "ar" ? "اعتماد" : "Approve"}
                     </button>
-                    <input
-                      className="input w-auto"
-                      placeholder={locale === "ar" ? "سبب الإعادة" : "Return reason"}
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                    />
                     <button
                       type="button"
-                      className="btn-ghost"
-                      disabled={busy || reason.trim().length < 3}
-                      onClick={() => void run(() => api.post(`/api/v1/reports/${params.id}/return`, { reason }), "تمت الإعادة.", "Returned.")}
+                      className="btn-bad"
+                      disabled={busy}
+                      onClick={() => setReturning(true)}
                     >
-                      {locale === "ar" ? "إعادة" : "Return"}
+                      {locale === "ar" ? "إعادة للتصحيح" : "Return for correction"}
                     </button>
                   </>
                 )}
@@ -285,14 +330,51 @@ export default function ReportDetailPage() {
                     className="btn-ghost"
                     onClick={() => void api.download(`/api/v1/reports/${params.id}/export`, `report-${params.id}.xlsx`)}
                   >
-                    {locale === "ar" ? "تصدير Excel" : "Export Excel"}
+                    {locale === "ar" ? "تنزيل Excel" : "Download Excel"}
                   </button>
                 )}
               </div>
             </div>
 
+            {/* §7.3: the report page carries a «التقرير الإداري» section — a
+                field/value table of the submitted numbers in the company's local
+                currency — plus a «سجل التغييرات» (change log). */}
+            <div className="space-y-4">
             <div className="card">
-              <h2 className="section-title mb-3">{locale === "ar" ? "سجل التقرير" : "Report history"}</h2>
+              <h2 className="section-title mb-3">{locale === "ar" ? "التقرير الإداري" : "Management report"}</h2>
+              {managementRows.length === 0 ? (
+                <p className="muted">{locale === "ar" ? "لا توجد بيانات لعرضها." : "No data to display."}</p>
+              ) : (
+                <div className="table-scroll">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th className="p-2 text-start">{locale === "ar" ? "الحقل" : "Field"}</th>
+                      <th className="p-2 text-start">{locale === "ar" ? "القيمة" : "Value"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {managementRows.map((row) => (
+                      <tr key={row.id} className="border-b border-line last:border-0">
+                        <td className="p-2">{locale === "ar" ? row.name_ar : row.name_en}</td>
+                        <td className="p-2 tabular-nums" dir={row.numeric ? "ltr" : undefined}>
+                          {row.display}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+              <p className="muted mt-3">
+                {locale === "ar"
+                  ? `المبالغ بعملة الشركة (${report?.currency ?? "—"}).`
+                  : `Amounts are in the company currency (${report?.currency ?? "—"}).`}
+              </p>
+            </div>
+
+            <div className="card">
+              <h2 className="section-title mb-3">{locale === "ar" ? "سجل التغييرات" : "Change log"}</h2>
               {history.length === 0 ? (
                 <p className="muted">{locale === "ar" ? "لا توجد بيانات لعرضها." : "No data to display."}</p>
               ) : (
@@ -300,7 +382,7 @@ export default function ReportDetailPage() {
                   {history.map((h, i) => (
                     <li key={i} className="border-b border-line pb-2 last:border-0">
                       <div className="flex items-center gap-2">
-                        <StatusChip value={h.to_status} />
+                        <ReportStatusChip value={h.to_status} />
                         <span className="muted" dir="ltr">
                           {h.created_at.slice(0, 16).replace("T", " ")}
                         </span>
@@ -311,9 +393,48 @@ export default function ReportDetailPage() {
                 </ol>
               )}
             </div>
+            </div>
           </div>
         )}
       </DataStates>
+
+      {/* §7.3: «إعادة للتعديل» — the reason is mandatory and must be clear. */}
+      {returning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (reason.trim().length < 3) return;
+              setReturning(false);
+              void run(() => api.post(`/api/v1/reports/${params.id}/return`, { reason }), "تمت الإعادة.", "Returned.");
+            }}
+            className="card w-full max-w-md space-y-4"
+          >
+            <h2 className="section-title">{locale === "ar" ? "إعادة للتعديل" : "Return for correction"}</h2>
+            <div>
+              <label className="label" htmlFor="return-reason">
+                {locale === "ar" ? "السبب (إلزامي، واضح) *" : "Reason (mandatory, clear) *"}
+              </label>
+              <textarea
+                id="return-reason"
+                className="input min-h-24"
+                required
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setReturning(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="submit" className="btn-bad" disabled={reason.trim().length < 3}>
+                {locale === "ar" ? "إعادة" : "Return"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      <Toast message={message} />
     </section>
   );
 }

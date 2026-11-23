@@ -21,6 +21,7 @@ from app.schemas import (
     OpportunityCreate,
     OpportunityDecision,
     OpportunityOut,
+    OpportunityUpdate,
 )
 from app.services import audit
 
@@ -58,10 +59,17 @@ def create_lead(
     db: Session = Depends(get_db),
 ) -> LeadOut:
     # Companies must be selected from registered companies.
-    if db.get(Company, payload.company_id) is None:
+    company = db.get(Company, payload.company_id)
+    if company is None:
         raise HTTPException(status_code=422, detail="Company must be a registered company")
     assert_company_access(db, actor, payload.company_id)
-    lead = Lead(**payload.model_dump())
+    data = payload.model_dump()
+    # Table 6, «حفظ وتحويل»: the lead is converted to the receiving company's
+    # manager, so it lands in that manager's «عملاء محولون» without a second
+    # manual step. An explicit assignee still wins.
+    if data.get("assigned_to_id") is None:
+        data["assigned_to_id"] = company.manager_user_id
+    lead = Lead(**data)
     db.add(lead)
     db.flush()
     audit.record(db, action="lead.create", actor=actor, target_type="lead", target_id=lead.id, company_id=lead.company_id)
@@ -127,6 +135,64 @@ def create_opportunity(
     return OpportunityOut.model_validate(opp)
 
 
+@router.get("/opportunities/compare", response_model=list[OpportunityOut])
+def compare_opportunities(
+    ids: str = Query(description="Comma-separated opportunity ids"),
+    user: User = Depends(require("opportunity:view")),
+    db: Session = Depends(get_db),
+) -> list[OpportunityOut]:
+    """The chosen opportunities side by side.
+
+    Reading the same records the list already returns, so it grants nothing
+    extra: the company scope applies here too.
+    """
+    try:
+        wanted = {int(part) for part in ids.split(",") if part.strip()}
+    except ValueError:
+        raise HTTPException(status_code=422, detail={"error": "invalid_ids"}) from None
+    if not wanted:
+        return []
+    stmt = select(Opportunity).where(Opportunity.id.in_(wanted))
+    allowed = allowed_company_ids(db, user)
+    if allowed is not None:
+        stmt = stmt.where(Opportunity.company_id.in_(allowed or {-1}))
+    rows = db.execute(stmt.order_by(Opportunity.id)).scalars().all()
+    return [OpportunityOut.model_validate(o) for o in rows]
+
+
+@router.patch("/opportunities/{opp_id}", response_model=OpportunityOut)
+def update_opportunity(
+    opp_id: int,
+    payload: OpportunityUpdate,
+    actor: User = Depends(require("opportunity:create")),
+    db: Session = Depends(get_db),
+) -> OpportunityOut:
+    """Fill in the analysis file, or record the realised outcome after approval."""
+    opp = db.get(Opportunity, opp_id)
+    if opp is None:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    assert_company_access(db, actor, opp.company_id)
+    data = payload.model_dump(exclude_unset=True)
+    outcome = {k: data.pop(k) for k in ("actual_return", "actual_note") if k in data}
+    if data and opp.status != OpportunityStatus.DRAFT.value:
+        # Past the draft the record is the owner's to decide on; only the
+        # outcome fields stay open, so a submitted case cannot be rewritten
+        # under the decision.
+        raise HTTPException(status_code=409, detail={"error": "not_a_draft"})
+    for field, value in data.items():
+        setattr(opp, field, value)
+    for field, value in outcome.items():
+        setattr(opp, field, value)
+    audit.record(
+        db, action="opportunity.update", actor=actor,
+        target_type="opportunity", target_id=opp.id, company_id=opp.company_id,
+        meta={"fields": sorted(data) + sorted(outcome)},
+    )
+    db.commit()
+    db.refresh(opp)
+    return OpportunityOut.model_validate(opp)
+
+
 @router.post("/opportunities/{opp_id}/submit", response_model=OpportunityOut)
 def submit_opportunity(
     opp_id: int,
@@ -166,10 +232,23 @@ def decide_opportunity(
     }
     if payload.decision not in allowed_decisions:
         raise HTTPException(status_code=422, detail="Invalid decision")
+    # Table 5: rejection and deferral require a reason; approval and review do not.
+    if payload.decision in {OpportunityStatus.REJECTED.value, OpportunityStatus.DEFERRED.value}:
+        if not (payload.note or "").strip():
+            raise HTTPException(status_code=422, detail={"error": "reason_required"})
+    # «المسؤول عن المتابعة والموعد القادم» — the owner names both with the
+    # decision. They do not gate the decision itself: the brief's four buttons
+    # work without them.
+    if payload.next_step_owner_id is not None and db.get(User, payload.next_step_owner_id) is None:
+        raise HTTPException(status_code=422, detail={"error": "unknown_next_step_owner"})
     opp.status = payload.decision
     opp.decided_by_id = actor.id
     opp.decided_at = datetime.now(timezone.utc)
     opp.decision_note = payload.note
+    if payload.next_step_owner_id is not None:
+        opp.next_step_owner_id = payload.next_step_owner_id
+    if payload.next_step_on is not None:
+        opp.next_step_on = payload.next_step_on
     audit.record(db, action="opportunity.decision", actor=actor, target_type="opportunity", target_id=opp.id, company_id=opp.company_id, meta={"decision": payload.decision})
     db.commit()
     db.refresh(opp)

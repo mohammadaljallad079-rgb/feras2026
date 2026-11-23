@@ -145,14 +145,17 @@ def test_return_requires_reason(client, make_user, login, db):
 def test_manager_cannot_submit_into_closed_period(client, make_user, login, db):
     make_user("r3_owner@safir-platform.com", ["owner"])
     h_owner = login("r3_owner@safir-platform.com")
+    # §7.1: the writer is the company manager, not the owner.
+    mgr = make_user("r3_mgr@safir-platform.com", ["company_manager"])
+    h_manager = login("r3_mgr@safir-platform.com")
     cid = _company(client, h_owner, code="RPT-3")
+    client.patch(f"/api/v1/users/{mgr.id}", headers=h_owner, json={"company_ids": [cid]})
     pid = _period(client, h_owner)
     # Close the period directly.
     from app.models.business import ReportingPeriod
 
     db.get(ReportingPeriod, pid).status = "closed"
     db.commit()
-    h_manager = login("r3_owner@safir-platform.com")
     resp = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid})
     assert resp.status_code == 409
 
@@ -191,6 +194,80 @@ def test_owner_and_developer_see_only_reports_sent_to_management(client, make_us
 
     assert draft_id in [r["id"] for r in client.get("/api/v1/reports", headers=h_owner).json()]
     assert draft_id in [r["id"] for r in client.get("/api/v1/reports", headers=h_bd).json()]
+
+
+def test_owner_sees_a_report_only_after_it_is_sent_to_management(client, make_user, login, db):
+    """§5.1/§7.1: «بعد الاعتماد يرسل المحاسب للإدارة. عندها فقط يراه المالك».
+
+    The owner reads the reports sent to management — the ``forwarded`` state — and
+    neither a merely ``approved`` report (Table 8 marks «معتمد» as the accountant's)
+    nor the drafts and submissions before it.
+    """
+    make_user("fwd_owner@safir-platform.com", ["owner"])
+    manager = make_user("fwd_manager@safir-platform.com", ["company_manager"])
+    acct = make_user("fwd_acct@safir-platform.com", ["accountant"])
+    h_owner = login("fwd_owner@safir-platform.com")
+    h_manager = login("fwd_manager@safir-platform.com")
+    h_acct = login("fwd_acct@safir-platform.com")
+
+    cid = _company(client, h_owner, code="FWD-1")
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+    rid = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+
+    user = db.query(User).filter(User.email == "fwd_manager@safir-platform.com").one()
+    _attach_bank_statement(db, rid, _bank_statement(db, user))
+    assert client.post(f"/api/v1/reports/{rid}/submit", headers=h_manager).status_code == 200
+
+    # Submitted and approved are not yet sent to management.
+    assert rid not in [r["id"] for r in client.get("/api/v1/reports", headers=h_owner).json()]
+    assert client.post(f"/api/v1/reports/{rid}/approve", headers=h_acct).status_code == 200
+    assert rid not in [r["id"] for r in client.get("/api/v1/reports", headers=h_owner).json()]
+    assert client.get(f"/api/v1/reports/{rid}", headers=h_owner).status_code == 404
+
+    # Only after the accountant sends it to management does the owner see it.
+    assert client.post(f"/api/v1/reports/{rid}/forward", headers=h_acct).status_code == 200
+    assert rid in [r["id"] for r in client.get("/api/v1/reports", headers=h_owner).json()]
+    assert client.get(f"/api/v1/reports/{rid}", headers=h_owner).status_code == 200
+
+
+def test_business_developer_fills_the_holdings_own_report(client, make_user, login, db):
+    """§7.1: "The company manager (or the Business Developer for the Holding)
+    fills it in and sends it to the Accountant." The Holding keeps its own report,
+    so the developer must be able to create, open, fill and submit it — while a
+    subsidiary draft stays invisible to the developer until it is sent.
+    """
+    from app.services.bootstrap import ensure_holding_company
+
+    make_user("hold_owner@safir-platform.com", ["owner"])
+    make_user("hold_bd@safir-platform.com", ["business_developer"])
+    manager = make_user("hold_mgr@safir-platform.com", ["company_manager"])
+    make_user("hold_acct@safir-platform.com", ["accountant"])
+    h_owner = login("hold_owner@safir-platform.com")
+    h_bd = login("hold_bd@safir-platform.com")
+    h_manager = login("hold_mgr@safir-platform.com")
+    h_acct = login("hold_acct@safir-platform.com")
+
+    holding = ensure_holding_company(db)
+    db.commit()
+    cid = _company(client, h_owner, code="SUB-1")
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+
+    # The developer authors the Holding's report and can open it while a draft.
+    created = client.post("/api/v1/reports", headers=h_bd, json={"company_id": holding.id, "period_id": pid})
+    assert created.status_code == 201, created.text
+    rid = created.json()["id"]
+    assert client.get(f"/api/v1/reports/{rid}", headers=h_bd).status_code == 200
+    assert rid in [r["id"] for r in client.get("/api/v1/reports", headers=h_bd).json()]
+
+    # The accountant may review the Holding's report too (§5.3).
+    assert client.get(f"/api/v1/reports/{rid}", headers=h_acct).status_code == 200
+
+    # A subsidiary draft is still hidden from the developer until sent.
+    sub_draft = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+    assert sub_draft not in [r["id"] for r in client.get("/api/v1/reports", headers=h_bd).json()]
+    assert client.get(f"/api/v1/reports/{sub_draft}", headers=h_bd).status_code == 404
 
 
 def test_accountant_can_list_reports_for_review(client, make_user, login):
@@ -267,6 +344,41 @@ def test_accountant_can_open_a_submitted_report_for_review(client, make_user, lo
     assert client.get(f"/api/v1/reports/{rid}", headers=h_owner).status_code == 404
 
 
+def test_report_list_detail_and_export_agree_for_a_holding_reviewer(client, make_user, login, db):
+    """The accountant holds ``report:view_all`` as the holding's reviewer, so the
+    reports it can list are the ones it can open, read the history of and export.
+
+    The list was holding-wide while the detail, history and export re-applied
+    company scoping, so the accountant saw a full queue but could open only the
+    reports of the companies granted to it.
+    """
+    make_user("agree_owner@safir-platform.com", ["owner"])
+    acct = make_user("agree_acct@safir-platform.com", ["accountant"])
+    mgr = make_user("agree_mgr@safir-platform.com", ["company_manager"])
+    h_owner = login("agree_owner@safir-platform.com")
+    h_acct = login("agree_acct@safir-platform.com")
+    h_mgr = login("agree_mgr@safir-platform.com")
+
+    cid_a = _company(client, h_owner, code="AGR-A")
+    cid_b = _company(client, h_owner, code="AGR-B")
+    # The accountant is scoped to one company only; the manager authors B's draft.
+    client.patch(f"/api/v1/users/{acct.id}", headers=h_owner, json={"company_ids": [cid_a]})
+    client.patch(f"/api/v1/users/{mgr.id}", headers=h_owner, json={"company_ids": [cid_b]})
+    pid = _period(client, h_owner)
+    rid_b = client.post("/api/v1/reports", headers=h_mgr, json={"company_id": cid_b, "period_id": pid}).json()["id"]
+
+    listed = client.get("/api/v1/reports", headers=h_acct).json()
+    assert any(r["id"] == rid_b for r in listed), "the holding reviewer's queue spans every company"
+
+    # Every listed report must be openable, readable and exportable.
+    for row in listed:
+        assert client.get(f"/api/v1/reports/{row['id']}", headers=h_acct).status_code == 200
+        assert client.get(f"/api/v1/reports/{row['id']}/history", headers=h_acct).status_code == 200
+        assert client.get(f"/api/v1/reports/{row['id']}/export", headers=h_acct).status_code == 200
+    # The company filter agrees with the unfiltered queue.
+    assert client.get(f"/api/v1/reports?company_id={cid_b}", headers=h_acct).status_code == 200
+
+
 def test_accountant_exports_a_report_to_excel(client, make_user, login, db):
     """Design reference page 25: the accountant exports validated reports."""
     make_user("xls_owner@safir-platform.com", ["owner"])
@@ -288,3 +400,94 @@ def test_accountant_exports_a_report_to_excel(client, make_user, login, db):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     assert resp.content[:2] == b"PK"  # an xlsx is a zip container
+
+
+def test_sector_and_company_scoped_fields_apply_only_within_scope(client, make_user, login, db):
+    """§7.4: «يظهر في تقارير الشركات ضمن نطاقه فقط» — a sector field belongs only
+    to that sector's reports and a company field only to that company's. The
+    required-field check must honour the scope, so a field scoped elsewhere can
+    never block a report it does not belong to.
+    """
+    make_user("sc_owner@safir-platform.com", ["owner"])
+    manager = make_user("sc_manager@safir-platform.com", ["company_manager"])
+    h_owner = login("sc_owner@safir-platform.com")
+    h_manager = login("sc_manager@safir-platform.com")
+
+    cid = _company(client, h_owner, code="SC-1")  # sector "tech"
+    client.patch(f"/api/v1/users/{manager.id}", headers=h_owner, json={"company_ids": [cid]})
+    pid = _period(client, h_owner)
+
+    # A required field scoped to the industrial sector must not apply here.
+    other = FormField(
+        code="sc_industrial_only", name_ar="إنتاج صناعي", name_en="Industrial output",
+        field_type="amount", is_required=True, sector_scope="صناعي", version=1,
+    )
+    # A required field scoped to a different company must not apply either.
+    other_cid = _company(client, h_owner, code="SC-2")
+    other_company = FormField(
+        code="sc_other_company", name_ar="حقل شركة أخرى", name_en="Other-company field",
+        field_type="amount", is_required=True, company_id=other_cid, version=1,
+    )
+    # A required field with no scope applies to every company.
+    global_field = FormField(
+        code="sc_global", name_ar="حقل عام", name_en="Global field",
+        field_type="amount", is_required=True, version=1,
+    )
+    db.add_all([other, other_company, global_field])
+    db.commit()
+
+    rid = client.post("/api/v1/reports", headers=h_manager, json={"company_id": cid, "period_id": pid}).json()["id"]
+    _attach_bank_statement(db, rid, _bank_statement(db, manager))
+
+    # Only the global required field is missing.
+    blocked = client.post(f"/api/v1/reports/{rid}/submit", headers=h_manager)
+    assert blocked.status_code == 422, blocked.text
+    assert blocked.json()["detail"]["field_ids"] == [global_field.id]
+
+    # Supplying the global field clears the block, proving the out-of-scope
+    # fields were never demanded.
+    client.put(
+        f"/api/v1/reports/{rid}/values",
+        headers=h_manager,
+        json={"values": [{"field_id": global_field.id, "value_number": "1"}]},
+    )
+    assert client.post(f"/api/v1/reports/{rid}/submit", headers=h_manager).status_code == 200
+
+
+def test_invoice_carries_tax_registration_and_service_item(client, make_user, login):
+    """Table 5, «إيراد / فاتورة جديدة»: the invoice records the client's tax
+    registration number (manual entry) and the service item, and both are
+    returned so the accounting table can show them."""
+    make_user("inv_owner@safir-platform.com", ["owner"])
+    acct = make_user("inv_acct@safir-platform.com", ["accountant"])
+    h_owner = login("inv_owner@safir-platform.com")
+    h_acct = login("inv_acct@safir-platform.com")
+    cid = _company(client, h_owner, code="INV-1")
+    client.patch(f"/api/v1/users/{acct.id}", headers=h_owner, json={"company_ids": [cid]})
+
+    created = client.post(
+        "/api/v1/accounting",
+        headers=h_acct,
+        json={
+            "kind": "invoice",
+            "company_id": cid,
+            "reference": "INV-2026-001",
+            "description": "استشارات",
+            "amount": "1000.00",
+            "currency": "BHD",
+            "entry_date": "2026-01-15",
+            "party": "عميل أ",
+            "tax_amount": "100.00",
+            "tax_registration_no": "165704-1",
+            "service_item": "استشارات أعمال",
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["tax_registration_no"] == "165704-1"
+    assert body["service_item"] == "استشارات أعمال"
+
+    listed = client.get("/api/v1/accounting?kind=invoice", headers=h_acct).json()
+    row = next(r for r in listed if r["id"] == body["id"])
+    assert row["tax_registration_no"] == "165704-1"
+    assert row["service_item"] == "استشارات أعمال"

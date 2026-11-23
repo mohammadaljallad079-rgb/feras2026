@@ -28,7 +28,7 @@ Authoritative reference: `platform-design-ar.pdf` (32 pages).
 | 1–4 | Design system, components, layout, states, responsive rules | `/[locale]/…` shell + `globals.css` tokens | n/a | IMPL | Tokens applied verbatim from spec §3; per-page visual parity MATCH |
 | 5 | Owner dashboard | `/[locale]/dashboard` | IMPL | UI | MATCH |
 | 6 | Companies management | `/[locale]/companies` | IMPL | UI | MATCH |
-| 7 | Four-step company creation wizard | `/[locale]/companies/new` | IMPL | UI | MATCH |
+| 7 | Three-step company creation wizard | `/[locale]/companies/new` | IMPL | UI | MATCH |
 | 8 | Owner's monthly reports | `/[locale]/reports` | IMPL | UI | MATCH |
 | 9 | Holding accounting | `/[locale]/accounting` | IMPL | UI | MATCH |
 | 10 | Service requests | `/[locale]/service-requests` | IMPL | UI | MATCH |

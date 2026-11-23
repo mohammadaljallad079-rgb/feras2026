@@ -4,7 +4,7 @@ historical report values (which store the version they were captured under)."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require, require_any
@@ -40,7 +40,14 @@ def create_field(
         raise HTTPException(status_code=422, detail="Unknown field type")
     if payload.parent_id is not None and db.get(FormField, payload.parent_id) is None:
         raise HTTPException(status_code=422, detail="Parent field not found")
-    field = FormField(**payload.model_dump(), version=1)
+    data = payload.model_dump()
+    # Table 5: the builder does not collect a code; derive a unique one when it
+    # is omitted so the record is addressable.
+    code = (data.pop("code") or "").strip()
+    if not code:
+        last_id = db.execute(select(func.max(FormField.id))).scalar_one() or 0
+        code = f"field_{last_id + 1:04d}"
+    field = FormField(code=code, **data, version=1)
     db.add(field)
     db.flush()
     audit.record(db, action="form_field.create", actor=actor, target_type="form_field", target_id=field.id)

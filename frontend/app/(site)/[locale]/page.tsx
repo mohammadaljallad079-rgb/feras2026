@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCompanies, getSite, pick, sectionByKey, setting, type Locale } from "@/lib/site";
 import { HeroSlider } from "@/components/site/HeroSlider";
+import { CompanyPortfolio } from "@/components/site/CompanyPortfolio";
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: raw } = await params;
@@ -27,36 +28,25 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               className="absolute inset-0 opacity-40 [background:repeating-linear-gradient(135deg,rgba(255,255,255,.06)_0_2px,transparent_2px_22px),radial-gradient(420px_260px_at_70%_20%,rgba(12,143,173,.5),transparent_60%)]"
             />
             <div className="absolute bottom-6 start-6 rounded-lg bg-white/95 px-4 py-3 shadow-lg">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-sand">
-                {ar ? "مجموعة واحدة" : "One group"}
-              </span>
-              <span className="text-[13px] font-semibold text-brand-deep">
-                {ar ? "خبرات متكاملة ضمن رؤية موحدة" : "Integrated expertise under one vision"}
+              <span className="block text-[13px] font-semibold text-brand-deep">
+                {ar ? "قابضة تجمع الخبرة وتحوّلها إلى فرص نمو." : "A holding company that connects expertise with growth opportunities."}
               </span>
             </div>
           </div>
           <div>
-            <span className="site-eyebrow">{pick(locale, about?.title_ar, about?.title_en) || (ar ? "من نحن" : "About us")}</span>
-            <h2 id="h-about" className="site-h2">
-              {ar ? "نطوّر شركات المجموعة وننسّق خبراتها." : "We develop the group's companies and coordinate their expertise."}
-            </h2>
+            <span className="site-eyebrow">{pick(locale, about?.title_ar, about?.title_en) || (ar ? "من نحن" : "About")}</span>
             {about && (
-              <p className="site-lead">{pick(locale, about.body_ar, about.body_en)}</p>
+              <div className="mt-4 grid gap-4">
+                {pick(locale, about.body_ar, about.body_en)
+                  .split("\n\n")
+                  .filter(Boolean)
+                  .map((paragraph, i) => (
+                    <p key={i} className={i === 0 ? "site-lead" : "text-[15.5px] leading-8 text-brand-slate"}>
+                      {paragraph}
+                    </p>
+                  ))}
+              </div>
             )}
-            <ul className="mt-6 grid gap-3">
-              {(ar
-                ? ["تطوير شركات المجموعة", "تنسيق الخبرات", "ربط العملاء بالخدمات والفرص"]
-                : ["Developing the group's companies", "Coordinating expertise", "Connecting clients with services and opportunities"]
-              ).map((item) => (
-                <li key={item} className="flex items-start gap-3 text-[15px] text-brand-ink">
-                  <span aria-hidden="true" className="mt-2 h-2 w-2 shrink-0 rotate-45 bg-brand-sand" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Link href={l("/about")} className="site-btn site-btn-outline mt-7">
-              {ar ? "المزيد عن القابضة" : "More about the holding"}
-            </Link>
           </div>
         </div>
       </section>
@@ -64,57 +54,18 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {/* Group companies — from the database, published ones only */}
       <section className="site-section bg-brand-mist" aria-labelledby="h-companies">
         <div className="site-container">
-          <span className="site-eyebrow">{ar ? "شركات المجموعة" : "Group companies"}</span>
-          <h2 id="h-companies" className="site-h2">
-            {ar ? "محفظة الشركات" : "Our portfolio"}
-          </h2>
-          <p className="site-lead">
-            {ar
-              ? "تُعرض الشركات المنشورة فقط من قاعدة البيانات."
-              : "Only companies published from the database are shown."}
-          </p>
-          {companies.length === 0 ? (
-            <p className="mt-8 rounded-xl border border-dashed border-brand-line bg-white p-9 text-center text-brand-slate">
-              {ar ? "لا توجد شركات منشورة حالياً." : "No published companies at the moment."}
-            </p>
-          ) : (
-            <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {companies.slice(0, 9).map((c) => (
-                <li key={c.code} className="site-card">
-                  <span className="flex h-13 w-13 items-center justify-center rounded-lg bg-brand-deep p-3 text-[18px] font-bold text-white">
-                    {c.name_en.slice(0, 2).toUpperCase()}
-                  </span>
-                  <h3 className="mt-5 text-[18px] font-bold">{ar ? c.name_ar : c.name_en}</h3>
-                  <p className="mt-1.5 text-[13.5px] text-brand-slate">
-                    {c.sector} · {c.country}
-                  </p>
-                  <span className="mt-3 inline-block rounded bg-[#f6eedd] px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-wide text-[#8a6a2e]">
-                    {c.sector}
-                  </span>
-                  <Link
-                    href={l("/companies")}
-                    className="mt-5 block border-b-[1.5px] border-brand-sand pb-1 text-[14px] font-semibold text-brand-deep no-underline w-fit"
-                  >
-                    {ar ? "معاينة الشركة" : "View company"} →
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link href={l("/companies")} className="site-btn site-btn-primary mt-8">
-            {ar ? "كل الشركات" : "All companies"}
-          </Link>
+          <CompanyPortfolio companies={companies} locale={locale} />
         </div>
       </section>
 
       {/* Solutions — the six approved services */}
       <section className="site-section bg-white" aria-labelledby="h-solutions">
         <div className="site-container">
-          <span className="site-eyebrow">{pick(locale, solutions?.title_ar, solutions?.title_en) || (ar ? "منظومة الحلول" : "Solutions ecosystem")}</span>
+          <span className="site-eyebrow">{pick(locale, solutions?.title_ar, solutions?.title_en) || (ar ? "منظومة الحلول" : "Solutions")}</span>
           <h2 id="h-solutions" className="site-h2">
             {ar
-              ? "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو."
-              : "Business solutions that start from your need and extend to growth."}
+              ? "حلول أعمال تبدأ من احتياجك وتمتد إلى فرص النمو"
+              : "Business solutions shaped around your needs and growth opportunities"}
           </h2>
           <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {site.services.map((s) => (
@@ -127,7 +78,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                   <p className="mt-2 text-[14px] text-brand-slate">{pick(locale, s.description_ar, s.description_en)}</p>
                 )}
                 <Link href={`${l("/service-request")}?service=${encodeURIComponent(s.slug)}`} className="site-btn site-btn-outline mt-6 w-fit">
-                  {ar ? "طلب الخدمة" : "Request service"}
+                  {ar ? "اطلب خدمة" : "Request a service"}
                 </Link>
               </li>
             ))}
@@ -139,14 +90,19 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="bg-gradient-to-br from-brand-deep to-brand-ink py-20 text-white" aria-labelledby="h-sr">
         <div className="site-container grid items-center gap-12 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <span className="site-eyebrow">{ar ? "طلب خدمة" : "Service request"}</span>
+            <span className="site-eyebrow">{ar ? "اطلب خدمة" : "Request a service"}</span>
             <h2 id="h-sr" className="site-h2 text-white">
-              {ar ? "اطلب خدمات المجموعة عبر نموذج مباشر." : "Request the group's services through a direct form."}
+              {ar ? "نافذة واحدة لاحتياجات الأعمال" : "One point of contact for business needs"}
             </h2>
             <p className="mt-4 max-w-[560px] text-[#c9dbe2]">
               {ar
-                ? "يُحفظ الطلب في قاعدة البيانات ويصل مباشرة إلى فريق المجموعة."
-                : "Your request is saved in the database and reaches the group's team directly."}
+                ? "أخبرنا بما يحتاجه مشروعك، وسنوجّه طلبك إلى الفريق المناسب."
+                : "Tell us what your business needs, and we will route your request to the right team."}
+            </p>
+            <p className="mt-3 max-w-[560px] text-[#a9b6c9]">
+              {ar
+                ? "نموذج واضح يجمع المعلومات الأساسية فقط، ثم يتولى فريق المجموعة مراجعة الطلب والتواصل معك."
+                : "A clear form collects only the essential details; our team reviews the request and follows up."}
             </p>
             <Link href={l("/service-request")} className="site-btn site-btn-sand mt-7">
               {ar ? "ابدأ طلب الخدمة" : "Start a service request"}
@@ -154,8 +110,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </div>
           <ul className="rounded-xl border border-white/15 bg-white/[0.06] p-7 text-[14.5px]">
             {(ar
-              ? ["الاسم", "البريد الإلكتروني", "رقم التواصل", "نوع الخدمة", "وصف مختصر", "الموافقة على سياسة الخصوصية"]
-              : ["Name", "Email", "Contact number", "Service type", "Brief description", "Privacy-policy consent"]
+              ? ["الاسم", "البريد الإلكتروني", "رقم التواصل", "نوع الخدمة", "وصف مختصر"]
+              : ["Name", "Email", "Contact number", "Service type", "Short description"]
             ).map((row) => (
               <li key={row} className="flex justify-between border-b border-white/10 py-3 last:border-0">
                 <span className="text-[#a9b6c9]">{row}</span>
@@ -175,21 +131,17 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </h2>
           <div className="mt-9 grid gap-6 md:grid-cols-2">
             <div className="site-card">
-              <h3 className="text-[19px] font-bold">{ar ? "أرسل فرصتك إلى المجموعة" : "Send your opportunity to the group"}</h3>
+              <h3 className="text-[19px] font-bold">
+                {ar ? "هل لديك مشروع أو فرصة للنمو؟" : "Do you have a project or growth opportunity?"}
+              </h3>
               <p className="mt-3 text-[15px] text-brand-slate">
-                {ar ? "شاركنا تفاصيل الفرصة التجارية أو الاستثمارية لدراستها." : "Share the details of your commercial or investment opportunity for review."}
+                {ar
+                  ? "أرسل موجز الفرصة والدولة التي يوجد بها المشروع. يراجع فريقنا المعلومات ويتواصل معك عند الحاجة إلى تفاصيل إضافية."
+                  : "Send a short overview and the country where the project is located. Our team will review it and contact you if more details are needed."}
               </p>
               <Link href={l("/opportunities")} className="site-btn site-btn-primary mt-5">
                 {ar ? "أرسل فرصة" : "Submit an opportunity"}
               </Link>
-            </div>
-            <div className="site-card">
-              <h3 className="text-[19px] font-bold">{ar ? "كيف تُدرس الفرص؟" : "How are opportunities reviewed?"}</h3>
-              <p className="mt-3 text-[15px] text-brand-slate">
-                {ar
-                  ? "تُستقبل الفرص وتُسجّل في قاعدة البيانات ثم تُراجع من الفريق المختص."
-                  : "Opportunities are received, recorded in the database, and reviewed by the relevant team."}
-              </p>
             </div>
           </div>
           {notice && (
@@ -208,14 +160,17 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <section className="site-section bg-white" aria-labelledby="h-careers">
         <div className="site-container">
           <div className="rounded-2xl border border-brand-line bg-brand-mist p-12 text-center">
-            <h2 id="h-careers" className="text-[28px] font-bold">
+            <span className="site-eyebrow">{ar ? "العمل معنا" : "Work with us"}</span>
+            <h2 id="h-careers" className="mt-2 text-[28px] font-bold">
               {pick(locale, careers?.title_ar, careers?.title_en) || (ar ? "هل ترغب في الانضمام إلى فريقنا؟" : "Would you like to join our team?")}
             </h2>
             <p className="mt-3 text-brand-slate">
-              {ar ? "أرسل سيرتك الذاتية وسنراها في المجموعة." : "Send your CV and it will be reviewed within the group."}
+              {ar
+                ? "أرسل سيرتك الذاتية ومجال اهتمامك. سنتواصل معك إذا توفرت فرصة مناسبة."
+                : "Send your CV and area of interest. We will contact you if a suitable opportunity becomes available."}
             </p>
             <Link href={l("/careers")} className="site-btn site-btn-sand mt-6">
-              {ar ? "قدّم طلب انضمام" : "Submit an application"}
+              {ar ? "قدّم طلب انضمام" : "Apply to join"}
             </Link>
           </div>
         </div>

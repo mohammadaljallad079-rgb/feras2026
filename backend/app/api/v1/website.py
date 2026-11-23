@@ -8,14 +8,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require, require_any
+from app.api.deps import holding_company_id, require, require_any
 from app.core.db import get_db
 from app.models.business import Company
-from app.models.enums import SubmissionStatus
-from app.models.identity import User
-from app.models.operations import Lead, Opportunity, ServiceRequest, WebsiteSubmission, WebsiteSubmissionEvent
+from app.models.enums import (
+    OpportunityStatus,
+    RequestPriority,
+    RequestStatus,
+    ServiceType,
+    SubmissionKind,
+    SubmissionStatus,
+)
+from app.models.identity import Role, User, UserRole
+from app.models.operations import Opportunity, ServiceRequest, WebsiteSubmission, WebsiteSubmissionEvent
 from app.models.site import SiteNavLink, SiteSection, SiteService, SiteSetting, SiteSlide
 from app.schemas import (
+    CompanyProfileUpdate,
     SiteNavLinkCreate,
     SiteNavLinkOut,
     SiteNavLinkUpdate,
@@ -35,13 +43,39 @@ from app.schemas import (
     SubmissionUpdate,
     VisibilityUpdate,
 )
-from app.services import audit
+from app.services import audit, mail
 
 router = APIRouter(prefix="/website", tags=["website"])
 
 # The status workflow the inbox moves through (brief §7). Proposed, not assumed
 # approved: the owner confirms it in the CMS.
 SUBMISSION_STATUSES = [s.value for s in SubmissionStatus]
+
+# §6.5: which internal record each kind of submission produces when the inbox
+# operator takes action.
+_DEFAULT_TARGET = {
+    SubmissionKind.SERVICE_REQUEST.value: "service_request",
+    SubmissionKind.OPPORTUNITY.value: "opportunity",
+    SubmissionKind.JOB_APPLICATION.value: "job_application",
+}
+
+# §6.5: the public «اطلب خدمة» service labels map onto the internal four
+# service types used for routing.
+_SERVICE_TYPE_BY_PUBLIC = {
+    "تأسيس الأعمال والخدمات المرتبطة بها": ServiceType.ACCOUNTING.value,
+    "الدراسات ودراسات الجدوى": ServiceType.STUDY.value,
+    "الاستشارات": ServiceType.STUDY.value,
+    "التسويق والإعلان": ServiceType.MARKETING.value,
+    "التوريد والتوزيع": ServiceType.ACCOUNTING.value,
+    "خدمة أخرى": ServiceType.STUDY.value,
+    # English labels, in case the public form is filled in English.
+    "business setup": ServiceType.ACCOUNTING.value,
+    "studies and feasibility": ServiceType.STUDY.value,
+    "consulting": ServiceType.STUDY.value,
+    "marketing and advertising": ServiceType.MARKETING.value,
+    "supply and distribution": ServiceType.ACCOUNTING.value,
+    "other service": ServiceType.STUDY.value,
+}
 
 
 @router.get("/submissions", response_model=list[SubmissionOut])
@@ -161,68 +195,132 @@ def convert_submission(
     actor: User = Depends(require("website:manage")),
     db: Session = Depends(get_db),
 ) -> SubmissionOut:
+    """§6.5 «اتخاذ إجراء»: the effect depends on the submission kind.
+
+    A service request opens the routing modal and becomes a service request
+    addressed to the specialist (with the chosen receiving company and service
+    type). An opportunity becomes a draft for internal review, and a job
+    application is recorded for human review only — no user is created.
+    """
     sub = db.get(WebsiteSubmission, submission_id)
     if sub is None:
         raise HTTPException(status_code=404, detail="Submission not found")
     if sub.status == SubmissionStatus.CONVERTED.value:
         raise HTTPException(status_code=409, detail="Submission already converted")
 
-    if payload.target == "lead":
-        if sub.company_id is None or db.get(Company, sub.company_id) is None:
-            raise HTTPException(status_code=422, detail="A registered company is required to convert to a lead")
-        record = Lead(
-            name=sub.name,
-            contact_email=sub.email,
-            contact_phone=sub.phone,
-            requested_service=sub.service_type or sub.kind,
-            source="website",
-            company_id=sub.company_id,
-            notes=sub.message,
-            status="new",
-        )
-    elif payload.target == "opportunity":
-        if sub.company_id is None or db.get(Company, sub.company_id) is None:
+    # The kind decides the outcome; the target is only a fallback for callers
+    # that still pass it explicitly.
+    target = payload.target or _DEFAULT_TARGET.get(sub.kind, "")
+    # §6.5/Table 7: the opportunity and job forms have no routing window, so a
+    # public submission that names no company is received by the Holding itself
+    # (the platform's own entity) rather than being refused.
+    received_company_id = sub.company_id or holding_company_id(db)
+    if target == "opportunity":
+        if received_company_id is None or db.get(Company, received_company_id) is None:
             raise HTTPException(status_code=422, detail="A registered company is required to convert to an opportunity")
         record = Opportunity(
             title=sub.subject or f"{sub.name} — {sub.kind}",
-            company_id=sub.company_id,
+            company_id=received_company_id,
             description=sub.message,
+            country=sub.country,
+            attachment_file_id=sub.attachment_file_id,
+            source="website",
             created_by_id=actor.id,
-            status="draft",
+            status=OpportunityStatus.DRAFT.value,
         )
-    elif payload.target == "service_request":
-        if sub.company_id is None or db.get(Company, sub.company_id) is None:
-            raise HTTPException(status_code=422, detail="A registered company is required to convert to a service request")
+    elif target == "service_request":
+        company_id = payload.company_id or sub.company_id
+        if company_id is None or db.get(Company, company_id) is None:
+            raise HTTPException(status_code=422, detail="A receiving company is required to route the service request")
+        service_type = payload.service_type or _SERVICE_TYPE_BY_PUBLIC.get(sub.service_type or "", None)
+        if service_type is None or service_type not in {t.value for t in ServiceType}:
+            raise HTTPException(status_code=422, detail={"error": "service_type_required"})
+        # §6.5: the request goes to the specialist, routed by service type.
+        specialist = db.execute(
+            select(User)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.slug == "service_specialist", User.is_active.is_(True))
+            .order_by(User.id)
+        ).scalars().first()
+        if specialist is None:
+            raise HTTPException(status_code=409, detail="No service specialist account exists")
         record = ServiceRequest(
             subject=sub.subject or f"{sub.kind}: {sub.name}",
             body=sub.message,
-            company_id=sub.company_id,
+            service_type=service_type,
+            company_id=company_id,
             created_by_id=actor.id,
-            recipient_id=actor.id,
-            priority="normal",
-            status="new",
+            recipient_id=specialist.id,
+            priority=RequestPriority.NORMAL.value,
+            status=RequestStatus.NEW.value,
         )
+    elif target == "job_application":
+        # §6.5: «رسالة سُجل الطلب للمراجعة البشرية» — no user is created.
+        record = None
     else:
         raise HTTPException(status_code=422, detail="Unknown conversion target")
 
-    db.add(record)
-    db.flush()
+    created_id: int | None = None
+    if record is not None:
+        db.add(record)
+        db.flush()
+        created_id = record.id
     db.add(
         WebsiteSubmissionEvent(
             submission_id=sub.id,
             actor_user_id=actor.id,
             from_status=sub.status,
             to_status=SubmissionStatus.CONVERTED.value,
-            note=f"converted to {payload.target} #{record.id}",
+            note=f"converted to {target} #{created_id}" if created_id else f"recorded for {target}",
         )
     )
     sub.status = SubmissionStatus.CONVERTED.value
-    sub.converted_type = payload.target
-    sub.converted_id = record.id
-    audit.record(db, action="website.convert", actor=actor, target_type="website_submission", target_id=sub.id, meta={"target": payload.target, "created_id": record.id})
+    sub.converted_type = target
+    sub.converted_id = created_id
+    audit.record(db, action="website.convert", actor=actor, target_type="website_submission", target_id=sub.id, meta={"target": target, "created_id": created_id})
     db.commit()
     db.refresh(sub)
+    # Table 6: «نسخة بريد لمدير الشركة والمختص» — the receiving company's manager
+    # and, for a routed service request, the specialist get a copy. The message
+    # names the item and the target only; it carries no financial detail.
+    _notify_conversion(db, sub, target, record)
     return SubmissionOut.model_validate(sub)
+
+
+_TARGET_LABEL = {
+    "opportunity": ("فرصة", "opportunity"),
+    "service_request": ("طلب خدمة", "service request"),
+    "job_application": ("طلب توظيف", "job application"),
+}
+
+
+def _notify_conversion(db: Session, sub: WebsiteSubmission, target: str, record: object | None) -> None:
+    """Table 6: mail a copy to the receiving company's manager and, when the
+    submission became a service request, to the specialist it was routed to."""
+    company_id = getattr(record, "company_id", None) if record is not None else sub.company_id
+    manager_email: str | None = None
+    manager_locale = "ar"
+    if company_id is not None:
+        company = db.get(Company, company_id)
+        if company is not None and company.manager_user_id is not None:
+            manager = db.get(User, company.manager_user_id)
+            if manager is not None:
+                manager_email = manager.email
+                manager_locale = manager.locale or "ar"
+    specialist_email: str | None = None
+    specialist_locale = "ar"
+    if isinstance(record, ServiceRequest):
+        specialist = db.get(User, record.recipient_id)
+        if specialist is not None:
+            specialist_email = specialist.email
+            specialist_locale = specialist.locale or "ar"
+    label_ar, label_en = _TARGET_LABEL.get(target, (target, target))
+    item = sub.subject or sub.name
+    for email, locale in ((manager_email, manager_locale), (specialist_email, specialist_locale)):
+        if not email:
+            continue
+        mail.notify([email], mail.conversion_copy_email(locale, item=item, target_ar=label_ar, target_en=label_en))
 
 
 @router.post("/submissions/{submission_id}/reject", response_model=SubmissionOut)
@@ -264,6 +362,32 @@ def set_visibility(
     audit.record(db, action="website.visibility", actor=actor, target_type="company", target_id=company.id, company_id=company.id)
     db.commit()
     return {"company_id": company_id, "public_visible": payload.public_visible}
+
+
+@router.patch("/companies/{company_id}/profile", response_model=dict)
+def set_public_profile(
+    company_id: int,
+    payload: CompanyProfileUpdate,
+    actor: User = Depends(require("website:manage")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Table 7: «تعديل النشاط» — the company's public activity text and an
+    optional live-site link. Only public fields are touched."""
+    company = db.get(Company, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        setattr(company, key, value)
+    audit.record(db, action="website.profile", actor=actor, target_type="company", target_id=company.id, company_id=company.id)
+    db.commit()
+    db.refresh(company)
+    return {
+        "company_id": company_id,
+        "public_activity_ar": company.public_activity_ar,
+        "public_activity_en": company.public_activity_en,
+        "website_url": company.website_url,
+    }
 
 
 # --- CMS: settings ----------------------------------------------------------

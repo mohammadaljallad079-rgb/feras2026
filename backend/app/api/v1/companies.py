@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import allowed_company_ids, assert_company_access, get_current_user, require
+from app.api.deps import allowed_company_ids, assert_company_access, get_current_user, permissions_of, require
 from app.core.db import get_db
 from app.models.business import Company
 from app.models.enums import CompanyStatus
@@ -47,15 +47,28 @@ def _assert_logo_belongs_to_company(db: Session, file_id: int, company_id: int) 
 def list_companies(
     status_filter: str | None = Query(default=None, alias="status"),
     include_closed: bool = Query(default=False),
+    include_holding: bool = Query(default=False),
     q: str | None = None,
     user: User = Depends(require("company:view")),
     db: Session = Depends(get_db),
 ) -> list[CompanyOut]:
     stmt = _visible_query(db, user)
+    # §7.4: the Holding's own record carries the Holding report fields but is not
+    # a subsidiary, so it stays out of the companies list unless explicitly asked
+    # for (the reports screen asks for it).
+    if not include_holding:
+        stmt = stmt.where(Company.is_holding.is_(False))
     if status_filter:
         stmt = stmt.where(Company.status == status_filter)
-    elif not include_closed:
-        stmt = stmt.where(Company.status != CompanyStatus.CLOSED.value)
+    elif include_closed:
+        stmt = stmt.where(Company.status.in_([CompanyStatus.ACTIVE.value, CompanyStatus.CLOSED.value]))
+    elif "company:manage" in permissions_of(user):
+        # §6.2: «الشركة المحفوظة مسودة لا تظهر في القوائم ولا التقارير حتى تُفعَّل».
+        # The owner keeps sight of the draft so «حفظ مسودة» has a way back — the
+        # row is what carries the «تفعيل» control (§6.3, design p.6).
+        stmt = stmt.where(Company.status.in_([CompanyStatus.ACTIVE.value, CompanyStatus.DRAFT.value]))
+    else:
+        stmt = stmt.where(Company.status == CompanyStatus.ACTIVE.value)
     if q:
         like = f"%{q}%"
         stmt = stmt.where(Company.name_ar.ilike(like) | Company.name_en.ilike(like) | Company.code.ilike(like))
@@ -69,11 +82,18 @@ def create_company(
     actor: User = Depends(require("company:manage")),
     db: Session = Depends(get_db),
 ) -> CompanyOut:
-    if db.execute(select(Company).where(Company.code == payload.code)).scalar_one_or_none():
+    data = payload.model_dump()
+    # §6.2: the wizard does not collect a code. When one is not supplied, derive a
+    # stable unique code so the record satisfies the unique index.
+    code = (data.pop("code") or "").strip()
+    if not code:
+        last_id = db.execute(select(func.max(Company.id))).scalar_one() or 0
+        code = f"C-{last_id + 1:04d}"
+    if db.execute(select(Company).where(Company.code == code)).scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Company code already exists")
     if payload.status not in {s.value for s in CompanyStatus}:
         raise HTTPException(status_code=422, detail="Invalid status")
-    company = Company(**payload.model_dump())
+    company = Company(code=code, **data)
     if payload.status == CompanyStatus.ACTIVE.value:
         company.activated_at = datetime.now(timezone.utc)
     db.add(company)
@@ -155,6 +175,29 @@ def close_company(
     company.closed_at = datetime.now(timezone.utc)
     company.public_visible = False
     audit.record(db, action="company.close", actor=actor, target_type="company", target_id=company.id, company_id=company.id)
+    db.commit()
+    db.refresh(company)
+    return CompanyOut.model_validate(company)
+
+
+@router.post("/{company_id}/reactivate", response_model=CompanyOut)
+def reactivate_company(
+    company_id: int,
+    actor: User = Depends(require("company:manage")),
+    db: Session = Depends(get_db),
+) -> CompanyOut:
+    """Table 4: a closed (archived) company returns to active with its history
+    intact. There is no legal or accounting liquidation here — the record stays."""
+    assert_company_access(db, actor, company_id)
+    company = db.get(Company, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    if company.status != CompanyStatus.CLOSED.value:
+        raise HTTPException(status_code=409, detail="Only a closed company can be reactivated")
+    company.status = CompanyStatus.ACTIVE.value
+    company.closed_at = None
+    company.activated_at = datetime.now(timezone.utc)
+    audit.record(db, action="company.reactivate", actor=actor, target_type="company", target_id=company.id, company_id=company.id)
     db.commit()
     db.refresh(company)
     return CompanyOut.model_validate(company)

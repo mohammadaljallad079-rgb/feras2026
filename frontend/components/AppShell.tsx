@@ -9,23 +9,31 @@ import { BrandMark } from "@/components/BrandMark";
 import { NavIcon, NavIconName } from "@/components/NavIcon";
 import { api } from "@/lib/api";
 
-/** Sidebar entries, each gated by the permission the backend enforces. */
-const NAV: { href: string; section: string; key: string; permission: string; icon: NavIconName }[] = [
-  { href: "/platform/dashboard", section: "nav", key: "dashboard", permission: "", icon: "dashboard" },
-  { href: "/platform/companies", section: "nav", key: "companies", permission: "company:view", icon: "companies" },
-  { href: "/platform/reports", section: "nav", key: "reports", permission: "report:view_own", icon: "reports" },
-  { href: "/platform/accounting", section: "nav", key: "accounting", permission: "accounting:view", icon: "accounting" },
-  { href: "/platform/service-requests", section: "nav", key: "serviceRequests", permission: "service:view", icon: "serviceRequests" },
-  { href: "/platform/leads", section: "nav", key: "leads", permission: "lead:view", icon: "leads" },
-  { href: "/platform/opportunities", section: "nav", key: "opportunities", permission: "opportunity:view", icon: "opportunities" },
-  { href: "/platform/directives", section: "nav", key: "directives", permission: "directive:view", icon: "directives" },
-  { href: "/platform/hr", section: "nav", key: "hr", permission: "hr:view", icon: "hr" },
-  { href: "/platform/website", section: "nav", key: "website", permission: "website:view", icon: "website" },
-  { href: "/platform/advisor", section: "nav", key: "advisor", permission: "advisor:view", icon: "advisor" },
-  { href: "/platform/assistant", section: "nav", key: "assistant", permission: "ai:use", icon: "assistant" },
-  { href: "/platform/form-builder", section: "nav", key: "formBuilder", permission: "form:manage", icon: "formBuilder" },
-  { href: "/platform/users", section: "nav", key: "users", permission: "user:view", icon: "users" },
-  { href: "/platform/audit", section: "nav", key: "audit", permission: "audit:view", icon: "audit" },
+/** Sidebar entries, each gated by the permission(s) the backend enforces.
+ *
+ * The tab set is Table 1 of the owner's brief. An entry with several
+ * permissions is shown when the user holds any of them (the reports tab, for
+ * instance, is read by a manager through `report:view_own` and by the
+ * accountant and business developer through `report:view_all`). The owner
+ * reaches the Companies tab because it is the only role holding
+ * `company:manage`.
+ */
+const NAV: { href: string; section: string; key: string; permissions: string[]; icon: NavIconName }[] = [
+  { href: "/platform/dashboard", section: "nav", key: "dashboard", permissions: [], icon: "dashboard" },
+  { href: "/platform/companies", section: "nav", key: "companies", permissions: ["company:manage"], icon: "companies" },
+  { href: "/platform/reports", section: "nav", key: "reports", permissions: ["report:view_own", "report:view_all"], icon: "reports" },
+  { href: "/platform/accounting", section: "nav", key: "accounting", permissions: ["accounting:view"], icon: "accounting" },
+  { href: "/platform/service-requests", section: "nav", key: "serviceRequests", permissions: ["service:view"], icon: "serviceRequests" },
+  { href: "/platform/leads", section: "nav", key: "leads", permissions: ["lead:view"], icon: "leads" },
+  { href: "/platform/opportunities", section: "nav", key: "opportunities", permissions: ["opportunity:view"], icon: "opportunities" },
+  { href: "/platform/directives", section: "nav", key: "directives", permissions: ["directive:view"], icon: "directives" },
+  { href: "/platform/hr", section: "nav", key: "hr", permissions: ["hr:view"], icon: "hr" },
+  { href: "/platform/website", section: "nav", key: "website", permissions: ["website:view"], icon: "website" },
+  { href: "/platform/advisor", section: "nav", key: "advisor", permissions: ["advisor:view"], icon: "advisor" },
+  { href: "/platform/assistant", section: "nav", key: "assistant", permissions: ["ai:use"], icon: "assistant" },
+  { href: "/platform/form-builder", section: "nav", key: "formBuilder", permissions: ["form:manage"], icon: "formBuilder" },
+  { href: "/platform/users", section: "nav", key: "users", permissions: ["user:view"], icon: "users" },
+  { href: "/platform/audit", section: "nav", key: "audit", permissions: ["audit:view"], icon: "audit" },
 ];
 
 type Period = { label: string; due: string | null };
@@ -52,7 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  const visible = NAV.filter((item) => !item.permission || can(item.permission));
+  const visible = NAV.filter((item) => item.permissions.length === 0 || item.permissions.some((p) => can(p)));
 
   return (
     <div className="flex min-h-screen">

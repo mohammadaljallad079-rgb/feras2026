@@ -1,8 +1,11 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Modal } from "@/components/Modal";
 import { ResourceTable, Column } from "@/components/ResourceTable";
-import { StatusChip } from "@/components/StatusChip";
+import { StatusChip, statusLabel } from "@/components/StatusChip";
+import { Toast } from "@/components/Toast";
 import { api, Company } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -15,6 +18,7 @@ type Lead = {
   contact_phone: string | null;
   requested_service: string | null;
   source: string | null;
+  contact_method: string | null;
   company_id: number;
   follow_up_at: string | null;
   status: string;
@@ -23,19 +27,51 @@ type Lead = {
   created_at: string;
 };
 
+const LEAD_STATUSES = ["new", "contacted", "following_up", "qualified", "not_suitable", "closed"];
+
 export default function LeadsPage() {
   const { locale, can } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
-  const [form, setForm] = useState({ name: "", contact_email: "", contact_phone: "", requested_service: "", source: "", company_id: "", follow_up_at: "", notes: "" });
+  const [form, setForm] = useState({ name: "", contact_method: "", contact_email: "", contact_phone: "", requested_service: "", source: "", company_id: "", follow_up_at: "", notes: "" });
   const [message, setMessage] = useState<string | null>(null);
+  const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  // PDF p.11: three narrowing controls above the table.
+  // §5.1: the leads table narrows by company, status, source and follow-up.
   const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [followUpFilter, setFollowUpFilter] = useState("");
 
   const [rows, setRows] = useState<Lead[]>([]);
+
+  // Table 6: «تحديث» — the row action opens a modal with the status and a note.
+  const [updateFor, setUpdateFor] = useState<Lead | null>(null);
+  const [updateStatus, setUpdateStatus] = useState("new");
+  const [updateNote, setUpdateNote] = useState("");
+
+  // Word §5.5: the marketer's dashboard action «إرسال شكوى للمالك» arrives as
+  // ?complaint=1 and opens the complaint form. The complaint is addressed to the
+  // owner alone; it is not a lead.
+  const searchParams = useSearchParams();
+  const [complaintOpen, setComplaintOpen] = useState(false);
+  const [complaint, setComplaint] = useState("");
+  useEffect(() => {
+    if (searchParams.get("complaint") === "1") setComplaintOpen(true);
+  }, [searchParams]);
+
+  async function sendComplaint(e: React.FormEvent) {
+    e.preventDefault();
+    if (!complaint.trim()) return;
+    try {
+      await api.post("/api/v1/service-requests/complaint", { body: complaint });
+      setMessage(locale === "ar" ? "أُرسلت الشكوى إلى المالك." : "The complaint was sent to the owner.");
+      setComplaint("");
+      setComplaintOpen(false);
+    } catch {
+      setMessage(locale === "ar" ? "تعذّر إرسال الشكوى." : "The complaint could not be sent.");
+    }
+  }
 
   useEffect(() => {
     api.get<Company[]>("/api/v1/companies").then(setCompanies).catch(() => undefined);
@@ -60,19 +96,43 @@ export default function LeadsPage() {
     setReloadKey((k) => k + 1);
   }
 
+  // Table 6: «تحديث» records a status and a note in the lead's own record.
+  async function saveUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!updateFor) return;
+    await api
+      .patch(`/api/v1/leads/${updateFor.id}`, {
+        status: updateStatus,
+        notes: updateNote || null,
+      })
+      .catch(() => undefined);
+    setMessage(locale === "ar" ? "تم تحديث العميل المحتمل." : "Lead updated.");
+    setUpdateFor(null);
+    setReloadKey((k) => k + 1);
+  }
+
+  // PDF p.11 / Table 5: the owner and the business developer may reassign a
+  // lead to a colleague. The assignee is chosen from the people directory.
+  async function assignTo(id: number, assignedTo: string) {
+    await api.patch(`/api/v1/leads/${id}`, { assigned_to_id: assignedTo ? Number(assignedTo) : null }).catch(() => undefined);
+    setReloadKey((k) => k + 1);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
     try {
       await api.post("/api/v1/leads", {
         ...form,
+        contact_method: form.contact_method || null,
         contact_email: form.contact_email || null,
         contact_phone: form.contact_phone || null,
         follow_up_at: form.follow_up_at || null,
         notes: form.notes || null,
         company_id: Number(form.company_id),
       });
-      setForm({ name: "", contact_email: "", contact_phone: "", requested_service: "", source: "", company_id: "", follow_up_at: "", notes: "" });
+      setForm({ name: "", contact_method: "", contact_email: "", contact_phone: "", requested_service: "", source: "", company_id: "", follow_up_at: "", notes: "" });
+      setLeadFormOpen(false);
       setMessage(locale === "ar" ? "تم إنشاء العميل المحتمل." : "Lead created.");
       setReloadKey((k) => k + 1);
     } catch {
@@ -83,6 +143,20 @@ export default function LeadsPage() {
   const columns: Column<Lead>[] = [
     { key: "name", headerAr: "الاسم", headerEn: "Name", render: (r) => r.name },
     { key: "contact", headerAr: "بيانات التواصل", headerEn: "Contact", render: (r) => <span dir="ltr">{r.contact_email ?? r.contact_phone ?? "—"}</span> },
+    {
+      key: "contact_method",
+      headerAr: "وسيلة التواصل",
+      headerEn: "Contact method",
+      render: (r) =>
+        r.contact_method
+          ? {
+              email: locale === "ar" ? "بريد إلكتروني" : "Email",
+              phone: locale === "ar" ? "هاتف" : "Phone",
+              whatsapp: locale === "ar" ? "واتساب" : "WhatsApp",
+              other: locale === "ar" ? "أخرى" : "Other",
+            }[r.contact_method] ?? r.contact_method
+          : "—",
+    },
     { key: "service", headerAr: "الخدمة المطلوبة", headerEn: "Requested service", render: (r) => r.requested_service ?? "—" },
     { key: "source", headerAr: "المصدر", headerEn: "Source", render: (r) => r.source ?? "—" },
     {
@@ -97,14 +171,70 @@ export default function LeadsPage() {
     { key: "assigned", headerAr: "المسؤول", headerEn: "Assigned to", render: (r) => assignedName(r.assigned_to_id) },
   ];
 
+  // The follow-up filter compares dates as plain ISO strings (YYYY-MM-DD), so
+  // today's date is enough to split "due" from "scheduled".
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <>
-      {message && <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">{message}</p>}
-      {can("lead:manage") && (
-        <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 flex flex-wrap gap-2">
+        {can("lead:manage") && (
+          <button type="button" className="btn-primary" onClick={() => setLeadFormOpen(true)}>
+            {locale === "ar" ? "عميل محتمل جديد" : "New lead"}
+          </button>
+        )}
+        {can("service:create") && (
+          <button type="button" className="btn-ghost" onClick={() => setComplaintOpen(true)}>
+            {locale === "ar" ? "إرسال شكوى للمالك" : "Send a complaint to the owner"}
+          </button>
+        )}
+      </div>
+      {complaintOpen && can("service:create") && (
+        <Modal
+          title={locale === "ar" ? "إرسال شكوى للمالك" : "Send a complaint to the owner"}
+          onClose={() => setComplaintOpen(false)}
+        >
+          <form onSubmit={sendComplaint} className="space-y-3">
+            <label className="label" htmlFor="complaint-body">
+              {locale === "ar" ? "نص الشكوى" : "Complaint text"}<span aria-hidden="true"> *</span>
+            </label>
+            <textarea
+              id="complaint-body"
+              className="input"
+              required
+              rows={4}
+              value={complaint}
+              onChange={(e) => setComplaint(e.target.value)}
+            />
+            <div className="actions">
+              <button type="button" className="btn-ghost" onClick={() => setComplaintOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="submit" className="btn-primary">{locale === "ar" ? "إرسال" : "Send"}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {leadFormOpen && can("lead:manage") && (
+        <Modal
+          title={locale === "ar" ? "عميل محتمل جديد" : "New lead"}
+          onClose={() => setLeadFormOpen(false)}
+          wide
+        >
+        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className="label" htmlFor="lead-name">{locale === "ar" ? "الاسم" : "Name"}</label>
             <input id="lead-name" className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div>
+            <label className="label" htmlFor="lead-contact-method">{locale === "ar" ? "وسيلة التواصل" : "Contact method"}</label>
+            <select id="lead-contact-method" className="input" value={form.contact_method} onChange={(e) => setForm({ ...form, contact_method: e.target.value })}>
+              <option value="">{locale === "ar" ? "— بلا تحديد —" : "— Not specified —"}</option>
+              <option value="email">{locale === "ar" ? "بريد إلكتروني" : "Email"}</option>
+              <option value="phone">{locale === "ar" ? "هاتف" : "Phone"}</option>
+              <option value="whatsapp">{locale === "ar" ? "واتساب" : "WhatsApp"}</option>
+              <option value="other">{locale === "ar" ? "أخرى" : "Other"}</option>
+            </select>
           </div>
           <div>
             <label className="label" htmlFor="lead-email">{locale === "ar" ? "البريد الإلكتروني" : "Email"}</label>
@@ -115,15 +245,15 @@ export default function LeadsPage() {
             <input id="lead-phone" className="input" dir="ltr" value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="lead-service">{locale === "ar" ? "الخدمة المطلوبة" : "Requested service"}</label>
-            <input id="lead-service" className="input" value={form.requested_service} onChange={(e) => setForm({ ...form, requested_service: e.target.value })} />
+            <label className="label" htmlFor="lead-service">{locale === "ar" ? "الخدمة المطلوبة" : "Requested service"}<span aria-hidden="true"> *</span></label>
+            <input id="lead-service" className="input" required value={form.requested_service} onChange={(e) => setForm({ ...form, requested_service: e.target.value })} />
           </div>
           <div>
             <label className="label" htmlFor="lead-source">{locale === "ar" ? "المصدر" : "Source"}</label>
             <input id="lead-source" className="input" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="lead-company">{locale === "ar" ? "الشركة" : "Company"}</label>
+            <label className="label" htmlFor="lead-company">{locale === "ar" ? "الشركة المستلمة" : "Receiving company"}<span aria-hidden="true"> *</span></label>
             <select id="lead-company" className="input" required value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })}>
               <option value="">—</option>
               {companies.map((c) => (<option key={c.id} value={c.id}>{locale === "ar" ? c.name_ar : c.name_en}</option>))}
@@ -134,13 +264,19 @@ export default function LeadsPage() {
             <input id="lead-follow" type="date" className="input" dir="ltr" value={form.follow_up_at} onChange={(e) => setForm({ ...form, follow_up_at: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="lead-notes">{locale === "ar" ? "ملاحظات" : "Notes"}</label>
+            <label className="label" htmlFor="lead-notes">{locale === "ar" ? "ملاحظة مختصرة" : "Brief note"}</label>
             <input id="lead-notes" className="input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
-          <div className="flex items-end">
-            <button type="submit" className="btn-primary">{locale === "ar" ? "إضافة" : "Add"}</button>
+          <div className="actions sm:col-span-3">
+            <button type="button" className="btn-ghost" onClick={() => setLeadFormOpen(false)}>
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+            {/* Table 6: the save action is «حفظ وتحويل» — it converts the lead to
+                the receiving company's manager. */}
+            <button type="submit" className="btn-primary">{locale === "ar" ? "حفظ وتحويل" : "Save and convert"}</button>
           </div>
         </form>
+        </Modal>
       )}
       <ResourceTable<Lead>
         key={reloadKey}
@@ -164,8 +300,8 @@ export default function LeadsPage() {
               <label className="label" htmlFor="filter-status">{locale === "ar" ? "الحالة" : "Status"}</label>
               <select id="filter-status" className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">{locale === "ar" ? "كل الحالات" : "All statuses"}</option>
-                {["new", "contacted", "qualified", "won", "lost"].map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                {LEAD_STATUSES.map((s) => (
+                  <option key={s} value={s}>{statusLabel(s, locale)}</option>
                 ))}
               </select>
             </div>
@@ -178,26 +314,114 @@ export default function LeadsPage() {
                 ))}
               </select>
             </div>
+            {/* §5.1: the fourth narrowing control is «المتابعة». A lead with no
+                follow-up date and one whose date has passed are different
+                states, so the filter offers both plus a specific date. */}
+            <div>
+              <label className="label" htmlFor="filter-follow">{locale === "ar" ? "المتابعة" : "Follow-up"}</label>
+              <select id="filter-follow" className="input" value={followUpFilter} onChange={(e) => setFollowUpFilter(e.target.value)}>
+                <option value="">{locale === "ar" ? "الكل" : "All"}</option>
+                <option value="due">{locale === "ar" ? "حان موعدها" : "Due now"}</option>
+                <option value="scheduled">{locale === "ar" ? "مجدولة" : "Scheduled"}</option>
+                <option value="none">{locale === "ar" ? "بلا موعد" : "No date"}</option>
+                {[...new Set(rows.map((r) => r.follow_up_at).filter((s): s is string => Boolean(s)))].sort().map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
           </>
         }
-        filter={(r) =>
-          (!companyFilter || String(r.company_id) === companyFilter) &&
-          (!statusFilter || r.status === statusFilter) &&
-          (!sourceFilter || r.source === sourceFilter)
-        }
+        filter={(r) => {
+          if (companyFilter && String(r.company_id) !== companyFilter) return false;
+          if (statusFilter && r.status !== statusFilter) return false;
+          if (sourceFilter && r.source !== sourceFilter) return false;
+          if (followUpFilter === "none" && r.follow_up_at) return false;
+          if (followUpFilter === "scheduled" && (!r.follow_up_at || r.follow_up_at < today)) return false;
+          if (followUpFilter === "due" && (!r.follow_up_at || r.follow_up_at > today)) return false;
+          if (followUpFilter && !["none", "scheduled", "due"].includes(followUpFilter) && r.follow_up_at !== followUpFilter) return false;
+          return true;
+        }}
         actions={(row) => (
-          <div className="flex flex-wrap gap-2">
-            {["new", "contacted", "qualified", "won", "lost"]
-              .filter((s) => s !== row.status)
-              .slice(0, 2)
-              .map((s) => (
-                <button key={s} type="button" className="btn-ghost" onClick={() => void advanceStatus(row.id, s)}>
-                  {s}
+          <div className="flex flex-wrap items-center gap-2">
+            {can("lead:manage") && (
+              <>
+                {/* Table 6: «تحديث» opens a modal with the status and a note. */}
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    setUpdateFor(row);
+                    setUpdateStatus(row.status);
+                    setUpdateNote(row.notes ?? "");
+                  }}
+                >
+                  {locale === "ar" ? "تحديث" : "Update"}
                 </button>
-              ))}
+                <select
+                  className="input w-auto"
+                  aria-label={locale === "ar" ? "تغيير الحالة" : "Change status"}
+                  value={row.status}
+                  onChange={(e) => void advanceStatus(row.id, e.target.value)}
+                >
+                  {LEAD_STATUSES.map((s) => (
+                    <option key={s} value={s}>{statusLabel(s, locale)}</option>
+                  ))}
+                </select>
+                <select
+                  className="input w-auto"
+                  aria-label={locale === "ar" ? "إسناد إلى" : "Assign to"}
+                  value={row.assigned_to_id ?? ""}
+                  onChange={(e) => void assignTo(row.id, e.target.value)}
+                >
+                  <option value="">{locale === "ar" ? "— بلا مسؤول —" : "— Unassigned —"}</option>
+                  {people.map((p) => (
+                    <option key={p.id} value={p.id}>{locale === "ar" ? p.full_name_ar : p.full_name_en}</option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
         )}
       />
+
+      {/* Table 6: «تحديث» — the lead's own status and note, saved in its record. */}
+      {updateFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <form onSubmit={saveUpdate} className="card w-full max-w-md space-y-4">
+            <h2 className="section-title">{locale === "ar" ? "تحديث العميل المحتمل" : "Update the lead"}</h2>
+            <p className="muted">{updateFor.name}</p>
+            <div>
+              <label className="label" htmlFor="lead-update-status">{locale === "ar" ? "الحالة" : "Status"}</label>
+              <select
+                id="lead-update-status"
+                className="input"
+                value={updateStatus}
+                onChange={(e) => setUpdateStatus(e.target.value)}
+              >
+                {LEAD_STATUSES.map((s) => (
+                  <option key={s} value={s}>{statusLabel(s, locale)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="lead-update-note">{locale === "ar" ? "ملاحظة" : "Note"}</label>
+              <textarea
+                id="lead-update-note"
+                className="input min-h-20"
+                value={updateNote}
+                onChange={(e) => setUpdateNote(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setUpdateFor(null)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </button>
+              <button type="submit" className="btn-primary">{locale === "ar" ? "حفظ" : "Save"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+      <Toast message={message} />
     </>
   );
 }

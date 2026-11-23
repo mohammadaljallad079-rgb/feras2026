@@ -7,7 +7,31 @@
 export type ApiError = { status: number; detail: unknown };
 
 /**
- * Localised message for a failed read. A 403 is reported as a permission
+ * The 403 screen (design p.4): the title is «403» and the body says the refusal
+ * is enforced on the server and that the attempt was recorded. A screen shows
+ * this instead of a bare sentence when a read is refused, so the user learns
+ * both facts rather than only that something failed.
+ */
+export const DENIED_MARKER = "\u0000denied";
+
+/**
+ * A cross-company read answers 404 so the response never confirms that another
+ * company exists, but its body carries `reason: "denied"`. The screen still has
+ * to show the 403 state the design asks for, so both shapes count as a refusal.
+ */
+function isRefusal(e: unknown): boolean {
+  const err = e as ApiError | undefined;
+  if (!err) return false;
+  if (err.status === 403) return true;
+  const detail = err.detail;
+  return (
+    typeof detail === "object" &&
+    detail !== null &&
+    (detail as { reason?: unknown }).reason === "denied"
+  );
+}
+
+/** Localised message for a failed read. A refusal is reported as a permission
  * refusal rather than a generic failure, matching what the backend enforces.
  */
 export function loadError(
@@ -17,13 +41,38 @@ export function loadError(
 ): string {
   const status = (e as ApiError | undefined)?.status;
   const ar = locale === "ar";
-  if (status === 403) {
-    return ar ? "لا تملك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
+  if (isRefusal(e)) {
+    return ar ? "ليست لديك صلاحية عرض هذه البيانات." : "You are not permitted to view this data.";
   }
   if (status === 404 && notFound) {
     return ar ? notFound.ar : notFound.en;
   }
   return ar ? "تعذّر تحميل البيانات." : "Could not load data.";
+}
+
+/**
+ * Same as `loadError` but marks a refusal so the screen renders the 403 state
+ * instead of a plain error line. Screens pass the result straight to
+ * `DataStates`, which recognises the marker.
+ */
+export function loadErrorState(
+  e: unknown,
+  locale: string,
+  notFound?: { ar: string; en: string },
+): string {
+  const message = loadError(e, locale, notFound);
+  return isRefusal(e) ? `${DENIED_MARKER}${message}` : message;
+}
+
+/** True when the string came from `loadErrorState` for a 403. */
+export function isDenied(error: string | null): boolean {
+  return typeof error === "string" && error.startsWith(DENIED_MARKER);
+}
+
+/** The readable part of an error string, without the 403 marker. */
+export function errorText(error: string | null): string | null {
+  if (typeof error !== "string") return error;
+  return error.startsWith(DENIED_MARKER) ? error.slice(DENIED_MARKER.length) : error;
 }
 
 const ACCESS_KEY = "safir.access";
@@ -150,7 +199,11 @@ export type Company = {
   activated_at: string | null;
   closed_at: string | null;
   activation_notes: string | null;
+  is_holding: boolean;
   public_visible: boolean;
+  public_activity_ar: string | null;
+  public_activity_en: string | null;
+  website_url: string | null;
   created_at: string;
 };
 
@@ -172,7 +225,8 @@ export type Dashboard = {
   sections: Record<string, unknown>[];
   banner_ar: string | null;
   banner_en: string | null;
-  actions: { label_ar: string; label_en: string; href: string }[];
+  banner_tone: string | null;
+  actions: { label_ar: string; label_en: string; href: string; group?: string | null }[];
 };
 
 export type MonthlyReport = {
@@ -189,7 +243,7 @@ export type MonthlyReport = {
   forwarded_at: string | null;
   locked_at: string | null;
   created_at: string;
-  values: { field_id: number; field_version: number; value_text: string | null; value_number: string | null }[];
+  values: { field_id: number; field_version: number; field_name_ar?: string | null; field_name_en?: string | null; value_text: string | null; value_number: string | null }[];
 };
 
 export type ReportingPeriod = {
@@ -223,6 +277,7 @@ export type Role = {
   slug: string;
   name_ar: string;
   name_en: string;
+  description: string | null;
   is_system: boolean;
   permission_codes: string[];
 };

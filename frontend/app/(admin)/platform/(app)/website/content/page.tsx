@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DataStates } from "@/components/DataStates";
-import { api, loadError } from "@/lib/api";
+import { Toast } from "@/components/Toast";
+import { api, loadErrorState } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 /**
@@ -28,6 +29,8 @@ type Section = {
 };
 type Slide = {
   id: number;
+  eyebrow_ar: string | null;
+  eyebrow_en: string | null;
   title_ar: string;
   title_en: string;
   body_ar: string | null;
@@ -105,7 +108,7 @@ export default function SiteContentPage() {
       setNav(nv);
       setError(null);
     } catch (e) {
-      setError(loadError(e, locale));
+      setError(loadErrorState(e, locale));
     } finally {
       setLoading(false);
     }
@@ -169,11 +172,6 @@ export default function SiteContentPage() {
         ))}
       </div>
 
-      {message && (
-        <p role="status" className="mb-4 rounded-control border border-line bg-pearl p-3">
-          {message}
-        </p>
-      )}
 
       <DataStates loading={loading} error={error} empty={false}>
         {tab === "settings" && (
@@ -247,6 +245,7 @@ export default function SiteContentPage() {
           </div>
         )}
       </DataStates>
+      <Toast message={message} />
     </section>
   );
 }
@@ -372,6 +371,8 @@ function SlideRow({
   canEdit: boolean;
   onSave: (body: unknown) => void;
 }) {
+  const [ea, setEa] = useState(slide.eyebrow_ar ?? "");
+  const [ee, setEe] = useState(slide.eyebrow_en ?? "");
   const [ta, setTa] = useState(slide.title_ar);
   const [te, setTe] = useState(slide.title_en);
   const [ba, setBa] = useState(slide.body_ar ?? "");
@@ -393,6 +394,8 @@ function SlideRow({
         </label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={ar ? "الوسم (عربي)" : "Tag line (Arabic)"} value={ea} dir="rtl" onChange={setEa} disabled={!canEdit} />
+        <Field label={ar ? "الوسم (إنجليزي)" : "Tag line (English)"} value={ee} dir="ltr" onChange={setEe} disabled={!canEdit} />
         <Field label={ar ? "العنوان (عربي)" : "Title (Arabic)"} value={ta} dir="rtl" onChange={setTa} disabled={!canEdit} />
         <Field label={ar ? "العنوان (إنجليزي)" : "Title (English)"} value={te} dir="ltr" onChange={setTe} disabled={!canEdit} />
         <Field label={ar ? "النص (عربي)" : "Body (Arabic)"} value={ba} dir="rtl" multiline onChange={setBa} disabled={!canEdit} />
@@ -410,6 +413,8 @@ function SlideRow({
           className="btn-primary w-fit"
           onClick={() =>
             onSave({
+              eyebrow_ar: ea,
+              eyebrow_en: ee,
               title_ar: ta,
               title_en: te,
               body_ar: ba,

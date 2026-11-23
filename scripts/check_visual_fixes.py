@@ -7,7 +7,10 @@ reviewer sees; the unit and journey suites cover the API side.
 
     python3 scripts/check_visual_fixes.py
 
-Needs a seeded backend on :8000 and a frontend on :12000.
+Needs a seeded backend on :8000 and a frontend on :12000. The password-reset
+checks read the issued token from the screen, so the backend must run with
+`EXPOSE_RESET_TOKEN=true`; it is off by default because echoing a reset token to
+an anonymous caller is an account takeover.
 """
 
 from __future__ import annotations
@@ -89,7 +92,7 @@ def check_page_11(page: Page) -> None:
     rows_before = page.evaluate("document.querySelectorAll('table tbody tr').length")
     if rows_before > 0:
         # Narrowing must actually change the result set, not just render.
-        page.select_option("#filter-status", "won")
+        page.select_option("#filter-status", "qualified")
         page.wait_for_timeout(700)
         rows_after = page.evaluate("document.querySelectorAll('table tbody tr').length")
         _record(11, "status filter changes the visible rows", rows_after <= rows_before, f"{rows_before} -> {rows_after}")
@@ -185,12 +188,27 @@ def check_page_23(page: Page) -> None:
 
 
 def check_page_24(page: Page) -> None:
-    """The three accountant entry buttons deep-link to their own section."""
-    hrefs = page.evaluate(
-        "() => [...document.querySelectorAll('main a')].map(a => a.getAttribute('href')).filter(h => h && h.includes('/platform/accounting'))"
+    """§5.3: the dashboard carries one quick button; the three entry buttons
+    («مصروف جديد»، «إيراد/فاتورة جديدة»، «عمولة جديدة») live on accounting."""
+    dashboard = page.inner_text("main")
+    _record(
+        24,
+        "the accountant dashboard carries the combined entry button",
+        "مصروف / فاتورة / عمولة جديدة" in dashboard,
     )
-    wanted = {"/accounting?kind=expense", "/accounting?kind=invoice", "/accounting?kind=commission"}
-    _record(24, "three accounting deep links exist", wanted.issubset(set(hrefs)), f"hrefs={hrefs}")
+    page.goto(f"{BASE}/platform/accounting")
+    page.wait_for_timeout(1500)
+    accounting = page.inner_text("main")
+    for label in ["مصروف جديد", "إيراد/فاتورة جديدة", "عمولة جديدة"]:
+        _record(24, f"accounting offers «{label}»", label in accounting)
+    # Table 5 R12 writes the amount as «المبلغ (BHD)», so the currency must
+    # appear in the label rather than only in the currency field.
+    page.click("text=مصروف جديد")
+    page.wait_for_timeout(1200)
+    amount_label = (page.inner_text("label[for=amount]") or "").strip()
+    _record(24, "the expense amount label names the currency", "المبلغ (BHD)" in amount_label, amount_label)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(500)
     # Each link must actually select its own tab. The tab captions are the
     # plural forms shown in the reference («المصاريف», «الفواتير», «العمولات»).
     for kind, label in [("expense", "المصاريف"), ("invoice", "الفواتير"), ("commission", "العمولات")]:
@@ -204,13 +222,33 @@ def check_page_24(page: Page) -> None:
     # download a real workbook rather than a dead control.
     page.goto(f"{BASE}/platform/accounting")
     page.wait_for_timeout(1500)
-    button = page.query_selector("button:has-text('تصدير Excel')")
+    button = page.query_selector("button:has-text('تنزيل Excel')")
     _record(24, "the accounting export button is present", bool(button))
     if button:
         with page.expect_download(timeout=20000) as download:
             button.click()
         name = download.value.suggested_filename
         _record(24, "the export downloads a workbook", name.endswith(".xlsx"), f"name={name}")
+    # Table 5 R15 names the free-text field type «سؤال وإجابة».
+    page.goto(f"{BASE}/platform/form-builder")
+    page.wait_for_timeout(2000)
+    page.click("text=إضافة حقل")
+    page.wait_for_timeout(1200)
+    builder = page.inner_text("main")
+    _record(24, "the form builder offers «سؤال وإجابة»", "سؤال وإجابة" in builder)
+
+
+def check_directive_recipient(browser) -> None:
+    """Table 6 names the directive recipient «المستلم (واحد)»: one recipient, no
+    copy to anyone else, so the label must say so."""
+    ctx, page = _sign_in(browser, "owner")
+    page.goto(f"{BASE}/platform/directives")
+    page.wait_for_timeout(2000)
+    page.click("text=توجيه جديد")
+    page.wait_for_timeout(1200)
+    recipient_label = (page.inner_text("label[for=dir-recipient]") or "").strip()
+    _record(24, "the directive recipient label says one recipient", "المستلم (واحد)" in recipient_label, recipient_label)
+    ctx.close()
 
 
 def check_forbidden_message(browser) -> None:
@@ -226,7 +264,7 @@ def check_forbidden_message(browser) -> None:
         page.goto(f"{BASE}{path}")
         page.wait_for_timeout(2000)
         body = page.inner_text("body")
-        refused = "لا تملك صلاحية عرض هذه البيانات" in body
+        refused = "ليست لديك صلاحية عرض هذه البيانات" in body
         generic = "تعذّر تحميل البيانات" in body
         _record(
             19,
@@ -243,9 +281,9 @@ def check_password_reset(browser) -> None:
     page = ctx.new_page()
     page.goto(f"{BASE}/platform/login")
     page.wait_for_timeout(1000)
-    _record(5, "login links to the password-reset request", bool(page.query_selector("a[href='/forgot-password']")))
+    _record(5, "login links to the password-reset request", bool(page.query_selector("a[href='/platform/forgot-password']")))
 
-    page.click("a[href='/forgot-password']")
+    page.click("a[href='/platform/forgot-password']")
     page.wait_for_url("**/forgot-password", timeout=15000)
     page.fill("#email", "advisor@safir-platform.com")
     page.click("button[type=submit]")
@@ -382,7 +420,7 @@ def check_website_admin(browser) -> None:
             await fetch('/api/backend/api/v1/public/submissions', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({kind: 'contact', name: 'زائر تجربة', email: 'zz@example.com', message: 'مرحبا'}),
+                body: JSON.stringify({kind: 'opportunity', name: 'زائر تجربة', email: 'zz@example.com', phone: '1', country: 'البحرين', message: 'مرحبا', consent: true}),
             });
         }"""
     )
@@ -396,7 +434,17 @@ def check_website_admin(browser) -> None:
         page.wait_for_timeout(2000)
         _record(15, "toggling visibility is confirmed", "تم تحديث الظهور العام" in page.inner_text("body"))
 
-    reject = page.query_selector("button:has-text('رفض')")
+    # §6.5: «رفض» lives inside the «التفاصيل والمرفق» modal for a new record, so
+    # open the details of a row still marked "new" before looking for the control.
+    reject = None
+    for details in page.query_selector_all("button:has-text('التفاصيل والمرفق')"):
+        details.click()
+        page.wait_for_timeout(600)
+        reject = page.query_selector("button:has-text('رفض')")
+        if reject:
+            break
+        page.click("button:has-text('إغلاق')")
+        page.wait_for_timeout(300)
     _record(15, "the submission reject control is present", bool(reject))
     if reject:
         reject.click()
@@ -405,16 +453,33 @@ def check_website_admin(browser) -> None:
 
     # The summary compared ``kind`` against "service" and "job", but the stored
     # values are "service_request" and "job_application", so those two counters
-    # always read zero however many arrived.
+    # always read zero however many arrived. The payloads must satisfy the same
+    # validation the public forms do: consent is required, the service request
+    # needs a service type, and a job application must carry a CV, so the latter
+    # goes through the multipart endpoint rather than a JSON POST.
     page.evaluate(
         """async () => {
-            for (const kind of ['service_request', 'job_application']) {
-                await fetch('/api/backend/api/v1/public/submissions', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({kind, name: 'مقدم', email: kind + '@example.com', message: 'ط'}),
-                });
-            }
+            await fetch('/api/backend/api/v1/public/submissions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    kind: 'service_request', name: 'مقدم',
+                    email: 'service_request@example.com', phone: '39000000',
+                    service_type: 'accounting', message: 'ط', consent: true,
+                }),
+            });
+            const form = new FormData();
+            form.set('kind', 'job_application');
+            form.set('name', 'مقدم');
+            form.set('email', 'job_application@example.com');
+            form.set('phone', '39000001');
+            form.set('expertise', 'محاسبة');
+            form.set('message', 'ط');
+            form.set('consent', 'true');
+            form.set('attachment', new Blob(['%PDF-1.4 demo'], {type: 'application/pdf'}), 'cv.pdf');
+            await fetch('/api/backend/api/v1/public/submissions/with-file', {
+                method: 'POST', body: form,
+            });
         }"""
     )
     page.goto(f"{BASE}/website")
@@ -451,7 +516,13 @@ def check_company_logo(browser) -> None:
     )
     page.goto(f"{BASE}/companies/{company_id}")
     page.wait_for_timeout(2000)
-    _record(6, "the company detail screen offers a logo control", bool(page.query_selector("input[type=file]")))
+    # Table 4: «الشعار — نافذة تغيير شعار الشركة»; the file control lives inside
+    # that modal, so open it before looking for the input.
+    logo_trigger = page.query_selector("button:has-text('الشعار')")
+    _record(6, "the company detail screen offers a logo control", bool(logo_trigger))
+    if logo_trigger:
+        logo_trigger.click()
+        page.wait_for_timeout(800)
 
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -460,6 +531,8 @@ def check_company_logo(browser) -> None:
         fh.write(png)
         path = fh.name
     page.set_input_files("input[type=file]", path)
+    page.wait_for_timeout(1500)
+    page.click("button:has-text('حفظ')")
     page.wait_for_timeout(3000)
     _record(6, "uploading a logo is confirmed", "تم رفع الشعار" in page.inner_text("body"))
     _record(
@@ -595,6 +668,9 @@ def main() -> int:
 
         print("page 13 — overdue directive scoping")
         check_page_13(browser)
+
+        print("page 6 — directive recipient label")
+        check_directive_recipient(browser)
 
         print("page 11 — recipient picker reachability")
         check_recipient_picker(browser)

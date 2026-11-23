@@ -16,7 +16,6 @@ from app.models.identity import User
 from app.models.operations import (
     AccountingEntry,
     AdvisorMessage,
-    AiQuery,
     Employee,
     ExecutiveDirective,
     Lead,
@@ -28,15 +27,17 @@ from app.schemas import DashboardAction, DashboardCard, DashboardOut
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
+# §5.1–§5.7: every role's dashboard screen is titled «لوحة التحكم»; the role is
+# carried separately in the sidebar and in the ``role`` field.
 DASH_TITLES = {
-    "owner": ("لوحة المالك", "Owner dashboard"),
-    "company_manager": ("لوحة مدير الشركة", "Company manager dashboard"),
-    "accountant": ("لوحة المحاسب", "Accountant dashboard"),
-    "business_developer": ("لوحة مطوّر الأعمال", "Business developer dashboard"),
-    "marketer": ("لوحة المسوّق", "Marketer dashboard"),
-    "designer": ("لوحة المصمّم", "Designer dashboard"),
-    "advisor": ("لوحة المستشار", "Advisor dashboard"),
-    "service_specialist": ("لوحة أخصائي الخدمات", "Service specialist dashboard"),
+    "owner": ("لوحة التحكم", "Dashboard"),
+    "company_manager": ("لوحة التحكم", "Dashboard"),
+    "accountant": ("لوحة التحكم", "Dashboard"),
+    "business_developer": ("لوحة التحكم", "Dashboard"),
+    "marketer": ("لوحة التحكم", "Dashboard"),
+    "designer": ("لوحة التحكم", "Dashboard"),
+    "advisor": ("لوحة التحكم", "Dashboard"),
+    "service_specialist": ("لوحة التحكم", "Dashboard"),
 }
 
 
@@ -79,6 +80,7 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
     sections: list[dict] = []
     banner_ar: str | None = None
     banner_en: str | None = None
+    banner_tone: str | None = None
     actions: list[DashboardAction] = []
 
     def company_scope(stmt, col):
@@ -87,18 +89,57 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         return stmt
 
     if role == "owner":
-        # PDF page 5: six clickable KPIs in this exact order.
+        # PDF page 5: six clickable KPIs in this exact order. The Holding's own
+        # record (§7.4) is not a subsidiary, so it is excluded from the company
+        # counts and the group-summary table.
         active = db.execute(
-            company_scope(select(func.count(Company.id)).where(Company.status == CompanyStatus.ACTIVE.value), Company.id)
-        ).scalar_one()
-        approved_period = db.execute(
-            select(func.count(MonthlyReport.id)).where(
-                MonthlyReport.status.in_([ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value])
+            company_scope(
+                select(func.count(Company.id)).where(
+                    Company.status == CompanyStatus.ACTIVE.value,
+                    Company.is_holding.is_(False),
+                ),
+                Company.id,
             )
         ).scalar_one()
-        late = db.execute(
-            select(func.count(MonthlyReport.id)).where(MonthlyReport.status == ReportStatus.RETURNED.value)
-        ).scalar_one()
+        # Table 3: «تقارير معتمدة للفترة» — approved *for the current period*, so
+        # the card is scoped to that period rather than counting every period.
+        current = db.execute(
+            select(ReportingPeriod).order_by(ReportingPeriod.year.desc(), ReportingPeriod.month.desc())
+        ).scalars().first()
+        approved_period = 0
+        if current is not None:
+            approved_period = db.execute(
+                select(func.count(MonthlyReport.id)).where(
+                    MonthlyReport.period_id == current.id,
+                    MonthlyReport.status.in_([ReportStatus.APPROVED.value, ReportStatus.FORWARDED.value]),
+                )
+            ).scalar_one()
+        # Table 3: «تقارير متأخرة» is a missed deadline, not a report the
+        # accountant sent back. It counts active companies whose current-period
+        # report has not reached the accountant by the due date.
+        late = 0
+        if current is not None and current.due_on < date.today():
+            submitted = db.execute(
+                select(MonthlyReport.company_id).where(
+                    MonthlyReport.period_id == current.id,
+                    MonthlyReport.status.in_(
+                        [
+                            ReportStatus.SUBMITTED.value,
+                            ReportStatus.APPROVED.value,
+                            ReportStatus.FORWARDED.value,
+                        ]
+                    ),
+                )
+            ).scalars().all()
+            late = db.execute(
+                company_scope(
+                    select(func.count(Company.id)).where(
+                        Company.status == CompanyStatus.ACTIVE.value,
+                        Company.id.notin_(submitted or {-1}),
+                    ),
+                    Company.id,
+                )
+            ).scalar_one()
         decisions = db.execute(
             select(func.count(Opportunity.id)).where(
                 Opportunity.status.in_([OpportunityStatus.SUBMITTED.value, OpportunityStatus.UNDER_REVIEW.value])
@@ -120,7 +161,9 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         ]
         # Group summary: each company in its own currency, never summed (PDF p.5).
         rows = []
-        companies = db.execute(company_scope(select(Company), Company.id)).scalars().all()
+        companies = db.execute(
+            company_scope(select(Company).where(Company.is_holding.is_(False)), Company.id)
+        ).scalars().all()
         for company in companies:
             last = db.execute(
                 select(MonthlyReport)
@@ -181,9 +224,15 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
                 "rows": rows,
             }
         )
-        # Advisor messages addressed to the owner (PDF p.5).
+        # Advisor messages addressed to the owner (PDF p.5). The type is shown
+        # with its Arabic label, matching the group-summary table's style.
+        advisor_type_ar = {
+            "recommendation": "توصية",
+            "report": "تقرير",
+            "suggestion": "اقتراح",
+        }
         advisor_rows = [
-            [m.subject, m.category]
+            [m.subject, advisor_type_ar.get(m.category, m.category)]
             for m in db.execute(
                 select(AdvisorMessage).where(AdvisorMessage.recipient_id == user.id)
             ).scalars().all()
@@ -199,8 +248,13 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         )
     elif role == "company_manager":
         my_companies = sorted(allowed or set())
+        # §5.2/§11: the manager sees only their own company, so the open-report
+        # count is scoped to it rather than counting every draft platform-wide.
         open_reports = db.execute(
-            select(func.count(MonthlyReport.id)).where(MonthlyReport.status.in_([ReportStatus.DRAFT.value, ReportStatus.RETURNED.value]))
+            select(func.count(MonthlyReport.id)).where(
+                MonthlyReport.company_id.in_(my_companies or {-1}),
+                MonthlyReport.status.in_([ReportStatus.DRAFT.value, ReportStatus.RETURNED.value]),
+            )
         ).scalar_one()
         requests = db.execute(
             select(func.count(ServiceRequest.id)).where(ServiceRequest.recipient_id == user.id)
@@ -222,15 +276,33 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             _card("directives", "توجيهاتي", "My directives", directives, href="/directives"),
         ]
         # PDF p.22: the banner names the period, the company and the days left.
-        banner_ar, banner_en = _period_banner(db, my_companies)
+        banner_ar, banner_en, banner_tone = _period_banner(db, my_companies)
         # PDF p.22: the five actions that start the monthly work.
         actions = [
             DashboardAction(label_ar="تقرير جديد", label_en="New report", href="/reports"),
-            DashboardAction(label_ar="طلب خدمة", label_en="Service request", href="/service-requests"),
+            DashboardAction(label_ar="طلب خدمة جديد", label_en="New service request", href="/service-requests"),
             DashboardAction(label_ar="إضافة موظف", label_en="Add employee", href="/hr"),
             DashboardAction(label_ar="العملاء المحولون", label_en="Transferred leads", href="/leads"),
             DashboardAction(label_ar="توجيهاتي", label_en="My directives", href="/directives"),
         ]
+        # Table 3: the isolation test — a direct link to another company's
+        # report. The server refuses it and records the attempt, which is the
+        # proof the check is enforced server-side, not in the UI.
+        probe = db.execute(
+            select(MonthlyReport.id)
+            .where(MonthlyReport.company_id.notin_(my_companies or {-1}))
+            .order_by(MonthlyReport.id)
+            .limit(1)
+        ).scalar_one_or_none()
+        if probe is not None:
+            actions.append(
+                DashboardAction(
+                    label_ar="فتح تقرير شركة أخرى عبر الرابط المباشر",
+                    label_en="Open another company's report by direct link",
+                    href=f"/reports/{probe}",
+                    group="isolation",
+                )
+            )
     elif role == "accountant":
         awaiting = db.execute(
             select(func.count(MonthlyReport.id)).where(MonthlyReport.status == ReportStatus.SUBMITTED.value)
@@ -245,11 +317,18 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             _card("awaiting_forward", "معتمدة وغير مرسلة للإدارة", "Approved, not yet sent", approved, href="/reports"),
             _card("entries", "سجلات القابضة", "Holding records", entries, href="/accounting"),
         ]
-        # PDF p.24: the three accounting entry buttons.
+        # PDF p.24 / §5.3: «مراجعة تقرير» (to the reports) plus the three
+        # accounting entry buttons.
         actions = [
-            DashboardAction(label_ar="مصروف", label_en="Expense", href="/accounting?kind=expense"),
-            DashboardAction(label_ar="فاتورة", label_en="Invoice", href="/accounting?kind=invoice"),
-            DashboardAction(label_ar="عمولة", label_en="Commission", href="/accounting?kind=commission"),
+            DashboardAction(label_ar="مراجعة تقرير", label_en="Review a report", href="/reports"),
+            # §5.3 / Table 3: the accountant's dashboard carries one quick button
+            # «مصروف / فاتورة / عمولة جديدة» that opens holding accounting, where
+            # the three separate forms live (Table 5).
+            DashboardAction(
+                label_ar="مصروف / فاتورة / عمولة جديدة",
+                label_en="New expense / invoice / commission",
+                href="/accounting",
+            ),
         ]
     elif role == "business_developer":
         group_reports = db.execute(
@@ -261,8 +340,15 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         advisor = db.execute(
             select(func.count(AdvisorMessage.id)).where(AdvisorMessage.recipient_id == user.id)
         ).scalar_one()
+        # Table 6: «نعم، أحلها لمطوّر الأعمال» creates a directive flagged as an
+        # assistant task for the business developer, so the «مهام من المساعد»
+        # card counts those tasks — not every assistant query the user ran.
         assistant_tasks = db.execute(
-            select(func.count(AiQuery.id)).where(AiQuery.user_id == user.id)
+            select(func.count(ExecutiveDirective.id)).where(
+                ExecutiveDirective.recipient_id == user.id,
+                ExecutiveDirective.is_assistant_task.is_(True),
+                ExecutiveDirective.status != DirectiveStatus.COMPLETED.value,
+            )
         ).scalar_one()
         # PDF p.26: six cards.
         cards = [
@@ -271,27 +357,30 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
             _card("opportunities", "فرص", "Opportunities", my_opps, href="/opportunities"),
             _card("submissions", "طلبات من الموقع", "Website submissions", submissions, href="/website"),
             _card("advisor", "رسائل المستشار", "Advisor messages", advisor, href="/advisor"),
-            _card("assistant", "مهام من المساعد", "Assistant tasks", assistant_tasks, href="/assistant"),
+            # The tasks are directives addressed to the developer, and Table 1
+            # gives that role no «المساعد الذكي» tab: the server refuses
+            # `/api/v1/ai/*` with 403 for a business developer, so pointing the
+            # card at the assistant screen would send the user into a refusal.
+            # The card opens the directives screen, where the tasks actually are.
+            _card("assistant", "مهام من المساعد", "Assistant tasks", assistant_tasks, href="/directives"),
         ]
     elif role == "marketer":
         assigned = db.execute(select(func.count(Lead.id)).where(Lead.assigned_to_id == user.id)).scalar_one()
-        complaints = db.execute(
-            select(func.count(ServiceRequest.id)).where(
-                or_(ServiceRequest.recipient_id == user.id, ServiceRequest.created_by_id == user.id)
-            )
-        ).scalar_one()
-        # PDF p.27: leads plus owner complaints.
-        cards = [
-            _card("leads", "عملائي", "My leads", assigned, href="/leads"),
-            _card("complaints", "شكاوى المالك", "Owner complaints", complaints, href="/service-requests"),
+        # Word §5.5: a single «عملائي» card plus two actions — a new lead and a
+        # complaint to the owner (free text, sent to the owner alone).
+        cards = [_card("leads", "عملائي", "My leads", assigned, href="/leads")]
+        actions = [
+            DashboardAction(label_ar="عميل محتمل جديد", label_en="New lead", href="/leads"),
+            DashboardAction(label_ar="إرسال شكوى للمالك", label_en="Send a complaint to the owner", href="/leads?complaint=1"),
         ]
     elif role == "designer":
         design_requests = db.execute(
             select(func.count(ServiceRequest.id)).where(ServiceRequest.recipient_id == user.id)
         ).scalar_one()
-        # PDF p.28: only the design requests assigned to this designer.
+        # PDF p.28 / §5.6: the card is «طلبات تصميم مفتوحة» and opens the
+        # service requests assigned to this designer.
         cards = [
-            _card("design_requests", "طلبات الخدمات", "Service requests", design_requests, href="/service-requests")
+            _card("design_requests", "طلبات تصميم مفتوحة", "Open design requests", design_requests, href="/service-requests")
         ]
     elif role == "advisor":
         messages = db.execute(
@@ -299,6 +388,15 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         ).scalar_one()
         # PDF p.29: the advisor sees only their own messages.
         cards = [_card("messages", "رسائلي", "My messages", messages, href="/advisor")]
+        # §5.7 / Table 5: the advisor has three actions — «إضافة توصية» (to the
+        # Business Developer), «تقرير» (to the Owner or Business Developer) and
+        # «اقتراح» (to the Business Developer). The advisor has no approval or
+        # execution permission.
+        actions = [
+            DashboardAction(label_ar="إضافة توصية", label_en="Add a recommendation", href="/advisor?category=recommendation"),
+            DashboardAction(label_ar="تقرير", label_en="Report", href="/advisor?category=report"),
+            DashboardAction(label_ar="اقتراح", label_en="Suggestion", href="/advisor?category=suggestion"),
+        ]
     else:
         assigned = db.execute(
             select(func.count(ServiceRequest.id)).where(ServiceRequest.recipient_id == user.id)
@@ -314,35 +412,47 @@ def dashboard(user: User = Depends(get_current_user), db: Session = Depends(get_
         sections=sections,
         banner_ar=banner_ar,
         banner_en=banner_en,
+        banner_tone=banner_tone,
         actions=actions,
     )
 
 
-def _period_banner(db: Session, company_ids: list[int]) -> tuple[str | None, str | None]:
-    """«تقرير 2026-10 — شركة نمو التقنية: يستحق بعد 3 أيام» (PDF page 22)."""
+def _period_banner(db: Session, company_ids: list[int]) -> tuple[str | None, str | None, str | None]:
+    """«تقرير 2026-10 — شركة نمو التقنية: يستحق بعد 3 أيام» (PDF page 22).
+
+    The tone follows §2 / §7.5: amber while the deadline is approaching and red
+    once it is late, so the reminder reads as an alert rather than plain text.
+    """
     period = db.execute(
         select(ReportingPeriod).order_by(ReportingPeriod.year.desc(), ReportingPeriod.month.desc())
     ).scalars().first()
     if period is None:
-        return None, None
+        return None, None, None
     label = f"{period.year:04d}-{period.month:02d}"
     company = None
     if company_ids:
         company = db.get(Company, company_ids[0])
     days = (period.due_on - date.today()).days if period.due_on else None
     if days is None:
-        return f"تقرير {label}", f"Report {label}"
-    if days > 0:
+        return f"تقرير {label}", f"Report {label}", None
+    if days > 3:
+        tone = "info"
+        tail_ar, tail_en = f"يستحق بعد {days} أيام", f"due in {days} day(s)"
+    elif days > 0:
+        tone = "warn"
         tail_ar, tail_en = f"يستحق بعد {days} أيام", f"due in {days} day(s)"
     elif days == 0:
+        tone = "warn"
         tail_ar, tail_en = "يستحق اليوم", "due today"
     else:
+        tone = "bad"
         tail_ar, tail_en = f"متأخر {abs(days)} أيام", f"{abs(days)} day(s) late"
     # An unassigned manager has no company scope yet; the banner still shows the
     # period and the deadline without an empty name slot.
     if company is None:
-        return f"تقرير {label}: {tail_ar}", f"Report {label}: {tail_en}"
+        return f"تقرير {label}: {tail_ar}", f"Report {label}: {tail_en}", tone
     return (
         f"تقرير {label} — {company.name_ar}: {tail_ar}",
         f"Report {label} — {company.name_en}: {tail_en}",
+        tone,
     )

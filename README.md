@@ -173,8 +173,90 @@ credential. See `.env.example` for the full list. Key settings:
 | `CORS_ORIGINS` | Comma-separated allowed origins |
 | `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL` | AI provider abstraction (default `openai`) |
 | `OPENAI_API_KEY` | Provider key. **Empty ⇒ the assistant reports an unconfigured status and never fabricates an answer.** |
+| `FRONTEND_BASE_URL` | Public frontend URL, used to build the secure links in account emails |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_USE_TLS` | Outbound mail. **`SMTP_HOST` empty ⇒ no mail is sent and the sender reports `False` rather than claiming a delivery.** |
+| `REMINDERS_TIMEZONE` | Timezone in which report-deadline reminders resolve "today" (default `Asia/Bahrain`). |
 
 `ENVIRONMENT=production` rejects the development placeholder `SECRET_KEY`.
+
+### Scheduled report reminders (§7.5, §12)
+
+The monthly-report deadline reminders run on a schedule that survives a restart
+and needs no host cron. `docker compose up` starts the `scheduler` service, which
+runs `python -m app.services.scheduler`:
+
+```bash
+docker compose up -d scheduler      # automatic, no host cron needed
+```
+
+The service does two things on every run, in this order:
+
+1. `periods.run_rollover()` opens the month's reporting period (§7.1) — so a
+   restart after a long outage catches up on every missed month.
+2. `reminders.run()` sends the §7.5 reminders.
+
+It fires at a **fixed hour** — `REMINDER_SCHEDULE_TIME` (default `07:00`) in
+`REMINDERS_TIMEZONE` (default `Asia/Bahrain`) — so the job does not drift by its
+own run duration, and it **retries** a failed run after `RETRY_DELAY` (15
+minutes) up to `MAX_ATTEMPTS` (3). Every failure is logged; a success is never
+logged for a failed attempt. A durable per-day marker means a restart re-attempts
+the day instead of silently skipping it.
+
+If you deploy without Compose, run the same module as a long-lived process (it
+sleeps until the next fixed hour and never exits on its own):
+
+```bash
+cd /srv/safir/backend && DATABASE_URL=... .venv/bin/python -m app.services.scheduler
+```
+
+`scripts/send_report_reminders.py` is the one-shot manual trigger for a host
+cron. It routes through the same `scheduler.run_once()` and therefore also opens
+the period first, so no path can bypass the auto-open:
+
+```bash
+# crontab -e — 07:00 daily, in the platform's timezone
+0 7 * * *  cd /srv/safir/backend && DATABASE_URL=... .venv/bin/python scripts/send_report_reminders.py
+```
+
+The job is idempotent per day: it only fires on the offsets the brief names
+(three days before the due date, on the due date, then daily once late) and skips
+any company that has already sent its report. Idempotency is durable, not just
+date arithmetic: each send claims a row in `report_reminder_logs` keyed by
+`(company, period, day, kind)` under a unique constraint, so two overlapping cron
+runs — or two workers at once — cannot double-send. A failed transport is
+recorded `failed` (never `sent`) and retried on the next run that day. The script
+exits `0` when the run completed and `2` when the run itself raised, so cron can
+tell "nothing to do" from "the job failed". It also sends the workflow
+notification emails (routed service request, complaint to the owner, directive,
+assistant referral, converted public request) whenever those events happen — no
+job required.
+
+Every claim and retry is a single atomic statement, so exactly one worker can
+hold the right to send a given reminder:
+
+- a fresh reminder is claimed with `INSERT … ON CONFLICT DO NOTHING` (the unique
+  constraint is the arbiter);
+- a `failed` reminder is retried, and a `sending` reminder whose claim is older
+  than `REMINDER_STALE_MINUTES` (a worker that died mid-send) is reclaimed, with
+  a conditional `UPDATE … WHERE status/age … RETURNING id`. Under PostgreSQL
+  READ COMMITTED the second worker blocks on the row lock, then re-evaluates the
+  `WHERE` against the committed row, matches nothing and sends nothing — so the
+  two workers cannot both deliver the same retry. Each claim and retry also
+  stamps `updated_at`, which is the clock the stale window is measured against.
+
+**Delivery guarantee, stated honestly.** The design is **at-most-once per day
+per `(company, period, kind)`**, enforced by the unique constraint and the atomic
+claim. It is deliberately **not** exactly-once end to end, because the SMTP
+transport cannot be part of the database transaction: if the mail server accepts
+the message and the process dies before the `sent` status is committed, the row
+stays `failed` (or a stale `sending`) and a later run retries it, so the
+recipient can receive that reminder **twice** in that narrow window. Closing it
+would require an idempotent transport (a provider-side message key) or a
+transactional outbox with a deduplicating consumer; plain SMTP offers neither.
+The trade-off is intentional — a duplicate reminder is harmless, a *missing*
+deadline reminder is the failure that matters, so a retry is preferred over a
+silently dropped reminder. The guarantee is therefore "at most one delivery in
+the absence of a crash between acceptance and commit", not "exactly once".
 
 ## Deployment
 
@@ -186,6 +268,11 @@ docker compose up --build -d
 Nginx fronts both services on `${HTTP_PORT}` (default 8080). The backend applies
 migrations on start. Health and readiness probes are available at `/health` and
 `/ready`. Put a TLS terminator in front of Nginx for production.
+
+Deployment is a deliberate manual step. The only CI workflow is `.github/workflows/ci.yml`,
+which runs the backend and frontend test jobs on a pull request or a push to
+`main` and has no deploy step — a push or a pull request never reaches the live
+site.
 
 ## Security model
 
